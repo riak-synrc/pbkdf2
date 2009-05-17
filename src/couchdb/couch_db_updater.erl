@@ -19,18 +19,18 @@
 
 -include("couch_db.hrl").
 
--define(HEADER_SIG, <<$g, $m, $k, 0>>).
 
 init({MainPid, DbName, Filepath, Fd, Options}) ->
+    io:format("Init fd:~p~n", [Fd]),
     case lists:member(create, Options) of
     true ->
         % create a new header and writes it to the file
         Header =  #db_header{},
-        ok = couch_file:write_header(Fd, ?HEADER_SIG, Header),
+        ok = couch_file:write_header(Fd, Header),
         % delete any old compaction files that might be hanging around
         file:delete(Filepath ++ ".compact");
     false ->
-        {ok, Header} = couch_file:read_header(Fd, ?HEADER_SIG)
+        {ok, Header} = couch_file:read_header(Fd)
     end,
     
     Db = init_db(DbName, Filepath, Fd, Header),
@@ -56,8 +56,9 @@ handle_call({update_docs, DocActions, Options}, _From, Db) ->
     end;
 handle_call(full_commit, _From, #db{waiting_delayed_commit=nil}=Db) ->
     {reply, ok, Db}; % no data waiting, return ok immediately
-handle_call(full_commit, _From, Db) ->
-    {reply, ok, commit_data(Db)}; % commit the data and return ok
+handle_call(full_commit, _From,  #db{fd=Fd,update_seq=Seq}=Db) ->
+    ok = couch_file:sync(Fd),
+    {reply, ok, Db#db{waiting_delayed_commit=nil,committed_update_seq=Seq}}; % commit the data and return ok
 handle_call(increment_update_seq, _From, Db) ->
     Db2 = commit_data(Db#db{update_seq=Db#db.update_seq+1}),
     ok = gen_server:call(Db2#db.main_pid, {db_updated, Db2}),
@@ -158,7 +159,7 @@ handle_cast(start_compact, Db) ->
     end;
 handle_cast({compact_done, CompactFilepath}, #db{filepath=Filepath}=Db) ->
     {ok, NewFd} = couch_file:open(CompactFilepath),
-    {ok, NewHeader} = couch_file:read_header(NewFd, ?HEADER_SIG),
+    {ok, NewHeader} = couch_file:read_header(NewFd),
     #db{update_seq=NewSeq} = NewDb =
             init_db(Db#db.name, Filepath, NewFd, NewHeader),
     unlink(NewFd),
@@ -190,8 +191,9 @@ handle_cast({compact_done, CompactFilepath}, #db{filepath=Filepath}=Db) ->
         {noreply, Db2}
     end.
 
-handle_info(delayed_commit, Db) ->
-    {noreply, commit_data(Db#db{waiting_delayed_commit=nil})}.
+handle_info(delayed_commit, #db{update_seq=Seq}=Db) ->
+    ok = couch_file:sync(Db#db.fd),
+    {noreply, Db#db{waiting_delayed_commit=nil,committed_update_seq=Seq}}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -287,8 +289,6 @@ init_db(DbName, Filepath, Fd, Header0) ->
     _ -> throw({database_disk_version_error, "Incorrect disk header version"})
     end,
     Header = simple_upgrade_record(Header0, #db_header{}),
-    {ok, SummaryStream} = couch_stream:open(Header#db_header.summary_stream_state, Fd),
-    ok = couch_stream:set_min_buffer(SummaryStream, 10000),
     Less = fun less_docid/2,
             
     {ok, IdBtree} = couch_btree:open(Header#db_header.fulldocinfo_by_id_btree_state, Fd,
@@ -319,7 +319,6 @@ init_db(DbName, Filepath, Fd, Header0) ->
         fd=Fd,
         fd_ref_counter = RefCntr,
         header=Header,
-        summary_stream = SummaryStream,
         fulldocinfo_by_id_btree = IdBtree,
         docinfo_by_seq_btree = SeqBtree,
         local_docs_btree = LocalDocsBtree,
@@ -333,8 +332,7 @@ init_db(DbName, Filepath, Fd, Header0) ->
         }.
 
 
-close_db(#db{ fd_ref_counter = RefCntr, summary_stream = SummaryStream}) ->
-    couch_stream:close(SummaryStream),
+close_db(#db{fd_ref_counter = RefCntr}) ->
     couch_ref_counter:drop(RefCntr).
     
 
@@ -387,7 +385,7 @@ flush_trees(#db{fd=Fd}=Db, [InfoUnflushed | RestUnflushed], AccFlushed) ->
                     ?LOG_DEBUG("File where the attachments are written has changed. Possibly retrying.", []),
                     throw(retry)
                 end,
-                {ok, NewSummaryPointer} = couch_stream:write_term(Db#db.summary_stream, {Doc#doc.body, Bins}),
+                {ok, NewSummaryPointer} = couch_file:append_term(Fd, {Doc#doc.body, Bins}),
                 {IsDeleted, NewSummaryPointer, UpdateSeq};
             _ ->
                 Value
@@ -553,7 +551,6 @@ commit_data(Db) ->
 commit_data(#db{fd=Fd, header=Header} = Db, Delay) ->
     Header2 = Header#db_header{
         update_seq = Db#db.update_seq,
-        summary_stream_state = couch_stream:get_state(Db#db.summary_stream),
         docinfo_by_seq_btree_state = couch_btree:get_state(Db#db.docinfo_by_seq_btree),
         fulldocinfo_by_id_btree_state = couch_btree:get_state(Db#db.fulldocinfo_by_id_btree),
         local_docs_btree_state = couch_btree:get_state(Db#db.local_docs_btree),
@@ -563,53 +560,56 @@ commit_data(#db{fd=Fd, header=Header} = Db, Delay) ->
     if Header == Header2 ->
         Db;
     Delay and (Db#db.waiting_delayed_commit == nil) ->
+        ok = couch_file:write_header(Fd, Header2),
         Db#db{waiting_delayed_commit=
                 erlang:send_after(1000, self(), delayed_commit)};
     Delay ->
-        Db;
+        ok = couch_file:write_header(Fd, Header2),
+        Db#db{header=Header2};
     true ->
-        if Db#db.waiting_delayed_commit /= nil ->
+        if not is_atom(Db#db.waiting_delayed_commit) ->
             case erlang:cancel_timer(Db#db.waiting_delayed_commit) of
             false -> receive delayed_commit -> ok after 0 -> ok end;
             _ -> ok
             end;
         true -> ok
         end,
-        ok = couch_file:write_header(Fd, ?HEADER_SIG, Header2),
-        Db#db{waiting_delayed_commit=nil,header=Header2}
+        ok = couch_file:write_header(Fd, Header2),
+        ok = couch_file:sync(Fd),
+        Db#db{waiting_delayed_commit=nil,header=Header2,committed_update_seq=Db#db.update_seq}
     end.
 
-copy_raw_doc(SrcFd, SrcSp, DestFd, DestStream) ->
-    {ok, {BodyData, BinInfos}} = couch_stream:read_term(SrcFd, SrcSp),
+copy_raw_doc(SrcFd, SrcSp, DestFd) ->
+    {ok, {BodyData, BinInfos}} = couch_file:pread_term(SrcFd, SrcSp),
     % copy the bin values
     NewBinInfos = lists:map(fun({Name, {Type, BinSp, Len}}) ->
-        {ok, NewBinSp} = couch_stream:copy_to_new_stream(SrcFd, BinSp, Len, DestFd),
+        {NewBinSp, Len} = couch_stream:copy_to_new_stream(SrcFd, BinSp, DestFd),
         {Name, {Type, NewBinSp, Len}}
         end, BinInfos),
     % now write the document summary
-    {ok, Sp} = couch_stream:write_term(DestStream, {BodyData, NewBinInfos}),
+    {ok, Sp} = couch_file:append_term(DestFd, {BodyData, NewBinInfos}),
     Sp.
 
-copy_rev_tree(_SrcFd, _DestFd, _DestStream, []) ->
+copy_rev_tree(_SrcFd, _DestFd, []) ->
     [];
-copy_rev_tree(SrcFd, DestFd, DestStream, [{Start, Tree} | RestTree]) ->
+copy_rev_tree(SrcFd, DestFd, [{Start, Tree} | RestTree]) ->
     % root nner node, only copy info/data from leaf nodes
-    [Tree2] = copy_rev_tree(SrcFd, DestFd, DestStream, [Tree]),
-    [{Start, Tree2} | copy_rev_tree(SrcFd, DestFd, DestStream, RestTree)];
-copy_rev_tree(SrcFd, DestFd, DestStream, [{RevId, {IsDel, Sp, Seq}, []} | RestTree]) ->
+    [Tree2] = copy_rev_tree(SrcFd, DestFd, [Tree]),
+    [{Start, Tree2} | copy_rev_tree(SrcFd, DestFd, RestTree)];
+copy_rev_tree(SrcFd, DestFd, [{RevId, {IsDel, Sp, Seq}, []} | RestTree]) ->
     % This is a leaf node, copy it over
-    NewSp = copy_raw_doc(SrcFd, Sp, DestFd, DestStream),
-    [{RevId, {IsDel, NewSp, Seq}, []} | copy_rev_tree(SrcFd, DestFd, DestStream, RestTree)];
-copy_rev_tree(SrcFd, DestFd, DestStream, [{RevId, _, SubTree} | RestTree]) ->
+    NewSp = copy_raw_doc(SrcFd, Sp, DestFd),
+    [{RevId, {IsDel, NewSp, Seq}, []} | copy_rev_tree(SrcFd, DestFd, RestTree)];
+copy_rev_tree(SrcFd, DestFd, [{RevId, _, SubTree} | RestTree]) ->
     % inner node, only copy info/data from leaf nodes
-    [{RevId, ?REV_MISSING, copy_rev_tree(SrcFd, DestFd, DestStream, SubTree)} | copy_rev_tree(SrcFd, DestFd, DestStream, RestTree)].
+    [{RevId, ?REV_MISSING, copy_rev_tree(SrcFd, DestFd, SubTree)} | copy_rev_tree(SrcFd, DestFd, RestTree)].
     
-copy_docs(#db{fd=SrcFd}=Db, #db{fd=DestFd,summary_stream=DestStream}=NewDb, InfoBySeq, Retry) ->
+copy_docs(#db{fd=SrcFd}=Db, #db{fd=DestFd}=NewDb, InfoBySeq, Retry) ->
     Ids = [Id || #doc_info{id=Id} <- InfoBySeq],
     LookupResults = couch_btree:lookup(Db#db.fulldocinfo_by_id_btree, Ids),
     NewFullDocInfos0 = lists:map(
         fun({ok, #full_doc_info{rev_tree=RevTree}=Info}) ->
-            Info#full_doc_info{rev_tree=copy_rev_tree(SrcFd, DestFd, DestStream, RevTree)}
+            Info#full_doc_info{rev_tree=copy_rev_tree(SrcFd, DestFd, RevTree)}
         end, LookupResults),
     NewFullDocInfos = stem_full_doc_infos(Db, NewFullDocInfos0),
     NewDocInfos = [couch_doc:to_doc_info(Info) || Info <- NewFullDocInfos],
@@ -642,7 +642,7 @@ copy_compact(Db, NewDb, Retry) ->
         if TotalCopied rem 1000 == 0 ->
             NewDb2 = copy_docs(Db, AccNewDb, lists:reverse([DocInfo | AccUncopied]), Retry),
             if TotalCopied rem 10000 == 0 ->
-                {ok, {commit_data(NewDb2#db{update_seq=Seq}), [], TotalCopied + 1}};
+                {ok, {commit_data(NewDb2#db{update_seq=Seq}, true), [], TotalCopied + 1}};
             true ->
                 {ok, {NewDb2#db{update_seq=Seq}, [], TotalCopied + 1}}
             end;
@@ -668,7 +668,7 @@ copy_compact(Db, NewDb, Retry) ->
         NewDb4 = NewDb3
     end,
     
-    commit_data(NewDb4#db{update_seq=Db#db.update_seq}).
+    commit_data(NewDb4#db{update_seq=Db#db.update_seq}, true).
 
 start_copy_compact(#db{name=Name,filepath=Filepath}=Db) ->
     CompactFile = Filepath ++ ".compact",
@@ -677,16 +677,16 @@ start_copy_compact(#db{name=Name,filepath=Filepath}=Db) ->
     {ok, Fd} ->
         couch_task_status:add_task(<<"Database Compaction">>, <<Name/binary, " retry">>, <<"Starting">>),
         Retry = true,
-        {ok, Header} = couch_file:read_header(Fd, ?HEADER_SIG);
+        {ok, Header} = couch_file:read_header(Fd);
     {error, enoent} ->
         couch_task_status:add_task(<<"Database Compaction">>, Name, <<"Starting">>),
         {ok, Fd} = couch_file:open(CompactFile, [create]),
         Retry = false,
-        ok = couch_file:write_header(Fd, ?HEADER_SIG, Header=#db_header{})
+        ok = couch_file:write_header(Fd, Header=#db_header{})
     end,
     NewDb = init_db(Name, CompactFile, Fd, Header),
     unlink(Fd),
-    NewDb2 = copy_compact(Db, NewDb, Retry),
+    NewDb2 = copy_compact(Db, NewDb#db{waiting_delayed_commit=never}, Retry),
     
     gen_server:cast(Db#db.update_pid, {compact_done, CompactFile}),
     close_db(NewDb2).
