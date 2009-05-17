@@ -248,10 +248,8 @@ handle_call({write_header, Bin}, _From, Fd) ->
     BinSize = size(Bin),
     case Pos rem ?SIZE_BLOCK of
     0 ->
-        io:format("Writing header at block:~p~n", [(Pos div ?SIZE_BLOCK)]),
         Padding = <<>>;
     BlockOffset ->
-        io:format("Writing header at block:~p~n", [(Pos div ?SIZE_BLOCK) + 1]),
         Padding = <<0:(8*(?SIZE_BLOCK-BlockOffset))>>
     end,
     FinalBin = [Padding, <<1, BinSize:32/integer>> | make_blocks(1, Bin)],
@@ -278,7 +276,6 @@ find_header(_Fd, -1) ->
 find_header(Fd, Block) ->
     case (catch load_header(Fd, Block)) of
     {ok, Bin} ->
-        io:format("Found header at block:~p~n", [Block]),
         {ok, Bin};
     _Error ->
         find_header(Fd, Block -1)
@@ -290,7 +287,6 @@ load_header(Fd, Block) ->
     TotalBytes = calculate_total_read_len(1, HeaderLen),
     {ok, <<RawBin:TotalBytes/binary>>} = 
             file:pread(Fd, (Block*?SIZE_BLOCK) + 5, TotalBytes),
-    io:format("Foo:~p~n", [RawBin]),
     <<Md5Sig:16/binary, HeaderBin/binary>> = 
         iolist_to_binary(remove_block_prefixes(1, RawBin)),
     Md5Sig = erlang:md5(HeaderBin),

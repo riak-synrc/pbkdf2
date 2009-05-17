@@ -21,7 +21,6 @@
 
 
 init({MainPid, DbName, Filepath, Fd, Options}) ->
-    io:format("Init fd:~p~n", [Fd]),
     case lists:member(create, Options) of
     true ->
         % create a new header and writes it to the file

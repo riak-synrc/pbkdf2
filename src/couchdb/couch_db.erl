@@ -568,7 +568,7 @@ flush_binary(Fd, {Fd0, StreamPointer, Len}) when Fd0 == Fd ->
 flush_binary(Fd, {OtherFd, StreamPointer, Len}) ->
     {NewStreamData, Len} = 
             couch_stream:copy_to_new_stream(OtherFd, StreamPointer, Fd),
-    {OtherFd, NewStreamData, Len};
+    {Fd, NewStreamData, Len};
                          
 flush_binary(Fd, Bin) when is_binary(Bin) ->
     with_stream(Fd, fun(OutputStream) ->
@@ -577,7 +577,6 @@ flush_binary(Fd, Bin) when is_binary(Bin) ->
                  
 flush_binary(Fd, {StreamFun, undefined}) when is_function(StreamFun) ->
     with_stream(Fd, fun(OutputStream) -> 
-        io:format("OutputStream:~p~n", [OutputStream]),
         % StreamFun(MaxChunkSize, WriterFun) must call WriterFun
         % once for each chunk of the attachment,
         StreamFun(4096,
