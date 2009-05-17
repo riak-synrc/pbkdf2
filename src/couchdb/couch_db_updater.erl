@@ -307,7 +307,6 @@ init_db(DbName, Filepath, Fd, Header0) ->
     AdminsPtr ->
         {ok, Admins} = couch_file:pread_term(Fd, AdminsPtr)
     end,
-    
     % convert start time tuple to microsecs and store as a binary string
     {MegaSecs, Secs, MicroSecs} = now(),
     StartTime = ?l2b(io_lib:format("~p",
@@ -321,6 +320,7 @@ init_db(DbName, Filepath, Fd, Header0) ->
         fulldocinfo_by_id_btree = IdBtree,
         docinfo_by_seq_btree = SeqBtree,
         local_docs_btree = LocalDocsBtree,
+        committed_update_seq = Header#db_header.update_seq,
         update_seq = Header#db_header.update_seq,
         name = DbName,
         filepath = Filepath,
