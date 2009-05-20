@@ -29,6 +29,12 @@ init({MainPid, DbName, Filepath, Fd, Options}) ->
         % delete any old compaction files that might be hanging around
         file:delete(Filepath ++ ".compact");
     false ->
+        case couch_config:get("couchdb", "sync_on_open", "true") of
+        "true" ->
+            ok = couch_file:sync(Fd);
+        _ ->
+            ok
+        end,
         {ok, Header} = couch_file:read_header(Fd)
     end,
     

@@ -74,8 +74,7 @@ append_term(Fd, Term) ->
     
 append_binary(Fd, Bin) ->
     Size = iolist_size(Bin),
-    SizePrependedBin = iolist_to_binary([<<Size:32/integer>>, Bin]),
-    gen_server:call(Fd, {append_bin, SizePrependedBin}, infinity).
+    gen_server:call(Fd, {append_bin, [<<Size:32/integer>>, Bin]}, infinity).
 
 
 %%----------------------------------------------------------------------
@@ -192,6 +191,7 @@ init({Filepath, Options, ReturnPid, Ref}) ->
                 true ->
                     {ok, 0} = file:position(Fd, 0),
                     ok = file:truncate(Fd),
+                    ok = file:sync(Fd),
                     couch_stats_collector:track_process_count(
                             {couchdb, open_os_files}),
                     {ok, Fd};
@@ -252,7 +252,7 @@ handle_call({write_header, Bin}, _From, Fd) ->
     BlockOffset ->
         Padding = <<0:(8*(?SIZE_BLOCK-BlockOffset))>>
     end,
-    FinalBin = [Padding, <<1, BinSize:32/integer>> | make_blocks(1, Bin)],
+    FinalBin = [Padding, <<1, BinSize:32/integer>> | make_blocks(1, [Bin])],
     {reply, file:pwrite(Fd, Pos, FinalBin), Fd};
 handle_call(find_header, _From, Fd) ->
     {ok, Pos} = file:position(Fd, eof),
@@ -317,14 +317,33 @@ remove_block_prefixes(BlockOffset, Bin) ->
         [Bin]
     end.
 
-make_blocks(_BlockOffset, <<>>) ->
+make_blocks(_BlockOffset, []) ->
     [];
-make_blocks(0, Bin) ->
-    [<<0>> | make_blocks(1, Bin)];
-make_blocks(BlockOffset, Bin) when size(Bin) =< (?SIZE_BLOCK - BlockOffset) ->
-    [Bin];
-make_blocks(BlockOffset, Bin) ->
-    BlockBytes = (?SIZE_BLOCK - BlockOffset),
-    <<BlockBin:BlockBytes/binary, Rest/binary>> = Bin,
-    [BlockBin | make_blocks(0, Rest)].
+make_blocks(0, IoList) ->
+    [<<0>> | make_blocks(1, IoList)];
+make_blocks(BlockOffset, IoList) ->
+    case split_iolist(IoList, (?SIZE_BLOCK - BlockOffset), []) of
+    {Begin, End} ->
+        [Begin | make_blocks(0, End)];
+    _Size ->
+        IoList
+    end.
 
+split_iolist(List, 0, BeginAcc) ->
+    {lists:reverse(BeginAcc), List};
+split_iolist([], SplitAt, _BeginAcc) ->
+    SplitAt;
+split_iolist([<<Bin/binary>> | Rest], SplitAt, BeginAcc)  when SplitAt > size(Bin) ->
+    split_iolist(Rest, SplitAt - size(Bin), [Bin | BeginAcc]);
+split_iolist([<<Bin/binary>> | Rest], SplitAt, BeginAcc) ->
+    <<Begin:SplitAt/binary,End/binary>> = Bin,
+    split_iolist([End | Rest], 0, [Begin | BeginAcc]);
+split_iolist([Sublist| Rest], SplitAt, BeginAcc) when is_list(Sublist) ->
+    case split_iolist(Sublist, SplitAt, BeginAcc) of
+    {Begin, End} ->
+        {Begin, [End | Rest]};
+    Len ->
+        split_iolist(Rest, SplitAt - Len, [Sublist | BeginAcc])
+    end;
+split_iolist([Byte | Rest], SplitAt, BeginAcc) when is_integer(Byte) ->
+    split_iolist(Rest, SplitAt - 1, [Byte | BeginAcc]).

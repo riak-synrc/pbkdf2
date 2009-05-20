@@ -50,6 +50,7 @@ open_db_file(Filepath, Options) ->
         {ok, Fd} ->
             ?LOG_INFO("Found ~s~s compaction file, using as primary storage.", [Filepath, ".compact"]),
             ok = file:rename(Filepath ++ ".compact", Filepath),
+            ok = couch_file:sync(Fd),
             {ok, Fd};
         {error, enoent} ->
             {not_found, no_db_file}
