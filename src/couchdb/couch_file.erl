@@ -61,7 +61,7 @@ open(Filepath, Options) ->
 %%----------------------------------------------------------------------
 
 append_term(Fd, Term) ->
-    append_binary(Fd, term_to_binary(Term, [compressed])).
+    append_binary(Fd, term_to_binary(Term)).
 
 
 %%----------------------------------------------------------------------
