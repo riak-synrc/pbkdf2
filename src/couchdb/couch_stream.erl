@@ -58,6 +58,8 @@ copy_to_new_stream(Fd, PosList, DestFd) ->
         end, ok),
     close(Dest).
 
+
+% 09 UPGRADE CODE
 old_copy_to_new_stream(Fd, Pos, Len, DestFd) ->
     {ok, Dest} = open(DestFd),
     old_foldl(Fd, Pos, Len,
@@ -66,8 +68,7 @@ old_copy_to_new_stream(Fd, Pos, Len, DestFd) ->
         end, ok),
     close(Dest).
 
-
-
+% 09 UPGRADE CODE    
 old_foldl(_Fd, null, 0, _Fun, Acc) ->
     Acc;
 old_foldl(Fd, OldPointer, Len, Fun, Acc) when is_tuple(OldPointer)->
@@ -140,7 +141,7 @@ handle_info(_Info, State) ->
     
 
 
-
+% 09 UPGRADE CODE
 old_read_term(Fd, Sp) ->
     {ok, <<TermLen:(?STREAM_OFFSET_BITS)>>, Sp2}
         = old_read(Fd, Sp, ?STREAM_OFFSET_BYTES),
@@ -152,6 +153,7 @@ old_read(Fd, Sp, Num) ->
     Bin = list_to_binary(lists:reverse(RevBin)),
     {ok, Bin, Sp2}.
 
+% 09 UPGRADE CODE
 old_stream_data(_Fd, Sp, 0, _MaxChunk, _Fun, Acc) ->
     {ok, Acc, Sp};
 old_stream_data(Fd, {Pos, 0}, Num, MaxChunk, Fun, Acc) ->

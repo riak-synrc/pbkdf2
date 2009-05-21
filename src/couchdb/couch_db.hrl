@@ -114,7 +114,7 @@
 -record(db_header,
     {disk_version = ?LATEST_DISK_VERSION,  
      update_seq = 0,
-     unused,
+     unused = 0,
      fulldocinfo_by_id_btree_state = nil,
      docinfo_by_seq_btree_state = nil,
      local_docs_btree_state = nil,
@@ -144,7 +144,8 @@
     admins_ptr = nil,
     user_ctx = #user_ctx{},
     waiting_delayed_commit = nil,
-    revs_limit = 1000
+    revs_limit = 1000,
+    fsync_options = []
     }).
 
 

@@ -19,7 +19,7 @@
 
 -record(file, {
     fd,
-    tail_append_begin=0
+    tail_append_begin=0 % 09 UPGRADE CODE
     }).
 
 -export([open/1, open/2, close/1, bytes/1, sync/1, append_binary/2,old_pread/3]).
@@ -121,6 +121,7 @@ read_raw_iolist(Fd, Pos, Len) ->
     if HasPrefixes ->
         {ok, remove_block_prefixes(BlockOffset, RawBin), Pos + TotalBytes};
     true ->
+        % 09 UPGRADE CODE
         <<ReturnBin:Len/binary, _/binary>> = RawBin,
         {ok, [ReturnBin], Pos + Len}
     end.
@@ -162,10 +163,12 @@ close(Fd) ->
     catch unlink(Fd),
     Result.
 
+% 09 UPGRADE CODE
 old_pread(Fd, Pos, Len) ->
     {ok, <<RawBin:Len/binary>>, false} = gen_server:call(Fd, {pread, Pos, Len}, infinity),
     {ok, RawBin}.
 
+% 09 UPGRADE CODE
 upgrade_old_header(Fd, Sig) ->
     gen_server:call(Fd, {upgrade_old_header, Sig}, infinity).
 
@@ -301,9 +304,10 @@ handle_call(find_header, _From, #file{fd=Fd}=File) ->
     {ok, Pos} = file:position(Fd, eof),
     {reply, find_header(Fd, Pos div ?SIZE_BLOCK), File}.
         
-
+% 09 UPGRADE CODE
 -define(HEADER_SIZE, 2048). % size of each segment of the doubly written header
 
+% 09 UPGRADE CODE
 read_old_header(Fd, Prefix) ->
     {ok, Bin} = file:pread(Fd, 0, 2*(?HEADER_SIZE)),
     <<Bin1:(?HEADER_SIZE)/binary, Bin2:(?HEADER_SIZE)/binary>> = Bin,
@@ -348,6 +352,7 @@ read_old_header(Fd, Prefix) ->
         Result
     end.
     
+% 09 UPGRADE CODE
 extract_header(Prefix, Bin) ->
     SizeOfPrefix = size(Prefix),
     SizeOfTermBin = ?HEADER_SIZE -
@@ -372,7 +377,7 @@ extract_header(Prefix, Bin) ->
     end.
     
 
-
+% 09 UPGRADE CODE
 write_old_header(Fd, Prefix, Data) ->
     TermBin = term_to_binary(Data),
     % the size of all the bytes written to the header, including the md5 signature (16 bytes)

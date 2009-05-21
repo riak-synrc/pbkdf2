@@ -819,6 +819,7 @@ doc_meta_info(#doc_info{revs=[#rev_info{rev=Rev}|RestInfo]}, RevTree, Options) -
 read_doc(Fd, Pos) when is_integer(Pos) ->
     couch_file:pread_term(Fd, Pos);
 read_doc(Fd, OldStyleStreamPointer) ->
+    % 09 UPGRADE CODE
     couch_stream:old_read_term(Fd, OldStyleStreamPointer).
 
 

@@ -252,6 +252,7 @@ to_doc_info_path(#full_doc_info{id=Id,rev_tree=Tree}) ->
 bin_foldl(Bin, Fun, Acc) when is_binary(Bin) ->
     Fun(Bin, Acc);
 bin_foldl({Fd, Sp, Len}, Fun, Acc) when is_tuple(Sp) orelse Sp == null ->
+    % 09 UPGRADE CODE
     couch_stream:old_foldl(Fd, Sp, Len, Fun, Acc);
 bin_foldl({Fd, Sp, _Len}, Fun, Acc) ->
     couch_stream:foldl(Fd, Sp, Fun, Acc).

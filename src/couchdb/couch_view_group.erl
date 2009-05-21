@@ -313,6 +313,7 @@ prepare_group({view, RootDir, DbName, GroupId}, ForceReset)->
             if ForceReset ->
                 {ok, reset_file(Db, Fd, DbName, Group)};
             true ->
+                % 09 UPGRADE CODE
                 ok = couch_file:upgrade_old_header(Fd, <<$r, $c, $k, 0>>),
                 case (catch couch_file:read_header(Fd)) of
                 {ok, {Sig, HeaderInfo}} ->
