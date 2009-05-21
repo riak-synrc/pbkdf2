@@ -29,6 +29,7 @@ init({MainPid, DbName, Filepath, Fd, Options}) ->
         % delete any old compaction files that might be hanging around
         file:delete(Filepath ++ ".compact");
     false ->
+        ok = couch_file:upgrade_old_header(Fd, <<$g, $m, $k, 0>>),
         case couch_config:get("couchdb", "sync_on_open", "true") of
         "true" ->
             ok = couch_file:sync(Fd);
@@ -287,13 +288,16 @@ less_docid(nil, _) -> true; % nil - special key sorts before all
 less_docid({}, _) -> false; % {} -> special key sorts after all
 less_docid(A, B) -> A < B.
 
+
 init_db(DbName, Filepath, Fd, Header0) ->
     case element(2, Header0) of
-    ?DISK_VERSION_0_9 -> ok; % no problem, all records upgrade on the fly
+    1 -> ok; % 0.9
+    2 -> ok; % post 0.9 and pre 0.10
     ?LATEST_DISK_VERSION -> ok;
     _ -> throw({database_disk_version_error, "Incorrect disk header version"})
     end,
-    Header = simple_upgrade_record(Header0, #db_header{}),
+    Header1 = Header0#db_header{unused = 0}, % used in versions 1 and 2, but not later
+    Header = simple_upgrade_record(Header1, #db_header{}),
     Less = fun less_docid/2,
             
     {ok, IdBtree} = couch_btree:open(Header#db_header.fulldocinfo_by_id_btree_state, Fd,
@@ -584,12 +588,17 @@ commit_data(#db{fd=Fd, header=Header} = Db, Delay) ->
         Db#db{waiting_delayed_commit=nil,header=Header2,committed_update_seq=Db#db.update_seq}
     end.
 
+
 copy_raw_doc(SrcFd, SrcSp, DestFd) ->
-    {ok, {BodyData, BinInfos}} = couch_file:pread_term(SrcFd, SrcSp),
+    {ok, {BodyData, BinInfos}} = couch_db:read_doc(SrcFd, SrcSp),
     % copy the bin values
-    NewBinInfos = lists:map(fun({Name, {Type, BinSp, Len}}) ->
-        {NewBinSp, Len} = couch_stream:copy_to_new_stream(SrcFd, BinSp, DestFd),
-        {Name, {Type, NewBinSp, Len}}
+    NewBinInfos = lists:map(
+        fun({Name, {Type, BinSp, Len}}) when is_tuple(BinSp) orelse BinSp == null ->
+            {NewBinSp, Len} = couch_stream:old_copy_to_new_stream(SrcFd, BinSp, Len, DestFd),
+            {Name, {Type, NewBinSp, Len}};
+        ({Name, {Type, BinSp, Len}}) ->
+            {NewBinSp, Len} = couch_stream:copy_to_new_stream(SrcFd, BinSp, DestFd),
+            {Name, {Type, NewBinSp, Len}}
         end, BinInfos),
     % now write the document summary
     {ok, Sp} = couch_file:append_term(DestFd, {BodyData, NewBinInfos}),

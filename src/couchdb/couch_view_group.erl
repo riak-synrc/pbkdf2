@@ -261,7 +261,7 @@ handle_info({'EXIT', FromPid, reset},
 handle_info({'EXIT', _FromPid, normal}, State) ->
     {noreply, State};
     
-handle_info({'EXIT', FromPid, {{nocatch, Reason}, Trace}}, State) ->
+handle_info({'EXIT', FromPid, {{nocatch, Reason}, _Trace}}, State) ->
     ?LOG_DEBUG("Uncaught throw() in linked pid: ~p", [{FromPid, Reason}]),
     {stop, Reason, State};
 
@@ -313,6 +313,7 @@ prepare_group({view, RootDir, DbName, GroupId}, ForceReset)->
             if ForceReset ->
                 {ok, reset_file(Db, Fd, DbName, Group)};
             true ->
+                ok = couch_file:upgrade_old_header(Fd, <<$r, $c, $k, 0>>),
                 case (catch couch_file:read_header(Fd)) of
                 {ok, {Sig, HeaderInfo}} ->
                     % sigs match!

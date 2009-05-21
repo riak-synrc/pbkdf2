@@ -24,7 +24,7 @@
 -export([increment_update_seq/1,get_purge_seq/1,purge_docs/2,get_last_purged/1]).
 -export([start_link/3,open_doc_int/3,set_admins/2,get_admins/1,ensure_full_commit/1]).
 -export([init/1,terminate/2,handle_call/3,handle_cast/2,code_change/3,handle_info/2]).
--export([changes_since/5]).
+-export([changes_since/5,read_doc/2]).
 
 -include("couch_db.hrl").
 
@@ -566,6 +566,11 @@ flush_binary(Fd, {Fd0, StreamPointer, Len}) when Fd0 == Fd ->
     % already written to our file, nothing to write
     {Fd, StreamPointer, Len};
   
+flush_binary(Fd, {OtherFd, StreamPointer, Len}) when is_tuple(StreamPointer) ->
+    {NewStreamData, Len} = 
+            couch_stream:old_copy_to_new_stream(OtherFd, StreamPointer, Len, Fd),
+    {Fd, NewStreamData, Len};
+
 flush_binary(Fd, {OtherFd, StreamPointer, Len}) ->
     {NewStreamData, Len} = 
             couch_stream:copy_to_new_stream(OtherFd, StreamPointer, Fd),
@@ -811,6 +816,11 @@ doc_meta_info(#doc_info{revs=[#rev_info{rev=Rev}|RestInfo]}, RevTree, Options) -
         end
     end.
 
+read_doc(Fd, Pos) when is_integer(Pos) ->
+    couch_file:pread_term(Fd, Pos);
+read_doc(Fd, OldStyleStreamPointer) ->
+    couch_stream:old_read_term(Fd, OldStyleStreamPointer).
+
 
 doc_to_tree(#doc{revs={Start, RevIds}}=Doc) ->
     [Tree] = doc_to_tree_simple(Doc, lists:reverse(RevIds)),
@@ -829,7 +839,7 @@ make_doc(#db{fd=Fd}, Id, Deleted, Bp, RevisionPath) ->
     nil ->
         {[], []};
     _ ->
-        {ok, {BodyData0, BinValues0}} =couch_file:pread_term(Fd, Bp),
+        {ok, {BodyData0, BinValues0}} = read_doc(Fd, Bp),
         {BodyData0,
             [{Name,{Type,{Fd,Sp,Len}}} || {Name,{Type,Sp,Len}} <- BinValues0]}
     end,
