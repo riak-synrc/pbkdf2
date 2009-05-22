@@ -66,7 +66,7 @@ open(Filepath, Options) ->
 %%----------------------------------------------------------------------
 
 append_term(Fd, Term) ->
-    append_binary(Fd, term_to_binary(Term, [compressed])).
+    append_binary(Fd, term_to_binary(Term)).
 
 
 %%----------------------------------------------------------------------
@@ -112,8 +112,6 @@ pread_iolist(Fd, Pos) ->
     {ok, Iolist, _} = read_raw_iolist(Fd, NextPos, Len),
     {ok, Iolist}.
 
-read_raw_iolist(Fd, Pos, Len) when (Pos rem ?SIZE_BLOCK) == 0 ->
-    read_raw_iolist(Fd, Pos + 1, Len);
 read_raw_iolist(Fd, Pos, Len) ->
     BlockOffset = Pos rem ?SIZE_BLOCK,
     TotalBytes = calculate_total_read_len(BlockOffset, Len),
@@ -249,7 +247,7 @@ terminate(_Reason, _Fd) ->
 
 handle_call({pread, Pos, Bytes}, _From, #file{fd=Fd,tail_append_begin=TailAppendBegin}=File) ->
     {ok, Bin} = file:pread(Fd, Pos, Bytes),
-    {reply, {ok, Bin, Pos > TailAppendBegin}, File};
+    {reply, {ok, Bin, Pos >= TailAppendBegin}, File};
 handle_call(bytes, _From, #file{fd=Fd}=File) ->
     {reply, file:position(Fd, eof), File};
 handle_call(sync, _From, #file{fd=Fd}=File) ->
@@ -436,7 +434,8 @@ load_header(Fd, Block) ->
     Md5Sig = erlang:md5(HeaderBin),
     {ok, HeaderBin}.
 
-
+calculate_total_read_len(0, FinalLen) ->
+    calculate_total_read_len(1, FinalLen) + 1;
 calculate_total_read_len(BlockOffset, FinalLen) ->
     case ?SIZE_BLOCK - BlockOffset of
     BlockLeft when BlockLeft >= FinalLen ->
