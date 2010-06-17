@@ -13,7 +13,7 @@
 -module(couch_httpd_rep).
 
 -include("couch_db.hrl").
--include("couch_replicate.hrl").
+-include("couch_api_wrap.hrl").
 
 -import(couch_httpd,
     [send_json/2,send_json/3,send_json/4,send_method_not_allowed/2,
@@ -23,6 +23,23 @@
     start_response_length/4]).
     
 -export([handle_req/1]).
+
+
+handle_req(#httpd{method='POST'}=Req) ->
+    {PostBody} = couch_httpd:json_body_obj(Req),
+    SrcDb = parse_rep_db(couch_util:get_value(<<"source">>, PostBody)),
+    TgtDb = parse_rep_db(couch_util:get_value(<<"target">>, PostBody)),
+    Options = convert_options(PostBody),
+    try couch_replicate:start(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
+    {ok, {HistoryResults}} ->
+        send_json(Req, {[{ok, true} | HistoryResults]})
+    catch
+    throw:{db_not_found, Msg} ->
+        send_json(Req, 404, {[{error, db_not_found}, {reason, Msg}]})
+    end;
+handle_req(Req) ->
+    send_method_not_allowed(Req, "POST").
+
 
 maybe_add_trailing_slash(Url) ->
     re:replace(Url, "[^/]$", "&/", [{return, list}]).
@@ -83,17 +100,3 @@ convert_options([_|R])-> % skip unknown option
     convert_options(R).
 
 
-handle_req(#httpd{method='POST'}=Req) ->
-    {PostBody} = couch_httpd:json_body_obj(Req),
-    SrcDb = parse_rep_db(couch_util:get_value(<<"source">>, PostBody)),
-    TgtDb = parse_rep_db(couch_util:get_value(<<"target">>, PostBody)),
-    Options = convert_options(PostBody),
-    try couch_replicate:start(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
-    {ok, {HistoryResults}} ->
-        send_json(Req, {[{ok, true} | HistoryResults]})
-    catch
-    throw:{db_not_found, Msg} ->
-        send_json(Req, 404, {[{error, db_not_found}, {reason, Msg}]})
-    end;
-handle_req(Req) ->
-    send_method_not_allowed(Req, "POST").

@@ -12,13 +12,29 @@
 
 -module(couch_api_wrap).
 
+% This module wraps the native erlang API, and allows for performing
+% operations on a remote vs. local databases via the same API.
+%
+% Notes:
+% Many options and apis aren't yet supported here, they are added as needed.
+%
+% This file neesds a lot of work to "robustify" the common failures, and
+% convert the json errors back to Erlang style errors.
+%
+% Also, we open a new connection for every HTTP call, to avoid the
+% problems when requests are pipelined over a single connection and earlier
+% requests that fail and disconnect don't cause network errors for other
+% requests. This should eventually be optimized so each process has it's own
+% connection that's kept alive between requests.
+%
 
 -include("couch_db.hrl").
--include("couch_replicate.hrl").
+-include("couch_api_wrap.hrl").
 -include("../ibrowse/ibrowse.hrl").
 
 -export([
     db_open/2,
+    db_close/1,
     get_db_info/1,
     open_doc/3,
     update_doc/3,
@@ -33,6 +49,12 @@ db_open(#httpdb{}=Db, _Options) ->
     {ok, Db};
 db_open(DbName, Options) ->
     couch_db:open(DbName,Options).
+
+db_close(#httpdb{}) ->
+    ok;
+db_close(DbName) ->
+    couch_db:close(DbName).
+
 
 get_db_info(#httpdb{url=Url,oauth=OAuth,headers=Headers}) ->
     Headers2 = oauth_header(Url, [], get, OAuth) ++ Headers,
@@ -67,8 +89,10 @@ open_doc(#httpdb{url=Url,oauth=OAuth,headers=Headers}, DocId, Options) ->
 open_doc(Db, DocId, Options) ->
     couch_db:open_doc(Db, DocId, Options).
 
+
 update_doc(Db, Doc, Options) ->
     update_doc(Db,Doc,Options,interactive_edit).
+
 
 ensure_full_commit(#httpdb{url=Url,oauth=OAuth,headers=Headers}) ->
     Headers2 = oauth_header(Url, [], post, OAuth) ++ Headers,
@@ -84,6 +108,7 @@ ensure_full_commit(#httpdb{url=Url,oauth=OAuth,headers=Headers}) ->
     end;
 ensure_full_commit(Db) ->
     couch_db:ensure_full_commit(Db).
+
 
 get_missing_revs(#httpdb{url=Url,oauth=OAuth,headers=Headers}, IdRevs) ->
     Json = [{Id, couch_doc:revs_to_strs(Revs)} || {Id, Revs} <- IdRevs],
@@ -109,22 +134,6 @@ get_missing_revs(Db, IdRevs) ->
     couch_db:get_missing_revs(Db, IdRevs).
 
 
-options_to_query_args([], Acc) ->
-    lists:reverse(Acc);
-options_to_query_args([delay_commit|Rest], Acc) ->
-    options_to_query_args(Rest, Acc);
-options_to_query_args([{atts_since,[]}|Rest], Acc) ->
-    options_to_query_args(Rest, Acc);
-options_to_query_args([{atts_since,PossibleAncestors}|Rest], Acc) ->
-    options_to_query_args(Rest, [{"atts_since",?JSON_ENCODE(
-            couch_doc:revs_to_strs(PossibleAncestors))} | Acc]).
-
-query_args_to_string([], []) ->
-    "";
-query_args_to_string([], Acc) ->
-    "?" ++ string:join(lists:reverse(Acc), "&");
-query_args_to_string([{K,V}|Rest], Acc) ->
-    query_args_to_string(Rest, [(K ++ "=" ++ V) | Acc]).
 
 open_doc_revs(#httpdb{url=Url,oauth=OAuth,headers=Headers}, Id, Revs, 
         Options, Fun, Acc) ->
@@ -163,6 +172,107 @@ open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
 
+    
+
+update_doc(#httpdb{url=Url,headers=Headers,oauth=OAuth},Doc,Options,Type) ->
+    QArgs = if Type == replicated_changes ->
+        [{"new_edits", "false"}]; true -> [] end ++ 
+        options_to_query_args(Options, []),
+    
+    Boundary = couch_uuids:random(),
+    JsonBytes = ?JSON_ENCODE(couch_doc:to_json_obj(Doc, [revs,attachments,follows|Options])),
+    {ContentType, Len} = couch_doc:len_doc_to_multi_part_stream(Boundary,
+            JsonBytes, Doc#doc.atts, false),
+    Self = self(),
+    Headers2 = case lists:member(delay_commit, Options) of 
+            true -> [{"X-Couch-Full-Commit", "false"}];
+            false ->  []
+            end ++ [{"Content-Type", ?b2l(ContentType)}] ++ 
+            oauth_header(Url, QArgs, put, OAuth) ++ Headers,
+    Ref = make_ref(),
+    % this streams the doc data to the ibrowse requester
+    DocStreamer = spawn_link(fun() ->
+                couch_doc:doc_to_multi_part_stream(Boundary,
+                    JsonBytes, Doc#doc.atts,
+                    fun(Data) ->
+                        receive {get_data, Ref, Pid} ->
+                            Pid ! {data, Ref, Data}
+                        end
+                    end,
+                    false),
+                unlink(Self)
+            end),
+    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
+    case ibrowse:send_req_direct(Worker, Url ++ couch_util:url_encode(Doc#doc.id) ++ query_args_to_string(QArgs, []),
+            [{"Content-Length",Len}|Headers2], put, 
+            {fun(0) ->
+                eof;
+             (LenLeft) when LenLeft > 0 ->
+                DocStreamer ! {get_data, Ref, self()},
+                receive {data, Ref, Data} ->
+                    {ok, Data, LenLeft - iolist_size(Data)}
+                end
+            end, Len}, [], infinity) of
+    {ok, [$2,$0, _], _RespHeaders, Body} ->
+        catch ibrowse:stop_worker_process(Worker),
+        {Props} = ?JSON_DECODE(Body),
+        {ok, couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Props))}
+    end;
+update_doc(Db,Doc,Options,Type) ->
+    couch_db:update_doc(Db,Doc,Options,Type).
+
+changes_since(#httpdb{url=Url,headers=Headers,oauth=OAuth}, Style,
+        StartSeq, UserFun, Acc) ->
+    Url2 = Url ++ "_changes",
+    QArgs = [{"style", atom_to_list(Style)},
+            {"since", integer_to_list(StartSeq)}],
+    Headers2 = oauth_header(Url2, QArgs, get, OAuth) ++ Headers,        
+    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
+    {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker, Url2 ++ query_args_to_string(QArgs, ""), 
+            Headers2, get, [], [
+            {response_format,binary},
+            {stream_to, {self(), once}}], infinity),
+    DataFun = fun() ->
+            receive {ibrowse_async_headers, ReqId, "200", _Headers} ->
+                stream_data_self(ReqId)
+            end
+        end,
+    EventFun = fun(Ev) ->
+            changes_ev1(Ev, UserFun, Acc)
+        end,
+    try
+        json_stream_parse:events(DataFun, EventFun)
+    after
+        catch ibrowse:stop_worker_process(Worker)
+    end;
+changes_since(Db, Style, StartSeq, UserFun, Acc) ->
+    couch_db:changes_since(Db, Style, StartSeq, UserFun, Acc).
+
+
+% internal functions
+
+options_to_query_args([], Acc) ->
+    lists:reverse(Acc);
+options_to_query_args([delay_commit|Rest], Acc) ->
+    options_to_query_args(Rest, Acc);
+options_to_query_args([{atts_since,[]}|Rest], Acc) ->
+    options_to_query_args(Rest, Acc);
+options_to_query_args([{atts_since,PossibleAncestors}|Rest], Acc) ->
+    % NOTE, we should limit the # of PossibleAncestors sent. Since a large
+    % # can exceed the max URL length. Limiting the # only results in
+    % attachments being fully copied from source to target, instead of
+    % incrementally.
+    options_to_query_args(Rest, [{"atts_since",?JSON_ENCODE(
+            couch_doc:revs_to_strs(PossibleAncestors))} | Acc]).
+
+query_args_to_string([], []) ->
+    "";
+query_args_to_string([], Acc) ->
+    "?" ++ string:join(lists:reverse(Acc), "&");
+query_args_to_string([{K,V}|Rest], Acc) ->
+    query_args_to_string(Rest, [(K ++ "=" ++ V) | Acc]).
 
 receive_docs(Streamer, UserFun, UserAcc) ->
     Streamer ! {get_headers, self()},
@@ -241,82 +351,6 @@ mp_parse_mixed(body_end) ->
     fun (Next) ->
         mp_parse_mixed(Next)
     end.
-
-update_doc(#httpdb{url=Url,headers=Headers,oauth=OAuth},Doc,Options,Type) ->
-    QArgs = if Type == replicated_changes ->
-        [{"new_edits", "false"}]; true -> [] end ++ 
-        options_to_query_args(Options, []),
-    
-    Boundary = couch_uuids:random(),
-    JsonBytes = ?JSON_ENCODE(couch_doc:to_json_obj(Doc, [revs,attachments,follows|Options])),
-    {ContentType, Len} = couch_doc:len_doc_to_multi_part_stream(Boundary,
-            JsonBytes, Doc#doc.atts, false),
-    Self = self(),
-    Headers2 = case lists:member(delay_commit, Options) of 
-            true -> [{"X-Couch-Full-Commit", "false"}];
-            false ->  []
-            end ++ [{"Content-Type", ?b2l(ContentType)}] ++ 
-            oauth_header(Url, QArgs, put, OAuth) ++ Headers,
-    Ref = make_ref(),
-    % this streams the doc data to the ibrowse requester
-    DocStreamer = spawn_link(fun() ->
-                couch_doc:doc_to_multi_part_stream(Boundary,
-                    JsonBytes, Doc#doc.atts,
-                    fun(Data) ->
-                        receive {get_data, Ref, Pid} ->
-                            Pid ! {data, Ref, Data}
-                        end
-                    end,
-                    false),
-                unlink(Self)
-            end),
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-    case ibrowse:send_req_direct(Worker, Url ++ couch_util:url_encode(Doc#doc.id) ++ query_args_to_string(QArgs, []),
-            [{"Content-Length",Len}|Headers2], put, 
-            {fun(0) ->
-                eof;
-             (LenLeft) when LenLeft > 0 ->
-                DocStreamer ! {get_data, Ref, self()},
-                receive {data, Ref, Data} ->
-                    {ok, Data, LenLeft - iolist_size(Data)}
-                end
-            end, Len}, [], infinity) of
-    {ok, [$2,$0, _], _RespHeaders, Body} ->
-        catch ibrowse:stop_worker_process(Worker),
-        {Props} = ?JSON_DECODE(Body),
-        {ok, couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Props))}
-    end;
-update_doc(Db,Doc,Options,Type) ->
-    couch_db:update_doc(Db,Doc,Options,Type).
-
-changes_since(#httpdb{url=Url,headers=Headers,oauth=OAuth}, Style,
-        StartSeq, UserFun, Acc) ->
-    Url2 = Url ++ "_changes",
-    QArgs = [{"style", atom_to_list(Style)},
-            {"since", integer_to_list(StartSeq)}],
-    Headers2 = oauth_header(Url2, QArgs, get, OAuth) ++ Headers,        
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-    {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker, Url2 ++ query_args_to_string(QArgs, ""), 
-            Headers2, get, [], [
-            {response_format,binary},
-            {stream_to, {self(), once}}], infinity),
-    DataFun = fun() ->
-            receive {ibrowse_async_headers, ReqId, "200", _Headers} ->
-                stream_data_self(ReqId)
-            end
-        end,
-    EventFun = fun(Ev) ->
-            changes_ev1(Ev, UserFun, Acc)
-        end,
-    try
-        json_stream_parse:events(DataFun, EventFun)
-    after
-        catch ibrowse:stop_worker_process(Worker)
-    end;
-changes_since(Db, Style, StartSeq, UserFun, Acc) ->
-    couch_db:changes_since(Db, Style, StartSeq, UserFun, Acc).
 
 stream_data_self(ReqId) ->
     ibrowse:stream_next(ReqId),
