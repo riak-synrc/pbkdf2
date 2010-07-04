@@ -88,10 +88,12 @@ parse_rep_db(<<DbName/binary>>) ->
 
 convert_options([])->
     [];
+convert_options([{<<"cancel">>, V}|R])->
+    [{cancel, V}|convert_options(R)];
 convert_options([{<<"create_target">>, V}|R])->
     [{create_target, V}|convert_options(R)];
 convert_options([{<<"continuous">>, V}|R])->
-    [{create_target, V}|convert_options(R)];
+    [{continuous, V}|convert_options(R)];
 convert_options([{<<"filter">>, V}|R])->
     [{filter, V}|convert_options(R)];
 convert_options([{<<"query_params">>, V}|R])->
