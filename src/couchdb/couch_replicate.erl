@@ -390,7 +390,7 @@ make_replication_id(Source, Target, UserCtx, Options) ->
         Filter ->
             [Filter, proplists:get_value(query_params, Options, {[]})]
         end,
-    couch_util:to_hex(erlang:md5(term_to_binary(Base))).
+    couch_util:to_hex(couch_util:md5(term_to_binary(Base))).
 
 get_rep_endpoint(_UserCtx, #httpdb{url=Url, headers=Headers, oauth=OAuth}) ->
     case OAuth of
