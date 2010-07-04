@@ -410,7 +410,7 @@ json_to_doc_info({Props}) ->
     RevsInfo = lists:map(
         fun({Change}) ->
             Rev = couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Change)),
-            Del = ("true" == couch_util:get_value(<<"deleted">>, Change)),
+            Del = (true =:= couch_util:get_value(<<"deleted">>, Change)),
             #rev_info{rev=Rev, deleted=Del}
         end, Changes),
     #doc_info{id=Id, high_seq=Seq, revs=RevsInfo}.
