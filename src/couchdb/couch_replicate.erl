@@ -51,7 +51,7 @@ start(Src, Tgt, Options, UserCtx) ->
     
     % initalize the replication state, looking for existing rep records
     % for incremental replication.
-    #rep_state{source=Source,target=Target,start_seq=StartSeq} = State = 
+    #rep_state{source=Source, target=Target, start_seq=StartSeq} = State =
             init_state(Src, Tgt, Options, UserCtx), 
     
     % Create the work queues
@@ -117,7 +117,7 @@ init_state(Src,Tgt,Options,UserCtx)->
         src_starttime = couch_util:get_value(instance_start_time, SourceInfo),
         tgt_starttime = couch_util:get_value(instance_start_time, TargetInfo)
     },
-    State#rep_state{timer = erlang:start_timer(checkpoint_interval(State), 
+    State#rep_state{timer = erlang:start_timer(checkpoint_interval(State),
             self(), timed_checkpoint)}.
 
 
@@ -125,7 +125,7 @@ spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue) ->
     spawn_link(
         fun()->
             couch_api_wrap:changes_since(Source, all_docs, StartSeq,
-                fun(#doc_info{high_seq=Seq,revs=Revs}=DocInfo, _)->
+                fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo, _) ->
                     Cp ! {seq_start, {Seq, length(Revs)}},
                     Cp ! {add_stat, {#stats.missing_checked, length(Revs)}},
                     ok = couch_work_queue:queue(ChangesQueue, DocInfo),
@@ -153,7 +153,7 @@ missing_revs_finder_loop(Cp,
         couch_work_queue:close(MissingRevsQueue);
     {ok, DocInfos} ->
         IdRevs = [{Id, [Rev || #rev_info{rev=Rev} <- RevsInfo]} ||
-                #doc_info{id=Id,revs=RevsInfo} <- DocInfos],
+                #doc_info{id=Id, revs=RevsInfo} <- DocInfos],
         {ok, Missing} = couch_api_wrap:get_missing_revs(Target, IdRevs),
         % Figured out which on the target are missing.
         % Missing contains the id and revs missing, and any possible
@@ -165,29 +165,27 @@ missing_revs_finder_loop(Cp,
         % now complete.
         IdRevsSeqDict = dict:from_list(
             [{Id, {[Rev || #rev_info{rev=Rev} <- RevsInfo], Seq}} ||
-                    #doc_info{id=Id,revs=RevsInfo,high_seq=Seq} <- DocInfos]),
+                    #doc_info{id=Id, revs=RevsInfo, high_seq=Seq} <- DocInfos]),
         NonMissingIdRevsSeqDict = remove_missing(IdRevsSeqDict, Missing),
         % signal the completion of these that aren't missing
-        lists:foreach(fun({_Id, {Revs, Seq}})->
+        lists:foreach(fun({_Id, {Revs, Seq}}) ->
                 Cp ! {seq_changes_done, {Seq, length(Revs)}}
             end, dict:to_list(NonMissingIdRevsSeqDict)),
 
         % Expand out each docs and seq into it's own work item
-        lists:foreach(fun({Id, Revs, PAs})->
+        lists:foreach(fun({Id, Revs, PAs}) ->
             % PA means "possible ancestor"
             Cp ! {add_stat, {#stats.missing_found, length(Revs)}},
             {_, Seq} = dict:fetch(Id, IdRevsSeqDict),
-            ok = couch_work_queue:queue(MissingRevsQueue,
-                {Id, Revs, PAs, Seq})
+            ok = couch_work_queue:queue(MissingRevsQueue, {Id, Revs, PAs, Seq})
             end, Missing),
-        missing_revs_finder_loop(Cp, Target, ChangesQueue, 
-                MissingRevsQueue)
+        missing_revs_finder_loop(Cp, Target, ChangesQueue, MissingRevsQueue)
     end.
 
 
 remove_missing(IdRevsSeqDict, []) ->
     IdRevsSeqDict;
-remove_missing(IdRevsSeqDict, [{MissingId, MissingRevs, _}|Rest]) ->
+remove_missing(IdRevsSeqDict, [{MissingId, MissingRevs, _} | Rest]) ->
     {AllChangedRevs, Seq} = dict:fetch(MissingId, IdRevsSeqDict),
     case AllChangedRevs -- MissingRevs of
     [] ->
@@ -213,28 +211,28 @@ doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
     closed ->
         Cp ! done;
     {ok, [{Id, Revs, PossibleAncestors, Seq}]} ->
+        DocFun = fun({ok, Doc}, _) ->
+            % we are called for every rev read on the source
+            Cp ! {add_stat, {#stats.docs_read, 1}},
+            % now write the doc to the target.
+            case couch_api_wrap:update_doc(Target, Doc, [],
+                replicated_changes) of
+            {ok, _} ->
+                Cp ! {add_stat, {#stats.docs_written, 1}};
+            _Error ->
+                Cp ! {add_stat, {#stats.doc_write_failures, 1}}
+            end;
+        (_, _) ->
+            ok
+        end,
         couch_api_wrap:open_doc_revs(Source, Id, Revs,
-                [{atts_since,PossibleAncestors}],
-                fun({ok, Doc}, _) ->
-                    % we are called for every rev read on the source
-                    Cp ! {add_stat, {#stats.docs_read, 1}},
-                    % now write the doc to the target.
-                    case couch_api_wrap:update_doc(Target, Doc, [],
-                            replicated_changes) of
-                    {ok, _} ->
-                        Cp ! {add_stat, {#stats.docs_written, 1}};
-                    _Error ->
-                        Cp ! {add_stat, {#stats.doc_write_failures, 1}}
-                    end;
-                (_, _) ->
-                    ok
-                end, []),
+            [{atts_since, PossibleAncestors}], DocFun, []),
         Cp ! {seq_changes_done, {Seq, length(Revs)}},
         doc_copy_loop(Cp, Source, Target, MissingRevsQueue)
     end.
 
 checkpoint_loop(State, SeqsInProgress, Stats) ->
-    % SeqsInProgress contains the number of revs for each seq foiund by the
+    % SeqsInProgress contains the number of revs for each seq found by the
     % changes process.
     receive
     {seq_start, {Seq, NumChanges}} ->
@@ -246,7 +244,7 @@ checkpoint_loop(State, SeqsInProgress, Stats) ->
         TotalChanges = gb_trees:get(Seq, SeqsInProgress),
         case TotalChanges - NumChangesDone of
         0 ->
-            % this seq is completely processed. Chck to see if it was the
+            % this seq is completely processed. Check to see if it was the
             % smallest seq in progess. If so, we've made progress that can
             % be checkpointed.
             State2 =
@@ -256,8 +254,7 @@ checkpoint_loop(State, SeqsInProgress, Stats) ->
             _ ->
                 State
             end,
-            checkpoint_loop(State2, 
-                    gb_trees:delete(Seq,SeqsInProgress), Stats);
+            checkpoint_loop(State2, gb_trees:delete(Seq,SeqsInProgress), Stats);
         NewTotalChanges when NewTotalChanges > 0 ->
             % Still some changes that need work done. Put the new count back.
             SeqsInProgress2 =
@@ -283,7 +280,7 @@ checkpoint_loop(State, SeqsInProgress, Stats) ->
         % every checkpoint interval while processing
         State2 = do_checkpoint(State, Stats),
         Timer = erlang:start_timer(checkpoint_interval(State), 
-                self(), timed_checkpoint),
+            self(), timed_checkpoint),
         checkpoint_loop(State2#rep_state{timer=Timer}, SeqsInProgress, Stats)
     end.
 
@@ -291,7 +288,7 @@ checkpoint_loop(State, SeqsInProgress, Stats) ->
 checkpoint_interval(_State) ->
     5000.
 
-do_checkpoint(#rep_state{current_through_seq=Seq,committed_seq=OldSeq}=State,
+do_checkpoint(#rep_state{current_through_seq=Seq, committed_seq=OldSeq} = State,
         _Stats) when Seq == OldSeq ->
     State;
 do_checkpoint(State, Stats) ->
@@ -335,20 +332,20 @@ do_checkpoint(State, Stats) ->
         ]},
 
         try
-        {ok, {SrcRevPos,SrcRevId}} = couch_api_wrap:update_doc(Source, 
+            {ok, {SrcRevPos,SrcRevId}} = couch_api_wrap:update_doc(Source,
                 SourceLog#doc{body=NewRepHistory}, [delay_commit]),
-        {ok, {TgtRevPos,TgtRevId}} = couch_api_wrap:update_doc(Target, 
+            {ok, {TgtRevPos,TgtRevId}} = couch_api_wrap:update_doc(Target,
                 TargetLog#doc{body=NewRepHistory}, [delay_commit]),
-        State#rep_state{
-            checkpoint_history = NewRepHistory,
-            committed_seq = NewSeq,
-            source_log = SourceLog#doc{revs={SrcRevPos, [SrcRevId]}},
-            target_log = TargetLog#doc{revs={TgtRevPos, [TgtRevId]}}
-        }
+            State#rep_state{
+                checkpoint_history = NewRepHistory,
+                committed_seq = NewSeq,
+                source_log = SourceLog#doc{revs={SrcRevPos, [SrcRevId]}},
+                target_log = TargetLog#doc{revs={TgtRevPos, [TgtRevId]}}
+            }
         catch throw:conflict ->
-        ?LOG_ERROR("checkpoint failure: conflict (are you replicating to "
-            "yourself?)", []),
-        State
+            ?LOG_ERROR("checkpoint failure: conflict (are you replicating to "
+                "yourself?)", []),
+            State
         end;
     _Else ->
         ?LOG_INFO("rebooting ~p -> ~p from last known replication checkpoint",
@@ -360,8 +357,10 @@ do_checkpoint(State, Stats) ->
 commit_to_both(Source, Target) ->
     % commit the src async
     ParentPid = self(),
-    SrcCommitPid = spawn_link(fun() ->
-            ParentPid ! {self(), couch_api_wrap:ensure_full_commit(Source)} end),
+    SrcCommitPid = spawn_link(
+        fun() ->
+            ParentPid ! {self(), couch_api_wrap:ensure_full_commit(Source)}
+        end),
 
     % commit tgt sync
     {ok, TargetStartTime} = couch_api_wrap:ensure_full_commit(Target),
@@ -393,7 +392,7 @@ make_replication_id(Source, Target, UserCtx, Options) ->
         end,
     couch_util:to_hex(erlang:md5(term_to_binary(Base))).
 
-get_rep_endpoint(_UserCtx, #httpdb{url=Url,headers=Headers,oauth=OAuth}) ->
+get_rep_endpoint(_UserCtx, #httpdb{url=Url, headers=Headers, oauth=OAuth}) ->
     case OAuth of
     nil ->
         {remote, Url, Headers};
@@ -428,7 +427,7 @@ compare_replication_logs(SrcDoc, TgtDoc) ->
 compare_rep_history(S, T) when S =:= [] orelse T =:= [] ->
     ?LOG_INFO("no common ancestry -- performing full replication", []),
     {0, []};
-compare_rep_history([{S}|SourceRest], [{T}|TargetRest]=Target) ->
+compare_rep_history([{S} | SourceRest], [{T} | TargetRest] = Target) ->
     SourceId = couch_util:get_value(<<"session_id">>, S),
     case has_session_id(SourceId, Target) of
     true ->

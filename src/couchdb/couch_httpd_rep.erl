@@ -15,17 +15,20 @@
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
 
--import(couch_httpd,
-    [send_json/2,send_json/3,send_json/4,send_method_not_allowed/2,
-    start_json_response/2,start_json_response/3,
-    send_chunk/2,last_chunk/1,end_json_response/1,
-    start_chunked_response/3, absolute_uri/2, send/2,
-    start_response_length/4]).
+-import(couch_httpd, [
+    send_json/2, send_json/3, send_json/4,
+    send/2,
+    send_method_not_allowed/2,
+    start_response_length/4,
+    start_json_response/2, start_json_response/3, end_json_response/1,
+    start_chunked_response/3, send_chunk/2, last_chunk/1,
+    absolute_uri/2
+]).
     
 -export([handle_req/1]).
 
 
-handle_req(#httpd{method='POST'}=Req) ->
+handle_req(#httpd{method='POST'} = Req) ->
     {PostBody} = couch_httpd:json_body_obj(Req),
     SrcDb = parse_rep_db(couch_util:get_value(<<"source">>, PostBody)),
     TgtDb = parse_rep_db(couch_util:get_value(<<"target">>, PostBody)),
@@ -48,7 +51,7 @@ parse_rep_db({Props}) ->
     Url = maybe_add_trailing_slash(couch_util:get_value(<<"url">>, Props)),
     {AuthProps} = couch_util:get_value(<<"auth">>, Props, {[]}),
     {BinHeaders} = couch_util:get_value(<<"headers">>, Props, {[]}),
-    Headers = [{?b2l(K),?b2l(V)} || {K,V} <- BinHeaders],
+    Headers = [{?b2l(K), ?b2l(V)} || {K, V} <- BinHeaders],
     
     case couch_util:get_value(<<"oauth">>, AuthProps) of
     undefined ->
@@ -78,27 +81,27 @@ parse_rep_db({Props}) ->
         oauth = OAuth,
         headers = Headers
     };
-parse_rep_db(<<"http://",_/binary>>=Url) ->
-    parse_rep_db({[{<<"url">>,Url}]});
-parse_rep_db(<<"https://",_/binary>>=Url) ->
-    parse_rep_db({[{<<"url">>,Url}]});
+parse_rep_db(<<"http://", _/binary>> = Url) ->
+    parse_rep_db({[{<<"url">>, Url}]});
+parse_rep_db(<<"https://", _/binary>> = Url) ->
+    parse_rep_db({[{<<"url">>, Url}]});
 parse_rep_db(<<DbName/binary>>) ->
     DbName.
 
 
 convert_options([])->
     [];
-convert_options([{<<"cancel">>, V}|R])->
-    [{cancel, V}|convert_options(R)];
-convert_options([{<<"create_target">>, V}|R])->
-    [{create_target, V}|convert_options(R)];
-convert_options([{<<"continuous">>, V}|R])->
-    [{continuous, V}|convert_options(R)];
-convert_options([{<<"filter">>, V}|R])->
-    [{filter, V}|convert_options(R)];
-convert_options([{<<"query_params">>, V}|R])->
-    [{query_params, V}|convert_options(R)];
-convert_options([_|R])-> % skip unknown option
+convert_options([{<<"cancel">>, V} | R]) ->
+    [{cancel, V} | convert_options(R)];
+convert_options([{<<"create_target">>, V} | R]) ->
+    [{create_target, V} | convert_options(R)];
+convert_options([{<<"continuous">>, V} | R]) ->
+    [{continuous, V} | convert_options(R)];
+convert_options([{<<"filter">>, V} | R]) ->
+    [{filter, V} | convert_options(R)];
+convert_options([{<<"query_params">>, V} | R]) ->
+    [{query_params, V} | convert_options(R)];
+convert_options([_ | R]) -> % skip unknown option
     convert_options(R).
 
 

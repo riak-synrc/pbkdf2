@@ -63,17 +63,17 @@ get_db_info(#httpdb{url=Url,oauth=OAuth,headers=Headers}) ->
            ], infinity) of
     {ok, "200", _RespHeaders, Body} ->
         {Props} = ?JSON_DECODE(Body),
-       {ok, [{couch_util:to_existing_atom(K), V} || {K,V} <- Props]}
+        {ok, [{couch_util:to_existing_atom(K), V} || {K, V} <- Props]}
     end;
 get_db_info(Db) ->
     couch_db:get_db_info(Db).
 
 
-open_doc(#httpdb{url=Url,oauth=OAuth,headers=Headers}, DocId, Options) ->
+open_doc(#httpdb{url=Url, oauth=OAuth, headers=Headers}, DocId, Options) ->
     Url2 = Url ++ couch_util:url_encode(DocId),
     QArgs = options_to_query_args(Options, []),
     Headers2 = oauth_header(Url2, QArgs, get, OAuth) ++ Headers,
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
+    #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
     {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
     try ibrowse:send_req_direct(Worker, Url2 ++ query_args_to_string(QArgs, []), 
             Headers2, get, [], [ 
@@ -94,73 +94,79 @@ update_doc(Db, Doc, Options) ->
     update_doc(Db,Doc,Options,interactive_edit).
 
 
-ensure_full_commit(#httpdb{url=Url,oauth=OAuth,headers=Headers}) ->
+ensure_full_commit(#httpdb{url=Url, oauth=OAuth, headers=Headers}) ->
     Headers2 = oauth_header(Url, [], post, OAuth) ++ Headers,
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-    case ibrowse:send_req_direct(Worker, Url ++ "_ensure_full_commit", Headers2, post, [], [ 
-           {response_format,binary}
-           ], infinity) of
+    #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+    case ibrowse:send_req_direct(Worker, Url ++ "_ensure_full_commit", Headers2,
+            post, [], [{response_format, binary}], infinity) of
     {ok, "201", _RespHeaders, Body} ->
         catch ibrowse:stop_worker_process(Worker),
         {Props} = ?JSON_DECODE(Body),
-       {ok, couch_util:get_value(<<"instance_start_time">>,Props)}
+       {ok, couch_util:get_value(<<"instance_start_time">>, Props)}
     end;
 ensure_full_commit(Db) ->
     couch_db:ensure_full_commit(Db).
 
 
-get_missing_revs(#httpdb{url=Url,oauth=OAuth,headers=Headers}, IdRevs) ->
+get_missing_revs(#httpdb{url=Url, oauth=OAuth, headers=Headers}, IdRevs) ->
     Json = [{Id, couch_doc:revs_to_strs(Revs)} || {Id, Revs} <- IdRevs],
     Headers2 = oauth_header(Url, [], post, OAuth) ++ Headers,
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
+    #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
     case ibrowse:send_req_direct(Worker, Url ++ "_revs_diff", Headers2, post,
-            ?JSON_ENCODE({Json}), [ 
-           {response_format,binary}
-           ], infinity) of
+            ?JSON_ENCODE({Json}), [{response_format, binary}], infinity) of
     {ok, "200", _RespHeaders, Body} ->
         catch ibrowse:stop_worker_process(Worker),
         {JsonResults} = ?JSON_DECODE(Body),
         ConvertToNativeFun = fun({Id, {Result}}) ->
-                {Id,
-                couch_doc:parse_revs(couch_util:get_value(<<"missing">>,Result)),
+            {
+                Id,
                 couch_doc:parse_revs(
-                    couch_util:get_value(<<"possible_ancestors">>, Result, []))}
-            end,
-        {ok, lists:map(ConvertToNativeFun,JsonResults)}
+                    couch_util:get_value(<<"missing">>, Result)
+                ),
+                couch_doc:parse_revs(
+                    couch_util:get_value(<<"possible_ancestors">>, Result, [])
+                )
+            }
+        end,
+        {ok, lists:map(ConvertToNativeFun, JsonResults)}
     end;
 get_missing_revs(Db, IdRevs) ->
     couch_db:get_missing_revs(Db, IdRevs).
 
 
 
-open_doc_revs(#httpdb{url=Url,oauth=OAuth,headers=Headers}, Id, Revs, 
-        Options, Fun, Acc) ->
+open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
+    #httpdb{url=Url, oauth=OAuth, headers=Headers} = HttpDb,
     Self = self(),
-    QArgs = [{"revs", "true"},{"open_revs", ?JSON_ENCODE(couch_doc:revs_to_strs(Revs))} | 
-        options_to_query_args(Options, [])],
-    IdEncoded =
-    case Id of
-    <<"_design/",RestId/binary>> ->
+    QArgs = [
+        {"revs", "true"},
+        {"open_revs", ?JSON_ENCODE(couch_doc:revs_to_strs(Revs))} |
+        options_to_query_args(Options, [])
+    ],
+    IdEncoded = case Id of
+    <<"_design/", RestId/binary>> ->
         "_design/" ++ couch_util:url_encode(RestId);
     _ ->
         couch_util:url_encode(Id)
     end,
-    Headers2 = oauth_header(Url ++ IdEncoded, QArgs, get, OAuth) ++ [{"accept", "multipart/mixed"} | Headers],
-    Streamer = spawn_link(fun()->
+    Headers2 = oauth_header(Url ++ IdEncoded, QArgs, get, OAuth) ++
+        [{"accept", "multipart/mixed"} | Headers],
+    Streamer = spawn_link(fun() ->
             FullUrl = Url ++ IdEncoded ++ query_args_to_string(QArgs, []),
-            #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-            {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-            {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker, FullUrl, Headers2, get, [], [
-                {response_format,binary},
-                {stream_to, {self(), once}}
-                ], infinity),
-            
+            #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
+            {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+            {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker, FullUrl,
+                Headers2, get, [],
+                [{response_format, binary}, {stream_to, {self(), once}}],
+                infinity),
+
             receive
             {ibrowse_async_headers, ReqId, "200", RespHeaders} ->
                 CType = couch_util:get_value("Content-Type", RespHeaders),
-                couch_httpd:parse_multipart_request(CType, 
+                couch_httpd:parse_multipart_request(
+                    CType,
                     fun() -> stream_data_self(ReqId) end,
                     fun(Ev) -> mp_parse_mixed(Ev) end)
             end,
@@ -172,76 +178,88 @@ open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
 
-    
 
-update_doc(#httpdb{url=Url,headers=Headers,oauth=OAuth},Doc,Options,Type) ->
-    QArgs = if Type == replicated_changes ->
-        [{"new_edits", "false"}]; true -> [] end ++ 
-        options_to_query_args(Options, []),
-    
+update_doc(#httpdb{} = HttpDb, Doc, Options, Type) ->
+    #httpdb{url=Url, headers=Headers, oauth=OAuth} = HttpDb,
+    QArgs = case Type of
+    replicated_changes ->
+        [{"new_edits", "false"}];
+    _ ->
+        []
+    end ++ options_to_query_args(Options, []),
+
     Boundary = couch_uuids:random(),
-    JsonBytes = ?JSON_ENCODE(couch_doc:to_json_obj(Doc, [revs,attachments,follows|Options])),
+    JsonBytes = ?JSON_ENCODE(
+        couch_doc:to_json_obj(Doc, [revs, attachments, follows | Options])),
     {ContentType, Len} = couch_doc:len_doc_to_multi_part_stream(Boundary,
-            JsonBytes, Doc#doc.atts, false),
+        JsonBytes, Doc#doc.atts, false),
     Self = self(),
     Headers2 = case lists:member(delay_commit, Options) of 
-            true -> [{"X-Couch-Full-Commit", "false"}];
-            false ->  []
-            end ++ [{"Content-Type", ?b2l(ContentType)}] ++ 
-            oauth_header(Url, QArgs, put, OAuth) ++ Headers,
+    true ->
+        [{"X-Couch-Full-Commit", "false"}];
+    false ->
+        []
+    end ++ [{"Content-Type", ?b2l(ContentType)}] ++
+        oauth_header(Url, QArgs, put, OAuth) ++ Headers,
+
     Ref = make_ref(),
     % this streams the doc data to the ibrowse requester
     DocStreamer = spawn_link(fun() ->
-                couch_doc:doc_to_multi_part_stream(Boundary,
-                    JsonBytes, Doc#doc.atts,
-                    fun(Data) ->
-                        receive {get_data, Ref, Pid} ->
-                            Pid ! {data, Ref, Data}
-                        end
-                    end,
-                    false),
-                unlink(Self)
-            end),
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-    case ibrowse:send_req_direct(Worker, Url ++ couch_util:url_encode(Doc#doc.id) ++ query_args_to_string(QArgs, []),
-            [{"Content-Length",Len}|Headers2], put, 
-            {fun(0) ->
-                eof;
-             (LenLeft) when LenLeft > 0 ->
-                DocStreamer ! {get_data, Ref, self()},
-                receive {data, Ref, Data} ->
-                    {ok, Data, LenLeft - iolist_size(Data)}
+        couch_doc:doc_to_multi_part_stream(Boundary,
+            JsonBytes, Doc#doc.atts,
+            fun(Data) ->
+                receive {get_data, Ref, Pid} ->
+                    Pid ! {data, Ref, Data}
                 end
-            end, Len}, [], infinity) of
+            end,
+            false),
+            unlink(Self)
+    end),
+    #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+    SendFun = fun(0) ->
+            eof;
+        (LenLeft) when LenLeft > 0 ->
+            DocStreamer ! {get_data, Ref, self()},
+            receive {data, Ref, Data} ->
+                {ok, Data, LenLeft - iolist_size(Data)}
+            end
+    end,
+    case ibrowse:send_req_direct(Worker,
+        Url ++ couch_util:url_encode(Doc#doc.id) ++
+        query_args_to_string(QArgs, []), [{"Content-Length", Len} | Headers2],
+        put, {SendFun, Len}, [], infinity) of
     {ok, [$2,$0, _], _RespHeaders, Body} ->
         catch ibrowse:stop_worker_process(Worker),
         {Props} = ?JSON_DECODE(Body),
         {ok, couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Props))}
     end;
-update_doc(Db,Doc,Options,Type) ->
-    couch_db:update_doc(Db,Doc,Options,Type).
+update_doc(Db, Doc, Options, Type) ->
+    couch_db:update_doc(Db, Doc, Options, Type).
 
-changes_since(#httpdb{url=Url,headers=Headers,oauth=OAuth}, Style,
-        StartSeq, UserFun, Acc) ->
+changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Acc) ->
+    #httpdb{url=Url, headers=Headers, oauth=OAuth} = HttpDb,
     Url2 = Url ++ "_changes",
-    QArgs = [{"style", atom_to_list(Style)},
-            {"since", integer_to_list(StartSeq)}],
+    QArgs = [
+        {"style", atom_to_list(Style)},
+        {"since", integer_to_list(StartSeq)}
+    ],
     Headers2 = oauth_header(Url2, QArgs, get, OAuth) ++ Headers,        
-    #url{host=Host,port=Port}=ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-    {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker, Url2 ++ query_args_to_string(QArgs, ""), 
-            Headers2, get, [], [
-            {response_format,binary},
-            {stream_to, {self(), once}}], infinity),
+    #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+
+    {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker,
+        Url2 ++ query_args_to_string(QArgs, ""), Headers2, get, [],
+        [{response_format, binary}, {stream_to, {self(), once}}], infinity),
+
     DataFun = fun() ->
-            receive {ibrowse_async_headers, ReqId, "200", _Headers} ->
-                stream_data_self(ReqId)
-            end
-        end,
+        receive {ibrowse_async_headers, ReqId, "200", _Headers} ->
+            stream_data_self(ReqId)
+        end
+    end,
     EventFun = fun(Ev) ->
-            changes_ev1(Ev, UserFun, Acc)
-        end,
+        changes_ev1(Ev, UserFun, Acc)
+    end,
     try
         json_stream_parse:events(DataFun, EventFun)
     after
@@ -255,23 +273,23 @@ changes_since(Db, Style, StartSeq, UserFun, Acc) ->
 
 options_to_query_args([], Acc) ->
     lists:reverse(Acc);
-options_to_query_args([delay_commit|Rest], Acc) ->
+options_to_query_args([delay_commit | Rest], Acc) ->
     options_to_query_args(Rest, Acc);
-options_to_query_args([{atts_since,[]}|Rest], Acc) ->
+options_to_query_args([{atts_since, []} | Rest], Acc) ->
     options_to_query_args(Rest, Acc);
-options_to_query_args([{atts_since,PossibleAncestors}|Rest], Acc) ->
+options_to_query_args([{atts_since, PossibleAncestors} | Rest], Acc) ->
     % NOTE, we should limit the # of PossibleAncestors sent. Since a large
     % # can exceed the max URL length. Limiting the # only results in
     % attachments being fully copied from source to target, instead of
     % incrementally.
-    options_to_query_args(Rest, [{"atts_since",?JSON_ENCODE(
-            couch_doc:revs_to_strs(PossibleAncestors))} | Acc]).
+    AncestorsJson = ?JSON_ENCODE(couch_doc:revs_to_strs(PossibleAncestors)),
+    options_to_query_args(Rest, [{"atts_since", AncestorsJson} | Acc]).
 
 query_args_to_string([], []) ->
     "";
 query_args_to_string([], Acc) ->
     "?" ++ string:join(lists:reverse(Acc), "&");
-query_args_to_string([{K,V}|Rest], Acc) ->
+query_args_to_string([{K, V} | Rest], Acc) ->
     query_args_to_string(Rest, [(K ++ "=" ++ V) | Acc]).
 
 receive_docs(Streamer, UserFun, UserAcc) ->
@@ -281,7 +299,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
         case couch_util:get_value("content-type", Headers) of
         {"multipart/related", _} = ContentType ->
             case couch_doc:doc_from_multi_part_stream(ContentType, 
-                 fun() -> receive_doc_data(Streamer) end) of
+                fun() -> receive_doc_data(Streamer) end) of
             {ok, Doc} ->
                 UserAcc2 = UserFun({ok, Doc}, UserAcc),
                 receive_docs(Streamer, UserFun, UserAcc2)
@@ -310,7 +328,6 @@ receive_all(Streamer, Acc)->
     body_done ->
         lists:reverse(Acc)
      end.
-    
 
 
 receive_doc_data(Streamer)->    
@@ -320,7 +337,7 @@ receive_doc_data(Streamer)->
         {Bytes, fun() -> receive_doc_data(Streamer) end};
     body_done ->
         {<<>>, fun() -> receive_doc_data(Streamer) end}
-     end.
+    end.
 
 
 mp_parse_mixed(eof) ->
@@ -364,7 +381,7 @@ changes_ev1(object_start, UserFun, UserAcc) ->
     fun(Ev) -> changes_ev2(Ev, UserFun, UserAcc) end.
 
 changes_ev2({key, <<"results">>}, UserFun, UserAcc) ->
-    fun(Ev)-> changes_ev3(Ev, UserFun, UserAcc) end;
+    fun(Ev) -> changes_ev3(Ev, UserFun, UserAcc) end;
 changes_ev2(_, UserFun, UserAcc) ->
     fun(Ev) -> changes_ev2(Ev, UserFun, UserAcc) end.
 
@@ -374,10 +391,10 @@ changes_ev3(array_start, UserFun, UserAcc) ->
 changes_ev_loop(object_start, UserFun, UserAcc) ->
     fun(Ev) ->
         json_stream_parse:collect_object(Ev,
-                fun(Obj) ->
-                    UserAcc2 = UserFun(json_to_doc_info(Obj), UserAcc),
-                    fun(Ev2) -> changes_ev_loop(Ev2, UserFun, UserAcc2) end
-                end)
+            fun(Obj) ->
+                UserAcc2 = UserFun(json_to_doc_info(Obj), UserAcc),
+                fun(Ev2) -> changes_ev_loop(Ev2, UserFun, UserAcc2) end
+            end)
     end;
 changes_ev_loop(array_end, _UserFun, _UserAcc) ->
     fun(_Ev) -> changes_ev_done() end.
@@ -389,27 +406,28 @@ json_to_doc_info({Props}) ->
     Id = couch_util:get_value(<<"id">>, Props),
     Seq = couch_util:get_value(<<"seq">>, Props),
     Changes = couch_util:get_value(<<"changes">>, Props),
-    
+
     RevsInfo = lists:map(
         fun({Change}) ->
             Rev = couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Change)),
             Del = ("true" == couch_util:get_value(<<"deleted">>, Change)),
-            #rev_info{rev=Rev,deleted=Del}
+            #rev_info{rev=Rev, deleted=Del}
         end, Changes),
-    #doc_info{id=Id,high_seq=Seq,revs=RevsInfo}.
+    #doc_info{id=Id, high_seq=Seq, revs=RevsInfo}.
 
 oauth_header(_Url, _QS, _Action, nil) ->
     [];
 oauth_header(Url, QS, Action, OAuth) ->
-    Consumer =
-            {OAuth#oauth.consumer_key,
-            OAuth#oauth.consumer_secret,
-            OAuth#oauth.signature_method},
+    Consumer = {
+        OAuth#oauth.consumer_key,
+        OAuth#oauth.consumer_secret,
+        OAuth#oauth.signature_method
+    },
     Method = case Action of
-        get -> "GET";
-        post -> "POST";
-        put -> "PUT";
-        head -> "HEAD"
+    get -> "GET";
+    post -> "POST";
+    put -> "PUT";
+    head -> "HEAD"
     end,
     Params = oauth:signed_params(Method, Url, QS, Consumer, 
         #oauth.token,
@@ -417,4 +435,3 @@ oauth_header(Url, QS, Action, OAuth) ->
     [{"Authorization", "OAuth " ++ oauth_uri:params_to_header_string(Params)}].
 
 
-    
