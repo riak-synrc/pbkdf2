@@ -86,7 +86,7 @@ to_ejson(DF) ->
 %                    fun(Ev2) -> ev_object_loop(Ev2) end
 %                end)
 %        end;
-%    ev_loop(array_end) ->
+%    ev_object_loop(array_end) ->
 %        ok
 %    end.
 %    
@@ -203,9 +203,9 @@ must_match(Pattern, DF, Data) ->
 must_df(DF,Error)->
     case DF() of
     done ->
-         err(Error);
+        err(Error);
     {Data, DF2} ->
-         {Data, DF2}
+        {Data, DF2}
     end.
 
 
@@ -214,8 +214,8 @@ must_df(DF,NeedLen,Acc,Error)->
         {Acc, DF};
     true ->
         case DF() of
-            done ->
-                err(Error);
+        done ->
+            err(Error);
         {Data, DF2} ->
             must_df(DF2, NeedLen, <<Acc/binary, Data/binary>>, Error)
         end
