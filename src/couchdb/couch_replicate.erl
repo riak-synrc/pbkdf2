@@ -46,8 +46,8 @@
         
 start(Src, Tgt, Options, UserCtx) ->
     
-    _Continuous = proplists:get_value(continuous, Options, false),
-    _CreateTarget = proplists:get_value(create_target, Options, false),
+    _Continuous = couch_util:get_value(continuous, Options, false),
+    _CreateTarget = couch_util:get_value(create_target, Options, false),
     
     % initalize the replication state, looking for existing rep records
     % for incremental replication.
@@ -384,11 +384,11 @@ make_replication_id(Source, Target, UserCtx, Options) ->
     Src = get_rep_endpoint(UserCtx, Source),
     Tgt = get_rep_endpoint(UserCtx, Target),
     Base = [HostName, Src, Tgt] ++
-        case proplists:get_value(filter, Options) of
+        case couch_util:get_value(filter, Options) of
         undefined ->
             [];
         Filter ->
-            [Filter, proplists:get_value(query_params, Options, {[]})]
+            [Filter, couch_util:get_value(query_params, Options, {[]})]
         end,
     couch_util:to_hex(couch_util:md5(term_to_binary(Base))).
 
