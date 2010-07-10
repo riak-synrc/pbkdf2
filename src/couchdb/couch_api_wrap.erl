@@ -383,7 +383,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
         {"application/json", [{"error","true"}]} ->
             {ErrorProps} = ?JSON_DECODE(receive_all(Streamer, [])),
             Rev = couch_util:get_value(<<"missing">>, ErrorProps),
-            Result = {{not_founds, missing}, couch_doc:parse_rev(Rev)},
+            Result = {{not_found, missing}, couch_doc:parse_rev(Rev)},
             UserAcc2 = UserFun(Result, UserAcc),
             receive_docs(Streamer, UserFun, UserAcc2)
         end;
