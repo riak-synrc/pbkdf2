@@ -47,7 +47,6 @@
 start(Src, Tgt, Options, UserCtx) ->
     
     _Continuous = couch_util:get_value(continuous, Options, false),
-    _CreateTarget = couch_util:get_value(create_target, Options, false),
     
     % initalize the replication state, looking for existing rep records
     % for incremental replication.
@@ -84,7 +83,8 @@ start(Src, Tgt, Options, UserCtx) ->
 
 init_state(Src,Tgt,Options,UserCtx)->    
     {ok, Source} = couch_api_wrap:db_open(Src, [{user_ctx, UserCtx}]),
-    {ok, Target} = couch_api_wrap:db_open(Tgt, [{user_ctx, UserCtx}]),
+    {ok, Target} = couch_api_wrap:db_open(Tgt, [{user_ctx, UserCtx}],
+        couch_util:get_value(create_target, Options, false)),
 
     {ok, SourceInfo} = couch_api_wrap:get_db_info(Source),
     {ok, TargetInfo} = couch_api_wrap:get_db_info(Target),

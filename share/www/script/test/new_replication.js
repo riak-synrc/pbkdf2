@@ -40,6 +40,7 @@ couchTests.new_replication = function(debug) {
   var sourceInfo, targetInfo;
   var docs, doc, copy;
   var repResult;
+  var i, j;
 
 
   function populateDb(db, docs) {
@@ -64,7 +65,7 @@ couchTests.new_replication = function(debug) {
     value: "ddoc"
   });
 
-  for (var i = 0; i < dbPairs.length; i++) {
+  for (i = 0; i < dbPairs.length; i++) {
     populateDb(sourceDb, docs);
     populateDb(targetDb, []);
 
@@ -93,7 +94,7 @@ couchTests.new_replication = function(debug) {
     T(repResult.history[0].docs_written === sourceInfo.doc_count);
     T(repResult.history[0].doc_write_failures === 0);
 
-    for (var j = 0; j < docs.length; j++) {
+    for (j = 0; j < docs.length; j++) {
       doc = docs[j];
       copy = targetDb.open(doc._id);
 
@@ -273,6 +274,26 @@ couchTests.new_replication = function(debug) {
 
     T(copy._rev.indexOf("4-") === 0);
     T(typeof copy._conflicts === "undefined");
+  }
+
+
+  // test create_target option
+  for (i = 0; i < dbPairs.length; i++) {
+    populateDb(sourceDb, docs);
+    targetDb.deleteDb();
+
+    repResult = CouchDB.new_replicate(
+      dbPairs[i].source,
+      dbPairs[i].target,
+      {body: {create_target: true}}
+    );
+    T(repResult.ok === true);
+
+    sourceInfo = sourceDb.info();
+    targetInfo = targetDb.info();
+
+    T(sourceInfo.doc_count === targetInfo.doc_count);
+    T(sourceInfo.update_seq === targetInfo.update_seq);
   }
 
 

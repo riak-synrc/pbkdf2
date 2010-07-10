@@ -34,6 +34,7 @@
 
 -export([
     db_open/2,
+    db_open/3,
     db_close/1,
     get_db_info/1,
     open_doc/3,
@@ -45,9 +46,32 @@
     changes_since/5
     ]).
 
-db_open(#httpdb{}=Db, _Options) ->
+db_open(Db, Options) ->
+    db_open(Db, Options, false).
+
+db_open(#httpdb{} = Db, _Options, Create) ->
+    #httpdb{url=Url, oauth=OAuth, headers=Headers} = Db,
+    case Create of
+    false ->
+        ok;
+    true ->
+        Headers2 = oauth_header(Url, [], put, OAuth) ++ Headers,
+        catch ibrowse:send_req(Url, Headers2, put, [],
+            [{response_format, binary}], infinity)
+    end,
     {ok, Db};
-db_open(DbName, Options) ->
+db_open(DbName, Options, Create) ->
+    case Create of
+    false ->
+        ok;
+    true ->
+        case couch_db:create(DbName, Options) of
+        {ok, _Db} ->
+            ok;
+        file_exists ->
+            ok
+        end
+    end,
     couch_db:open(DbName,Options).
 
 db_close(#httpdb{}) ->
