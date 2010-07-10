@@ -59,7 +59,7 @@ start(Src, Tgt, Options, UserCtx) ->
     
     % this is starts the _changes reader process. It adds the changes from
     % the source db to the ChangesQueue.
-    spawn_changes_reader(self(), StartSeq, Source, ChangesQueue),
+    spawn_changes_reader(self(), StartSeq, Source, ChangesQueue, Options),
     
     % this starts the missing revs finder, it checks the target for changes
     % in the ChangesQueue to see if they exist on the target or not. If not, 
@@ -121,16 +121,15 @@ init_state(Src,Tgt,Options,UserCtx)->
             self(), timed_checkpoint)}.
 
 
-spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue) ->
+spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
     spawn_link(
         fun()->
             couch_api_wrap:changes_since(Source, all_docs, StartSeq,
                 fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo, _) ->
                     Cp ! {seq_start, {Seq, length(Revs)}},
                     Cp ! {add_stat, {#stats.missing_checked, length(Revs)}},
-                    ok = couch_work_queue:queue(ChangesQueue, DocInfo),
-                    {ok, ok}
-                end, ok),
+                    ok = couch_work_queue:queue(ChangesQueue, DocInfo)
+                end, ok, Options),
             couch_work_queue:close(ChangesQueue)
         end).
 

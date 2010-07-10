@@ -297,6 +297,57 @@ couchTests.new_replication = function(debug) {
   }
 
 
+  // test filtered replication
+  docs = makeDocs(1, 31);
+  docs.push({
+    _id: "_design/mydesign",
+    language: "javascript",
+    filters: {
+      myfilter: (function(doc, req) {
+        var modulus = Number(req.query.modulus);
+        var special = req.query.special;
+        return (doc.integer % modulus === 0) || (doc.string === special);
+      }).toString()
+    }
+  });
+
+  for (i = 0; i < dbPairs.length; i++) {
+    populateDb(sourceDb, docs);
+    populateDb(targetDb, []);
+
+    repResult = CouchDB.new_replicate(
+      dbPairs[i].source,
+      dbPairs[i].target,
+      {
+        body: {
+          filter: "mydesign/myfilter",
+          query_params: {
+            modulus: 2,
+            special: "7"
+          }
+        }
+      }
+    );
+
+    T(repResult.ok === true);
+
+    for (j = 0; j < docs.length; j++) {
+      doc = docs[j];
+      copy = targetDb.open(doc._id);
+
+      if ((doc.integer && (doc.integer % 2 === 0)) || (doc.string === "7")) {
+
+        T(copy !== null);
+        for (var p in doc) {
+          T(copy[p] === doc[p]);
+        }
+      } else {
+        T(copy === null);
+      }
+    }
+  }
+
+
   // cleanup
   sourceDb.deleteDb();
   targetDb.deleteDb();

@@ -43,7 +43,7 @@
     get_missing_revs/2,
     open_doc_revs/6,
     update_doc/4,
-    changes_since/5
+    changes_since/6
     ]).
 
 db_open(Db, Options) ->
@@ -261,13 +261,12 @@ update_doc(#httpdb{} = HttpDb, Doc, Options, Type) ->
 update_doc(Db, Doc, Options, Type) ->
     couch_db:update_doc(Db, Doc, Options, Type).
 
-changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Acc) ->
+changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Acc, Options) ->
     #httpdb{url=Url, headers=Headers, oauth=OAuth} = HttpDb,
     Url2 = Url ++ "_changes",
-    QArgs = [
-        {"style", atom_to_list(Style)},
-        {"since", integer_to_list(StartSeq)}
-    ],
+    QArgs = changes_q_args(
+        [{"style", atom_to_list(Style)}, {"since", integer_to_list(StartSeq)}],
+        Options),
     Headers2 = oauth_header(Url2, QArgs, get, OAuth) ++ Headers,        
     #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
     {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
@@ -289,11 +288,59 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Acc) ->
     after
         catch ibrowse:stop_worker_process(Worker)
     end;
-changes_since(Db, Style, StartSeq, UserFun, Acc) ->
-    couch_db:changes_since(Db, Style, StartSeq, UserFun, Acc).
+changes_since(Db, Style, StartSeq, UserFun, Acc, Options) ->
+    FilterName = ?b2l(couch_util:get_value(filter, Options, <<>>)),
+    QueryParams = couch_util:get_value(query_params, Options, {[]}),
+    JsonReq = changes_json_req(Db, FilterName, QueryParams),
+    DocFilterFun = couch_changes:doc_info_filter_fun(FilterName, Style,
+        {json_req, JsonReq}, Db),
+    ChangesFun = fun(DocInfo, Acc2) ->
+        DocInfoList = DocFilterFun(DocInfo),
+        Acc3 = lists:foldl(UserFun, Acc2, DocInfoList),
+        {ok, Acc3}
+    end,
+    couch_db:changes_since(Db, Style, StartSeq, ChangesFun, Acc).
 
 
 % internal functions
+
+changes_q_args(BaseQS, Options) ->
+    case couch_util:get_value(filter, Options) of
+    undefined ->
+        BaseQS;
+    FilterName ->
+        {Params} = couch_util:get_value(query_params, Options, {[]}),
+        [{"filter", ?b2l(FilterName)} | lists:foldl(
+            fun({K, V}, QSAcc) ->
+                Ks = couch_util:to_list(K),
+                case lists:keymember(Ks, 1, QSAcc) of
+                true ->
+                    QSAcc;
+                false ->
+                    [{Ks, couch_util:to_list(V)} | QSAcc]
+                end
+            end,
+            BaseQS, Params)]
+    end.
+
+changes_json_req(_Db, "", _QueryParams) ->
+    {[]};
+changes_json_req(Db, FilterName, {QueryParams}) ->
+    {ok, Info} = couch_db:get_db_info(Db),
+    % simulate a request to db_name/_changes
+    {[
+        {<<"info">>, {Info}},
+        {<<"id">>, null},
+        {<<"method">>, 'GET'},
+        {<<"path">>, [couch_db:name(Db), <<"_changes">>]},
+        {<<"query">>, {[{<<"filter">>, FilterName} | QueryParams]}},
+        {<<"headers">>, []},
+        {<<"body">>, []},
+        {<<"peer">>, <<"replicator">>},
+        {<<"form">>, []},
+        {<<"cookie">>, []},
+        {<<"userCtx">>, couch_util:json_user_ctx(Db)}
+    ]}.
 
 options_to_query_args([], Acc) ->
     lists:reverse(Acc);
