@@ -44,8 +44,15 @@ handle_req(Req) ->
     send_method_not_allowed(Req, "POST").
 
 
+maybe_add_trailing_slash(Url) when is_binary(Url) ->
+    maybe_add_trailing_slash(?b2l(Url));
 maybe_add_trailing_slash(Url) ->
-    re:replace(Url, "[^/]$", "&/", [{return, list}]).
+    case lists:last(Url) of
+    $/ ->
+        Url;
+    _ ->
+        Url ++ "/"
+    end.
 
 parse_rep_db({Props}) ->
     Url = maybe_add_trailing_slash(couch_util:get_value(<<"url">>, Props)),
