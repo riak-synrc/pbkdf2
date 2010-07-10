@@ -386,6 +386,20 @@ CouchDB.replicate = function(source, target, rep_options) {
   return JSON.parse(CouchDB.last_req.responseText);
 }
 
+CouchDB.new_replicate = function(source, target, rep_options) {
+  rep_options = rep_options || {};
+  var headers = rep_options.headers || {};
+  var body = rep_options.body || {};
+  body.source = source;
+  body.target = target;
+  CouchDB.last_req = CouchDB.request("POST", "/_new_replicate", {
+    headers: headers,
+    body: JSON.stringify(body)
+  });
+  CouchDB.maybeThrowError(CouchDB.last_req);
+  return JSON.parse(CouchDB.last_req.responseText);
+};
+
 CouchDB.newXhr = function() {
   if (typeof(XMLHttpRequest) != "undefined") {
     return new XMLHttpRequest();

@@ -93,5 +93,6 @@ loadTest("view_pagination.js");
 loadTest("view_sandboxing.js");
 loadTest("view_update_seq.js");
 loadTest("view_xml.js");
+loadTest("new_replication.js");
 // keep sorted
 

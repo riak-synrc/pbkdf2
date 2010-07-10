@@ -514,6 +514,18 @@
       );
     },
 
+    new_replicate: function(source, target, ajaxOptions, replicationOptions) {
+      replicationOptions = $.extend({source: source, target: target}, replicationOptions);
+      ajax({
+          type: "POST", url: this.urlPrefix + "/_new_replicate",
+          data: JSON.stringify(replicationOptions),
+          contentType: "application/json"
+        },
+        ajaxOptions,
+        "Replication failed"
+      );
+    },
+
     newUUID: function(cacheNum) {
       if (cacheNum === undefined) {
         cacheNum = 1;

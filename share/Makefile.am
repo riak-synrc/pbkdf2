@@ -167,6 +167,7 @@ nobase_dist_localdata_DATA = \
     www/script/test/view_pagination.js \
     www/script/test/view_sandboxing.js \
     www/script/test/view_xml.js \
+    www/script/test/new_replication.js \
     www/status.html \
     www/style/layout.css \
     www/_sidebar.html
