@@ -43,9 +43,11 @@ couchTests.new_replication = function(debug) {
   var i, j;
 
 
-  function populateDb(db, docs) {
-    db.deleteDb();
-    db.createDb();
+  function populateDb(db, docs, dontRecreateDb) {
+    if (dontRecreateDb !== true) {
+      db.deleteDb();
+      db.createDb();
+    }
     for (var i = 0; i < docs.length; i++) {
       var doc = docs[i];
       delete doc._rev;
@@ -345,6 +347,69 @@ couchTests.new_replication = function(debug) {
         T(copy === null);
       }
     }
+
+    T(repResult.history instanceof Array);
+    T(repResult.history.length === 1);
+    // NOT 31 (31 is db seq for last doc - the ddoc, which was not replicated)
+    T(repResult.source_last_seq === 30);
+    T(repResult.history[0].start_last_seq === 0);
+    T(repResult.history[0].end_last_seq === 30);
+    T(repResult.history[0].recorded_seq === 30);
+    // 16 => 15 docs with even integer field  + 1 doc with string field "7"
+    T(repResult.history[0].missing_checked === 16);
+    T(repResult.history[0].missing_found === 16);
+    T(repResult.history[0].docs_read === 16);
+    T(repResult.history[0].docs_written === 16);
+    T(repResult.history[0].doc_write_failures === 0);
+
+
+    // add new docs to source and resume the same replication
+    var newDocs = makeDocs(50, 56);
+    populateDb(sourceDb, newDocs, true);
+
+    repResult = CouchDB.new_replicate(
+      dbPairs[i].source,
+      dbPairs[i].target,
+      {
+        body: {
+          filter: "mydesign/myfilter",
+          query_params: {
+            modulus: 2,
+            special: "7"
+          }
+        }
+      }
+    );
+
+    T(repResult.ok === true);
+
+    for (j = 0; j < newDocs.length; j++) {
+      doc = newDocs[j];
+      copy = targetDb.open(doc._id);
+
+      if (doc.integer && (doc.integer % 2 === 0)) {
+
+        T(copy !== null);
+        for (var p in doc) {
+          T(copy[p] === doc[p]);
+        }
+      } else {
+        T(copy === null);
+      }
+    }
+
+    // last doc has even integer field, so last replicated seq is 36
+    T(repResult.source_last_seq === 36);
+    T(repResult.history instanceof Array);
+    T(repResult.history.length === 2);
+    T(repResult.history[0].start_last_seq === 30);
+    T(repResult.history[0].end_last_seq === 36);
+    T(repResult.history[0].recorded_seq === 36);
+    T(repResult.history[0].missing_checked === 3);
+    T(repResult.history[0].missing_found === 3);
+    T(repResult.history[0].docs_read === 3);
+    T(repResult.history[0].docs_written === 3);
+    T(repResult.history[0].doc_write_failures === 0);
   }
 
 
