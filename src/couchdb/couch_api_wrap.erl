@@ -41,6 +41,7 @@
     update_doc/3,
     ensure_full_commit/1,
     get_missing_revs/2,
+    open_doc/4,
     open_doc_revs/6,
     update_doc/4,
     changes_since/6
@@ -201,6 +202,66 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
 open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
+
+
+open_doc(#httpdb{} = HttpDb, Id, Options, Fun) ->
+    #httpdb{url=Url, oauth=OAuth, headers=Headers} = HttpDb,
+    QArgs = [
+        {"attachments", "true"},
+        {"revs", "true"} |
+        options_to_query_args(Options, [])
+    ],
+    IdEncoded = case Id of
+    <<"_design/", RestId/binary>> ->
+        "_design/" ++ couch_util:url_encode(RestId);
+    _ ->
+        couch_util:url_encode(Id)
+    end,
+    Headers2 = oauth_header(Url ++ IdEncoded, QArgs, get, OAuth) ++
+        [{"accept", "application/json, multipart/related"} | Headers],
+    Self = self(),
+    Streamer = spawn_link(fun() ->
+            FullUrl = Url ++ IdEncoded ++ query_args_to_string(QArgs, []),
+            #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
+            {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+            {ibrowse_req_id, ReqId} = ibrowse:send_req_direct(Worker, FullUrl,
+                Headers2, get, [],
+                [{response_format, binary}, {stream_to, {self(), once}}],
+                infinity),
+
+            DataFun = fun() -> stream_data_self(ReqId) end,
+            receive
+            {ibrowse_async_headers, ReqId, "200", RespHeaders} ->
+                case couch_util:get_value("Content-Type", RespHeaders) of
+                ("multipart/related;" ++ _) = CType ->
+                     {ok, Doc} = couch_doc:doc_from_multi_part_stream(
+                         CType, DataFun);
+                "application/json" ->
+                     Doc = couch_doc:from_json_obj(
+                         json_stream_parse:to_ejson(DataFun))
+                end,
+                receive
+                {get_doc, From} ->
+                    From ! {doc, Doc}
+                end;
+            {ibrowse_async_headers, ReqId, _ErrorCode, _RespHeaders} ->
+                receive
+                {get_doc, From} ->
+                    From ! {error, json_stream_parse:to_ejson(DataFun)}
+                end
+            end,
+            catch ibrowse:stop_worker_process(Worker),
+            unlink(Self)
+        end),
+    Streamer ! {get_doc, self()},
+    receive
+    {doc, Doc} ->
+        Fun({ok, Doc});
+    {error, Error} ->
+        Fun(Error)
+    end;
+open_doc(Db, Id, Options, Fun) ->
+    Fun(couch_db:open_doc(Db, Id, Options)).
 
 
 update_doc(#httpdb{} = HttpDb, Doc, Options, Type) ->

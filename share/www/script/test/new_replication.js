@@ -40,7 +40,7 @@ couchTests.new_replication = function(debug) {
   var sourceInfo, targetInfo;
   var docs, doc, copy;
   var repResult;
-  var i, j;
+  var i, j, k;
 
 
   function populateDb(db, docs, dontRecreateDb) {
@@ -410,6 +410,191 @@ couchTests.new_replication = function(debug) {
     T(repResult.history[0].docs_read === 3);
     T(repResult.history[0].docs_written === 3);
     T(repResult.history[0].doc_write_failures === 0);
+  }
+
+
+  // test replication by doc IDs
+  docs = makeDocs(1, 11);
+  docs.push({
+    _id: "_design/foo",
+    language: "javascript",
+    integer: 1
+  });
+
+  var target_doc_ids = [
+    { initial: ["1", "2", "10"], after: [], conflict_id: "2" },
+    { initial: ["1", "2"], after: ["7"], conflict_id: "1" },
+    { initial: ["1", "foo_666", "10"], after: ["7"], conflict_id: "10" },
+    { initial: ["_design/foo", "8"], after: ["foo_5"], conflict_id: "8" },
+    { initial: [], after: ["foo_1000", "_design/foo", "1"], conflict_id: "1" }
+  ];
+  var doc_ids, after_doc_ids;
+  var id, num_inexistent_docs, after_num_inexistent_docs;
+  var total, after_total;
+
+  for (i = 0; i < dbPairs.length; i++) {
+
+    for (j = 0; j < target_doc_ids.length; j++) {
+      doc_ids = target_doc_ids[j].initial;
+      num_inexistent_docs = 0;
+
+      for (k = 0; k < doc_ids.length; k++) {
+        id = doc_ids[k];
+        if (id.indexOf("foo_") === 0) {
+          num_inexistent_docs += 1;
+        }
+      }
+
+      populateDb(sourceDb, docs);
+      populateDb(targetDb, []);
+
+      repResult = CouchDB.new_replicate(
+        dbPairs[i].source,
+        dbPairs[i].target,
+        {
+          body: {
+            doc_ids: doc_ids
+          }
+        }
+      );
+
+      total = doc_ids.length - num_inexistent_docs;
+      T(repResult.ok === true);
+      T(typeof repResult.start_time === "string");
+      T(typeof repResult.end_time === "string");
+      T(repResult.docs_read === total);
+      T(repResult.docs_written === total);
+      T(repResult.doc_write_failures === 0);
+
+      targetInfo = targetDb.info();
+      T(targetInfo.doc_count === total);
+
+      for (k = 0; k < doc_ids.length; k++) {
+        id = doc_ids[k];
+        doc = sourceDb.open(id);
+        copy = targetDb.open(id);
+
+        if (id.indexOf("foo_") === 0) {
+          T(doc === null);
+          T(copy === null);
+        } else {
+          T(doc !== null);
+          T(copy !== null);
+          for (var p in doc) {
+            T(copy[p] === doc[p]);
+          }
+        }
+      }
+
+      // add more docs throught replication by doc IDs
+      after_doc_ids = target_doc_ids[j].after;
+      after_num_inexistent_docs = 0;
+
+      for (k = 0; k < after_doc_ids.length; k++) {
+        id = after_doc_ids[k];
+        if (id.indexOf("foo_") === 0) {
+          after_num_inexistent_docs += 1;
+        }
+      }
+
+      repResult = CouchDB.new_replicate(
+        dbPairs[i].source,
+        dbPairs[i].target,
+        {
+          body: {
+            doc_ids: after_doc_ids
+          }
+        }
+      );
+
+      after_total = after_doc_ids.length - after_num_inexistent_docs;
+      T(repResult.ok === true);
+      T(typeof repResult.start_time === "string");
+      T(typeof repResult.end_time === "string");
+      T(repResult.docs_read === after_total);
+      T(repResult.docs_written === after_total);
+      T(repResult.doc_write_failures === 0);
+
+      targetInfo = targetDb.info();
+      T(targetInfo.doc_count === (total + after_total));
+
+      for (k = 0; k < after_doc_ids.length; k++) {
+        id = after_doc_ids[k];
+        doc = sourceDb.open(id);
+        copy = targetDb.open(id);
+
+        if (id.indexOf("foo_") === 0) {
+          T(doc === null);
+          T(copy === null);
+        } else {
+          T(doc !== null);
+          T(copy !== null);
+          for (var p in doc) {
+            T(copy[p] === doc[p]);
+          }
+        }
+      }
+
+      // replicate again the same doc after updated on source (no conflict)
+      id = target_doc_ids[j].conflict_id;
+      doc = sourceDb.open(id);
+      T(doc !== null);
+      doc.integer += 100;
+      T(sourceDb.save(doc).ok);
+
+      repResult = CouchDB.new_replicate(
+        dbPairs[i].source,
+        dbPairs[i].target,
+        {
+          body: {
+            doc_ids: [id]
+          }
+        }
+      );
+
+      T(repResult.ok === true);
+      T(repResult.docs_read === 1);
+      T(repResult.docs_written === 1);
+      T(repResult.doc_write_failures === 0);
+
+      copy = targetDb.open(id, {conflicts: true});
+
+      T(copy._rev.indexOf("2-") === 0);
+      T(typeof copy._conflicts === "undefined");
+
+      // generate a conflict throught replication by doc IDs
+      id = target_doc_ids[j].conflict_id;
+      doc = sourceDb.open(id);
+      copy = targetDb.open(id);
+      T(doc !== null);
+      T(copy !== null);
+      doc.integer += 100;
+      copy.integer += 1;
+      T(sourceDb.save(doc).ok);
+      T(targetDb.save(copy).ok);
+
+      repResult = CouchDB.new_replicate(
+        dbPairs[i].source,
+        dbPairs[i].target,
+        {
+          body: {
+            doc_ids: [id]
+          }
+        }
+      );
+
+      T(repResult.ok === true);
+      T(repResult.docs_read === 1);
+      T(repResult.docs_written === 1);
+      T(repResult.doc_write_failures === 0);
+
+      copy = targetDb.open(id, {conflicts: true});
+
+      T(copy._rev.indexOf("3-") === 0);
+      T(copy._conflicts instanceof Array);
+      T(copy._conflicts.length === 1);
+      T(copy._conflicts[0].indexOf("3-") === 0);
+    }
   }
 
 

@@ -52,20 +52,30 @@ start(Src, Tgt, Options, UserCtx) ->
     % for incremental replication.
     #rep_state{source=Source, target=Target, start_seq=StartSeq} = State =
             init_state(Src, Tgt, Options, UserCtx), 
-    
-    % Create the work queues
-    {ok, ChangesQueue} = couch_work_queue:new(100000, 500),
+
     {ok, MissingRevsQueue} = couch_work_queue:new(100000, 500),
-    
-    % this is starts the _changes reader process. It adds the changes from
-    % the source db to the ChangesQueue.
-    spawn_changes_reader(self(), StartSeq, Source, ChangesQueue, Options),
-    
-    % this starts the missing revs finder, it checks the target for changes
-    % in the ChangesQueue to see if they exist on the target or not. If not, 
-    % adds them to MissingRevsQueue.
-    spawn_missing_revs_finder(self(), Target, ChangesQueue, MissingRevsQueue),
-    
+
+    case couch_util:get_value(doc_ids, Options) of
+    undefined ->
+        {ok, ChangesQueue} = couch_work_queue:new(100000, 500),
+
+        % this is starts the _changes reader process. It adds the changes from
+        % the source db to the ChangesQueue.
+        spawn_changes_reader(self(), StartSeq, Source, ChangesQueue, Options),
+
+        % this starts the missing revs finder, it checks the target for changes
+        % in the ChangesQueue to see if they exist on the target or not. If not,
+        % adds them to MissingRevsQueue.
+        spawn_missing_revs_finder(self(), Target, ChangesQueue,
+            MissingRevsQueue);
+    DocIds ->
+        lists:foreach(
+            fun(DocId) ->
+                ok = couch_work_queue:queue(MissingRevsQueue, {doc_id, DocId})
+            end, DocIds),
+        couch_work_queue:close(MissingRevsQueue)
+    end,
+
     % This starts the doc copy process. It gets the documents from the
     % MissingRevsQueue, copying them from the source to the target database.
     spawn_doc_copy(self(), Source, Target, MissingRevsQueue),
@@ -73,12 +83,26 @@ start(Src, Tgt, Options, UserCtx) ->
     % This is the checkpoint loop, it updates the replication record in the
     % database every X seconds, so that if the replication is interuppted,
     % it can restart near where it left off.
-    {ok, State2, _Stats} = checkpoint_loop(State, gb_trees:from_orddict([]),
+    {ok, State2, Stats} = checkpoint_loop(State, gb_trees:from_orddict([]),
             #stats{}),
     couch_api_wrap:db_close(Source),        
     couch_api_wrap:db_close(Target),
-    {ok, State2#rep_state.checkpoint_history}.
+    {ok, get_result(State2, Stats, Options)}.
 
+
+get_result(State, Stats, Options) ->
+    case couch_util:get_value(doc_ids, Options) of
+    undefined ->
+        State#rep_state.checkpoint_history;
+    _DocIdList ->
+        {[
+            {<<"start_time">>, ?l2b(State#rep_state.rep_starttime)},
+            {<<"end_time">>, ?l2b(httpd_util:rfc1123_date())},
+            {<<"docs_read">>, Stats#stats.docs_read},
+            {<<"docs_written">>, Stats#stats.docs_written},
+            {<<"doc_write_failures">>, Stats#stats.doc_write_failures}
+        ]}
+    end.
 
 
 init_state(Src,Tgt,Options,UserCtx)->    
@@ -117,8 +141,15 @@ init_state(Src,Tgt,Options,UserCtx)->
         src_starttime = couch_util:get_value(instance_start_time, SourceInfo),
         tgt_starttime = couch_util:get_value(instance_start_time, TargetInfo)
     },
-    State#rep_state{timer = erlang:start_timer(checkpoint_interval(State),
-            self(), timed_checkpoint)}.
+    State#rep_state{
+        timer = case couch_util:get_value(doc_ids, Options) of
+        undefined ->
+            erlang:start_timer(checkpoint_interval(State),
+                self(), timed_checkpoint);
+        _DocIdList ->
+            nil
+        end
+    }.
 
 
 spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
@@ -209,26 +240,30 @@ doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
     case couch_work_queue:dequeue(MissingRevsQueue,1) of
     closed ->
         Cp ! done;
+    {ok, [{doc_id, Id}]} ->
+        couch_api_wrap:open_doc(
+            Source, Id, [], fun(R) -> doc_handler(R, Target, Cp) end),
+        doc_copy_loop(Cp, Source, Target, MissingRevsQueue);
     {ok, [{Id, Revs, PossibleAncestors, Seq}]} ->
-        DocFun = fun({ok, Doc}, _) ->
-            % we are called for every rev read on the source
-            Cp ! {add_stat, {#stats.docs_read, 1}},
-            % now write the doc to the target.
-            case couch_api_wrap:update_doc(Target, Doc, [],
-                replicated_changes) of
-            {ok, _} ->
-                Cp ! {add_stat, {#stats.docs_written, 1}};
-            _Error ->
-                Cp ! {add_stat, {#stats.doc_write_failures, 1}}
-            end;
-        (_, _) ->
-            ok
-        end,
-        couch_api_wrap:open_doc_revs(Source, Id, Revs,
-            [{atts_since, PossibleAncestors}], DocFun, []),
+        couch_api_wrap:open_doc_revs(
+            Source, Id, Revs, [{atts_since, PossibleAncestors}],
+            fun(R, _) -> doc_handler(R, Target, Cp) end, []),
         Cp ! {seq_changes_done, {Seq, length(Revs)}},
         doc_copy_loop(Cp, Source, Target, MissingRevsQueue)
     end.
+
+doc_handler({ok, Doc}, Target, Cp) ->
+    % we are called for every rev read on the source
+    Cp ! {add_stat, {#stats.docs_read, 1}},
+    % now write the doc to the target.
+    case couch_api_wrap:update_doc(Target, Doc, [], replicated_changes) of
+    {ok, _} ->
+        Cp ! {add_stat, {#stats.docs_written, 1}};
+    _Error ->
+        Cp ! {add_stat, {#stats.doc_write_failures, 1}}
+    end;
+doc_handler(_, _, _) ->
+    ok.
 
 checkpoint_loop(State, SeqsInProgress, Stats) ->
     % SeqsInProgress contains the number of revs for each seq found by the
@@ -270,7 +305,7 @@ checkpoint_loop(State, SeqsInProgress, Stats) ->
         % Assert that all the seqs have been processed
         0 = gb_trees:size(SeqsInProgress),
         State2 = do_checkpoint(State, Stats),
-        erlang:cancel_timer(State2#rep_state.timer),
+        cancel_timer(State2),
         receive timed_checkpoint -> ok
         after 0 -> ok
         end,
@@ -282,6 +317,11 @@ checkpoint_loop(State, SeqsInProgress, Stats) ->
             self(), timed_checkpoint),
         checkpoint_loop(State2#rep_state{timer=Timer}, SeqsInProgress, Stats)
     end.
+
+cancel_timer(#rep_state{timer = nil}) ->
+    ok;
+cancel_timer(#rep_state{timer = Timer}) ->
+    erlang:cancel_timer(Timer).
 
 
 checkpoint_interval(_State) ->

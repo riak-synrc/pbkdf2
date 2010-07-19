@@ -108,6 +108,8 @@ convert_options([{<<"filter">>, V} | R]) ->
     [{filter, V} | convert_options(R)];
 convert_options([{<<"query_params">>, V} | R]) ->
     [{query_params, V} | convert_options(R)];
+convert_options([{<<"doc_ids">>, V} | R]) ->
+    [{doc_ids, V} | convert_options(R)];
 convert_options([_ | R]) -> % skip unknown option
     convert_options(R).
 
