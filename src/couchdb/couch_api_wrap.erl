@@ -37,10 +37,10 @@
     db_open/3,
     db_close/1,
     get_db_info/1,
-    open_doc/3,
     update_doc/3,
     ensure_full_commit/1,
     get_missing_revs/2,
+    open_doc/3,
     open_doc/4,
     open_doc_revs/6,
     update_doc/4,
@@ -92,27 +92,6 @@ get_db_info(#httpdb{url=Url,oauth=OAuth,headers=Headers}) ->
     end;
 get_db_info(Db) ->
     couch_db:get_db_info(Db).
-
-
-open_doc(#httpdb{url=Url, oauth=OAuth, headers=Headers}, DocId, Options) ->
-    Url2 = Url ++ couch_util:url_encode(DocId),
-    QArgs = options_to_query_args(Options, []),
-    Headers2 = oauth_header(Url2, QArgs, get, OAuth) ++ Headers,
-    #url{host=Host, port=Port} = ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host,Port),
-    try ibrowse:send_req_direct(Worker, Url2 ++ query_args_to_string(QArgs, []), 
-            Headers2, get, [], [ 
-            {response_format,binary}
-            ], infinity) of
-    {ok, "200", _RespHeaders, Body} ->
-        {ok, couch_doc:from_json_obj(?JSON_DECODE(Body))};
-    {ok, "404", _RespHeaders, _Body} ->
-        {not_found, missing}
-    after
-        catch ibrowse:stop_worker_process(Worker)
-    end;
-open_doc(Db, DocId, Options) ->
-    couch_db:open_doc(Db, DocId, Options).
 
 
 update_doc(Db, Doc, Options) ->
@@ -203,8 +182,10 @@ open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
 
+open_doc(Db, Id, Options, Fun) ->
+    Fun(open_doc(Db, Id, Options)).
 
-open_doc(#httpdb{} = HttpDb, Id, Options, Fun) ->
+open_doc(#httpdb{} = HttpDb, Id, Options) ->
     #httpdb{url=Url, oauth=OAuth, headers=Headers} = HttpDb,
     QArgs = [
         {"attachments", "true"},
@@ -229,39 +210,48 @@ open_doc(#httpdb{} = HttpDb, Id, Options, Fun) ->
                 [{response_format, binary}, {stream_to, {self(), once}}],
                 infinity),
 
-            DataFun = fun() -> stream_data_self(ReqId) end,
             receive
-            {ibrowse_async_headers, ReqId, "200", RespHeaders} ->
-                case couch_util:get_value("Content-Type", RespHeaders) of
-                ("multipart/related;" ++ _) = CType ->
-                     {ok, Doc} = couch_doc:doc_from_multi_part_stream(
-                         CType, DataFun);
+            {ibrowse_async_headers, ReqId, Code, RespHeaders} ->
+                CType = couch_util:get_value("Content-Type", RespHeaders),
+                Self ! {self(), CType},
+                case CType of
                 "application/json" ->
-                     Doc = couch_doc:from_json_obj(
-                         json_stream_parse:to_ejson(DataFun))
-                end,
-                receive
-                {get_doc, From} ->
-                    From ! {doc, Doc}
-                end;
-            {ibrowse_async_headers, ReqId, _ErrorCode, _RespHeaders} ->
-                receive
-                {get_doc, From} ->
-                    From ! {error, json_stream_parse:to_ejson(DataFun)}
+                    receive
+                    {get, From} ->
+                        EJson = json_stream_parse:to_ejson(
+                            fun() -> stream_data_self(ReqId) end),
+                        case Code of
+                        "200" ->
+                            Doc = couch_doc:from_json_obj(EJson),
+                            From ! {data, self(), Doc};
+                        _ErrorCode ->
+                            From ! {data, self(), EJson}
+                         end
+                    end;
+                "multipart/related;" ++ _ ->
+                    couch_httpd:parse_multipart_request(
+                        CType,
+                        fun() -> stream_data_self(ReqId) end,
+                        fun(Ev)-> couch_doc:mp_parse_doc(Ev, []) end)
                 end
             end,
             catch ibrowse:stop_worker_process(Worker),
             unlink(Self)
         end),
-    Streamer ! {get_doc, self()},
     receive
-    {doc, Doc} ->
-        Fun({ok, Doc});
-    {error, Error} ->
-        Fun(Error)
+    {Streamer, "application/json"} ->
+        Streamer ! {get, self()},
+        receive
+        {data, Streamer, #doc{} = Doc} ->
+            {ok, Doc};
+        {data, Streamer, Error} ->
+            Error
+        end;
+    {Streamer, "multipart/related;" ++ _} ->
+        couch_doc:doc_from_multi_part_stream(Streamer)
     end;
-open_doc(Db, Id, Options, Fun) ->
-    Fun(couch_db:open_doc(Db, Id, Options)).
+open_doc(Db, Id, Options) ->
+    couch_db:open_doc(Db, Id, Options).
 
 
 update_doc(#httpdb{} = HttpDb, Doc, Options, Type) ->

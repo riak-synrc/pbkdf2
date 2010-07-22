@@ -37,6 +37,12 @@ couchTests.new_replication = function(debug) {
     }
   ];
 
+  var att1_data = CouchDB.request("GET", "/_utils/script/test/lorem.txt");
+  att1_data = att1_data.responseText;
+
+  var att2_data = CouchDB.request("GET", "/_utils/script/test/lorem_b64.txt");
+  att2_data = att2_data.responseText;
+
   var sourceInfo, targetInfo;
   var docs, doc, copy;
   var repResult;
@@ -58,6 +64,47 @@ couchTests.new_replication = function(debug) {
   }
 
 
+  function addAtt(db, doc, attName, attData, type) {
+    var uri = "/" + db.name + "/" + encodeURIComponent(doc._id) + "/" + attName;
+
+    if (doc._rev) {
+      uri += "?rev=" + doc._rev;
+    }
+
+    var xhr = CouchDB.request("PUT", uri, {
+      headers: {
+        "Content-Type": type
+      },
+      body: attData
+    });
+
+    T(xhr.status === 201);
+    doc._rev = JSON.parse(xhr.responseText).rev;
+  }
+
+
+  function compareObjects(o1, o2) {
+    for (var p in o1) {
+      if (o1[p] === null && o2[p] !== null) {
+        return false;
+      } else if (typeof o1[p] === "object") {
+        if ((typeof o2[p] !== "object") || o2[p] === null) {
+          return false;
+        }
+        if (!arguments.callee(o1[p], o2[p])) {
+          return false;
+        }
+      } else {
+        if (o1[p] !== o2[p]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+
+
   // test simple replications (not continuous, not filtered), including
   // conflict creation
   docs = makeDocs(1, 21);
@@ -71,6 +118,11 @@ couchTests.new_replication = function(debug) {
     populateDb(sourceDb, docs);
     populateDb(targetDb, []);
 
+    // add some attachments
+    for (j = 10; j < 15; j++) {
+      addAtt(sourceDb, docs[j], "readme.txt", att1_data, "text/plain");
+    }
+
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
     T(repResult.ok === true);
 
@@ -78,7 +130,6 @@ couchTests.new_replication = function(debug) {
     targetInfo = targetDb.info();
 
     T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === targetInfo.update_seq);
 
     T(typeof repResult.session_id === "string");
     T(repResult.source_last_seq === sourceInfo.update_seq);
@@ -101,18 +152,37 @@ couchTests.new_replication = function(debug) {
       copy = targetDb.open(doc._id);
 
       T(copy !== null);
-      for (var p in doc) {
-        T(copy[p] === doc[p]);
+      T(compareObjects(doc, copy) === true);
+
+      if (j >= 10 && j < 15) {
+        var atts = copy._attachments;
+        T(typeof atts === "object");
+        T(typeof atts["readme.txt"] === "object");
+        T(atts["readme.txt"].revpos === 2);
+        T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
+        T(atts["readme.txt"].stub === true);
+
+        var att_copy = CouchDB.request(
+          "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
+        ).responseText;
+        T(att_copy.length === att1_data.length);
+        T(att_copy === att1_data);
       }
     }
 
 
-    // add one more doc to source and replicate again
+    // add one more doc to source, more attachments to some existing docs
+    // and replicate again
     var newDoc = {
       _id: "foo666",
       value: "d"
     };
     T(sourceDb.save(newDoc).ok);
+
+    // add some more attachments
+    for (j = 10; j < 15; j++) {
+      addAtt(sourceDb, docs[j], "data.dat", att2_data, "application/binary");
+    }
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
     T(repResult.ok === true);
@@ -121,7 +191,6 @@ couchTests.new_replication = function(debug) {
     targetInfo = targetDb.info();
 
     T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === targetInfo.update_seq);
 
     T(typeof repResult.session_id === "string");
     T(repResult.source_last_seq === sourceInfo.update_seq);
@@ -130,19 +199,51 @@ couchTests.new_replication = function(debug) {
     T(repResult.history[0].session_id === repResult.session_id);
     T(typeof repResult.history[0].start_time === "string");
     T(typeof repResult.history[0].end_time === "string");
-    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 1));
+    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 6));
     T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
     T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === 1);
-    T(repResult.history[0].missing_found === 1);
-    T(repResult.history[0].docs_read === 1);
-    T(repResult.history[0].docs_written === 1);
+    T(repResult.history[0].missing_checked === 6);
+    T(repResult.history[0].missing_found === 6);
+    T(repResult.history[0].docs_read === 6);
+    T(repResult.history[0].docs_written === 6);
     T(repResult.history[0].doc_write_failures === 0);
 
     copy = targetDb.open(newDoc._id);
     T(copy !== null);
     T(copy._id === newDoc._id);
     T(copy.value === newDoc.value);
+
+    for (j = 10; j < 15; j++) {
+      doc = docs[j];
+      copy = targetDb.open(doc._id);
+
+      T(copy !== null);
+      T(compareObjects(doc, copy) === true);
+
+      var atts = copy._attachments;
+      T(typeof atts === "object");
+      T(typeof atts["readme.txt"] === "object");
+      T(atts["readme.txt"].revpos === 2);
+      T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
+      T(atts["readme.txt"].stub === true);
+
+      var att1_copy = CouchDB.request(
+        "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
+      ).responseText;
+      T(att1_copy.length === att1_data.length);
+      T(att1_copy === att1_data);
+
+      T(typeof atts["data.dat"] === "object");
+      T(atts["data.dat"].revpos === 3);
+      T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
+      T(atts["data.dat"].stub === true);
+
+      var att2_copy = CouchDB.request(
+        "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
+      ).responseText;
+      T(att2_copy.length === att2_data.length);
+      T(att2_copy === att2_data);
+    }
 
     // test deletion is replicated
     doc = sourceDb.open(docs[1]._id);
@@ -155,7 +256,6 @@ couchTests.new_replication = function(debug) {
     targetInfo = targetDb.info();
 
     T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === targetInfo.update_seq);
     T(sourceInfo.doc_del_count === targetInfo.doc_del_count);
     T(targetInfo.doc_del_count === 1);
 
@@ -173,10 +273,10 @@ couchTests.new_replication = function(debug) {
     copy = targetDb.open(docs[1]._id);
     T(copy === null);
 
-    var changes = targetDb.changes({since: sourceInfo.update_seq - 1});
-    T(changes.results[0].id === docs[1]._id);
-    T(changes.results[0].seq === sourceInfo.update_seq);
-    T(changes.results[0].deleted === true);
+    var changes = targetDb.changes({since: 0});
+    var idx = changes.results.length - 1;
+    T(changes.results[idx].id === docs[1]._id);
+    T(changes.results[idx].deleted === true);
 
     // test conflict
     doc = sourceDb.open(docs[0]._id);
@@ -194,7 +294,6 @@ couchTests.new_replication = function(debug) {
     targetInfo = targetDb.info();
 
     T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === (targetInfo.update_seq - 1));
 
     T(repResult.history instanceof Array);
     T(repResult.history.length === 4);
@@ -225,7 +324,6 @@ couchTests.new_replication = function(debug) {
     targetInfo = targetDb.info();
 
     T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === (targetInfo.update_seq - 1));
 
     T(repResult.history instanceof Array);
     T(repResult.history.length === 5);
@@ -259,7 +357,6 @@ couchTests.new_replication = function(debug) {
     targetInfo = targetDb.info();
 
     T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === (targetInfo.update_seq - 2));
 
     T(repResult.history instanceof Array);
     T(repResult.history.length === 6);
@@ -340,9 +437,7 @@ couchTests.new_replication = function(debug) {
       if ((doc.integer && (doc.integer % 2 === 0)) || (doc.string === "7")) {
 
         T(copy !== null);
-        for (var p in doc) {
-          T(copy[p] === doc[p]);
-        }
+        T(compareObjects(doc, copy) === true);
       } else {
         T(copy === null);
       }
@@ -390,9 +485,7 @@ couchTests.new_replication = function(debug) {
       if (doc.integer && (doc.integer % 2 === 0)) {
 
         T(copy !== null);
-        for (var p in doc) {
-          T(copy[p] === doc[p]);
-        }
+        T(compareObjects(doc, copy) === true);
       } else {
         T(copy === null);
       }
@@ -466,9 +559,6 @@ couchTests.new_replication = function(debug) {
       T(repResult.docs_written === total);
       T(repResult.doc_write_failures === 0);
 
-      targetInfo = targetDb.info();
-      T(targetInfo.doc_count === total);
-
       for (k = 0; k < doc_ids.length; k++) {
         id = doc_ids[k];
         doc = sourceDb.open(id);
@@ -480,11 +570,25 @@ couchTests.new_replication = function(debug) {
         } else {
           T(doc !== null);
           T(copy !== null);
-          for (var p in doc) {
-            T(copy[p] === doc[p]);
-          }
+          T(compareObjects(doc, copy) === true);
         }
       }
+
+      // be absolutely sure that other docs were not replicated
+      for (k = 0; k < docs.length; k++) {
+        id = docs[k]._id;
+        doc = targetDb.open(id);
+
+        if (doc_ids.indexOf(id) >= 0) {
+            T(doc !== null);
+        } else {
+            T(doc === null);
+        }
+      }
+
+      targetInfo = targetDb.info();
+      T(targetInfo.doc_count === total);
+
 
       // add more docs throught replication by doc IDs
       after_doc_ids = target_doc_ids[j].after;
@@ -515,9 +619,6 @@ couchTests.new_replication = function(debug) {
       T(repResult.docs_written === after_total);
       T(repResult.doc_write_failures === 0);
 
-      targetInfo = targetDb.info();
-      T(targetInfo.doc_count === (total + after_total));
-
       for (k = 0; k < after_doc_ids.length; k++) {
         id = after_doc_ids[k];
         doc = sourceDb.open(id);
@@ -529,18 +630,34 @@ couchTests.new_replication = function(debug) {
         } else {
           T(doc !== null);
           T(copy !== null);
-          for (var p in doc) {
-            T(copy[p] === doc[p]);
-          }
+          T(compareObjects(doc, copy) === true);
         }
       }
+
+      // be absolutely sure that other docs were not replicated
+      for (k = 0; k < docs.length; k++) {
+        id = docs[k]._id;
+        doc = targetDb.open(id);
+
+        if ((doc_ids.indexOf(id) >= 0) || (after_doc_ids.indexOf(id) >= 0)) {
+            T(doc !== null);
+        } else {
+            T(doc === null);
+        }
+      }
+
+      targetInfo = targetDb.info();
+      T(targetInfo.doc_count === (total + after_total));
+
 
       // replicate again the same doc after updated on source (no conflict)
       id = target_doc_ids[j].conflict_id;
       doc = sourceDb.open(id);
       T(doc !== null);
-      doc.integer += 100;
+      doc.integer = 666;
       T(sourceDb.save(doc).ok);
+      addAtt(sourceDb, doc, "readme.txt", att1_data, "text/plain");
+      addAtt(sourceDb, doc, "data.dat", att2_data, "application/binary");
 
       repResult = CouchDB.new_replicate(
         dbPairs[i].source,
@@ -559,8 +676,34 @@ couchTests.new_replication = function(debug) {
 
       copy = targetDb.open(id, {conflicts: true});
 
-      T(copy._rev.indexOf("2-") === 0);
+      T(copy.integer === 666);
+      T(copy._rev.indexOf("4-") === 0);
       T(typeof copy._conflicts === "undefined");
+
+      var atts = copy._attachments;
+      T(typeof atts === "object");
+      T(typeof atts["readme.txt"] === "object");
+      T(atts["readme.txt"].revpos === 3);
+      T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
+      T(atts["readme.txt"].stub === true);
+
+      var att1_copy = CouchDB.request(
+        "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
+      ).responseText;
+      T(att1_copy.length === att1_data.length);
+      T(att1_copy === att1_data);
+
+      T(typeof atts["data.dat"] === "object");
+      T(atts["data.dat"].revpos === 4);
+      T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
+      T(atts["data.dat"].stub === true);
+
+      var att2_copy = CouchDB.request(
+        "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
+      ).responseText;
+      T(att2_copy.length === att2_data.length);
+      T(att2_copy === att2_data);
+
 
       // generate a conflict throught replication by doc IDs
       id = target_doc_ids[j].conflict_id;
@@ -590,10 +733,10 @@ couchTests.new_replication = function(debug) {
 
       copy = targetDb.open(id, {conflicts: true});
 
-      T(copy._rev.indexOf("3-") === 0);
+      T(copy._rev.indexOf("5-") === 0);
       T(copy._conflicts instanceof Array);
       T(copy._conflicts.length === 1);
-      T(copy._conflicts[0].indexOf("3-") === 0);
+      T(copy._conflicts[0].indexOf("5-") === 0);
     }
   }
 

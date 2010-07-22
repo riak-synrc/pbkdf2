@@ -16,8 +16,9 @@
 -export([att_foldl/3,att_foldl_decode/3,get_validate_doc_fun/1]).
 -export([from_json_obj/1,to_json_obj/2,has_stubs/1, merge_stubs/2]).
 -export([validate_docid/1]).
--export([doc_from_multi_part_stream/2]).
+-export([doc_from_multi_part_stream/1, doc_from_multi_part_stream/2]).
 -export([doc_to_multi_part_stream/5, len_doc_to_multi_part_stream/4]).
+-export([mp_parse_doc/2]).
 
 -include("couch_db.hrl").
 
@@ -441,13 +442,7 @@ atts_to_mp([Att | RestAtts], Boundary, WriteFun,
     atts_to_mp(RestAtts, Boundary, WriteFun, SendEncodedAtts).
 
 
-doc_from_multi_part_stream(ContentType, DataFun) ->
-    Self = self(),
-    Parser = spawn_link(fun() ->
-        couch_httpd:parse_multipart_request(ContentType, DataFun,
-                fun(Next)-> mp_parse_doc(Next, []) end),
-        unlink(Self)
-        end),
+doc_from_multi_part_stream(Parser) ->
     Parser ! {get_doc_bytes, self()},
     receive 
     {doc_bytes, DocBytes} ->
@@ -466,6 +461,15 @@ doc_from_multi_part_stream(ContentType, DataFun) ->
             end, Doc#doc.atts),
         {ok, Doc#doc{atts=Atts2}}
     end.
+
+doc_from_multi_part_stream(ContentType, DataFun) ->
+    Self = self(),
+    Parser = spawn_link(fun() ->
+        couch_httpd:parse_multipart_request(ContentType, DataFun,
+                fun(Next)-> mp_parse_doc(Next, []) end),
+        unlink(Self)
+        end),
+    doc_from_multi_part_stream(Parser).
 
 mp_parse_doc({headers, H}, []) ->
     case couch_util:get_value("content-type", H) of
