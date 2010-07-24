@@ -156,11 +156,11 @@ spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
     spawn_link(
         fun()->
             couch_api_wrap:changes_since(Source, all_docs, StartSeq,
-                fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo, _) ->
+                fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo) ->
                     Cp ! {seq_start, {Seq, length(Revs)}},
                     Cp ! {add_stat, {#stats.missing_checked, length(Revs)}},
                     ok = couch_work_queue:queue(ChangesQueue, DocInfo)
-                end, ok, Options),
+                end, Options),
             couch_work_queue:close(ChangesQueue)
         end).
 

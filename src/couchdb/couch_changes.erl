@@ -14,7 +14,6 @@
 -include("couch_db.hrl").
 
 -export([handle_changes/3]).
--export([doc_info_filter_fun/4]).
 
 %% @type Req -> #httpd{} | {json_req, JsonObj()}
 handle_changes(#changes_args{style=Style}=Args1, Req, Db) ->
@@ -75,72 +74,46 @@ handle_changes(#changes_args{style=Style}=Args1, Req, Db) ->
 
 %% @type Req -> #httpd{} | {json_req, JsonObj()}
 make_filter_fun(FilterName, Style, Req, Db) ->
-    DocInfoFilter = doc_info_filter_fun(FilterName, Style, Req, Db),
-    fun(DocInfo) ->
-         DocInfoList = DocInfoFilter(DocInfo),
-         [{[{<<"rev">>, couch_doc:rev_to_str(R)}]} ||
-            #doc_info{revs=[#rev_info{rev=R} | _]} <- DocInfoList]
-    end.
-
-doc_info_filter_fun(FilterName, Style, Req, Db) ->
-    case [?l2b(couch_httpd:unquote(Part))
-        || Part <- string:tokens(FilterName, "/")] of
+    case [list_to_binary(couch_httpd:unquote(Part))
+            || Part <- string:tokens(FilterName, "/")] of
     [] ->
-        fun(#doc_info{revs=Revs} = DocInfo) ->
+        fun(#doc_info{revs=[#rev_info{rev=Rev}|_]=Revs}) ->
             case Style of
             main_only ->
-                [DocInfo];
+                [{[{<<"rev">>, couch_doc:rev_to_str(Rev)}]}];
             all_docs ->
-                [DocInfo#doc_info{revs=[RevInfo]} || RevInfo <- Revs]
+                [{[{<<"rev">>, couch_doc:rev_to_str(R)}]}
+                        || #rev_info{rev=R} <- Revs]
             end
         end;
-    [DDocName, FName] ->
-        DesignId = <<"_design/", DDocName/binary>>,
+    [DName, FName] ->
+        DesignId = <<"_design/", DName/binary>>,
         DDoc = couch_httpd_db:couch_doc_open(Db, DesignId, nil, []),
-        {ok, DDoc} = couch_db:open_doc(Db, <<"_design/", DDocName/binary>>),
         % validate that the ddoc has the filter fun
         #doc{body={Props}} = DDoc,
         couch_util:get_nested_json_value({Props}, [<<"filters">>, FName]),
         fun(DocInfo) ->
-            apply_filter_docinfo(DocInfo, Style, Req, Db, FName, DDoc)
+            DocInfos =
+            case Style of
+            main_only ->
+                [DocInfo];
+            all_docs ->
+                [DocInfo#doc_info{revs=[Rev]}|| Rev <- DocInfo#doc_info.revs]
+            end,
+            Docs = [Doc || {ok, Doc} <- [
+                    couch_db:open_doc(Db, DocInfo2, [deleted, conflicts])
+                        || DocInfo2 <- DocInfos]],
+            {ok, Passes} = couch_query_servers:filter_docs(
+                Req, Db, DDoc, FName, Docs
+            ),
+            [{[{<<"rev">>, couch_doc:rev_to_str({RevPos,RevId})}]}
+                || {Pass, #doc{revs={RevPos,[RevId|_]}}}
+                <- lists:zip(Passes, Docs), Pass == true]
         end;
     _Else ->
         throw({bad_request,
             "filter parameter must be of the form `designname/filtername`"})
     end.
-
-apply_filter_docinfo(DocInfo, Style, Req, Db, FilterName, DDoc) ->
-    DocInfos = case Style of
-    main_only ->
-        [DocInfo];
-    all_docs ->
-        [DocInfo#doc_info{revs=[Rev]} || Rev <- DocInfo#doc_info.revs]
-    end,
-    {_, PosDocInfoDict, Docs} = lists:foldl(
-        fun(DI, {P, Dict, Acc}) ->
-            case couch_db:open_doc(Db, DI, [deleted, conflicts]) of
-            {ok, Doc} ->
-                {P + 1, dict:store(P, DI, Dict), [Doc | Acc]};
-            _ ->
-                {P, Dict, Acc}
-            end
-        end,
-        {1, dict:new(), []},
-        DocInfos
-    ),
-    {ok, Passes} = couch_query_servers:filter_docs(
-        Req, Db, DDoc, FilterName, lists:reverse(Docs)
-    ),
-    {_, Filtered} = lists:foldl(
-        fun(true, {P, Acc}) ->
-            {P + 1, [dict:fetch(P, PosDocInfoDict) | Acc]};
-        (_, {P, Acc}) ->
-            {P + 1, Acc}
-        end,
-        {1, []},
-        Passes
-    ),
-    lists:reverse(Filtered).
 
 get_changes_timeout(Args, Callback) ->
     #changes_args{

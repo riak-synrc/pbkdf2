@@ -44,7 +44,7 @@
     open_doc/4,
     open_doc_revs/6,
     update_doc/4,
-    changes_since/6
+    changes_since/5
     ]).
 
 db_open(Db, Options) ->
@@ -312,7 +312,7 @@ update_doc(#httpdb{} = HttpDb, Doc, Options, Type) ->
 update_doc(Db, Doc, Options, Type) ->
     couch_db:update_doc(Db, Doc, Options, Type).
 
-changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Acc, Options) ->
+changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
     #httpdb{url=Url, headers=Headers, oauth=OAuth} = HttpDb,
     Url2 = Url ++ "_changes",
     QArgs = changes_q_args(
@@ -332,25 +332,34 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Acc, Options) ->
         end
     end,
     EventFun = fun(Ev) ->
-        changes_ev1(Ev, UserFun, Acc)
+        changes_ev1(Ev, fun(DocInfo, _Acc) -> UserFun(DocInfo) end, [])
     end,
     try
         json_stream_parse:events(DataFun, EventFun)
     after
         catch ibrowse:stop_worker_process(Worker)
     end;
-changes_since(Db, Style, StartSeq, UserFun, Acc, Options) ->
-    FilterName = ?b2l(couch_util:get_value(filter, Options, <<>>)),
+changes_since(Db, Style, StartSeq, UserFun, Options) ->
+    Args = #changes_args{
+        style = Style,
+        since = StartSeq,
+        filter = ?b2l(couch_util:get_value(filter, Options, <<>>)),
+        feed = case couch_util:get_value(continuous, Options, false) of
+            true ->
+                "continuous";
+            false ->
+                "normal"
+        end,
+        timeout = infinity
+    },
     QueryParams = couch_util:get_value(query_params, Options, {[]}),
-    JsonReq = changes_json_req(Db, FilterName, QueryParams),
-    DocFilterFun = couch_changes:doc_info_filter_fun(FilterName, Style,
-        {json_req, JsonReq}, Db),
-    ChangesFun = fun(DocInfo, Acc2) ->
-        DocInfoList = DocFilterFun(DocInfo),
-        Acc3 = lists:foldl(UserFun, Acc2, DocInfoList),
-        {ok, Acc3}
-    end,
-    couch_db:changes_since(Db, Style, StartSeq, ChangesFun, Acc).
+    Req = changes_json_req(Db, Args#changes_args.filter, QueryParams),
+    ChangesFeedFun = couch_changes:handle_changes(Args, {json_req, Req}, Db),
+    ChangesFeedFun(fun({change, Change, _}, _) ->
+            UserFun(json_to_doc_info(Change));
+        (_, _) ->
+            ok
+    end).
 
 
 % internal functions
