@@ -425,7 +425,12 @@ make_replication_id(Source, Target, UserCtx, Options) ->
     Base = [HostName, Src, Tgt] ++
         case couch_util:get_value(filter, Options) of
         undefined ->
-            [];
+            case couch_util:get_value(doc_ids, Options) of
+            undefined ->
+                [];
+            DocIds ->
+                [DocIds]
+            end;
         Filter ->
             [Filter, couch_util:get_value(query_params, Options, {[]})]
         end,
