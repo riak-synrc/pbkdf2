@@ -33,7 +33,11 @@ handle_req(#httpd{method='POST'} = Req) ->
     SrcDb = parse_rep_db(couch_util:get_value(<<"source">>, PostBody)),
     TgtDb = parse_rep_db(couch_util:get_value(<<"target">>, PostBody)),
     Options = convert_options(PostBody),
-    try couch_replicate:start(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
+    try couch_replicate:replicate(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
+    {error, Reason} ->
+        send_json(Req, 500, {[{error, Reason}]});
+    {ok, {cancelled, RepId}} ->
+        send_json(Req, 200, {[{ok, true}, {<<"_local_id">>, RepId}]});
     {ok, {HistoryResults}} ->
         send_json(Req, {[{ok, true} | HistoryResults]})
     catch

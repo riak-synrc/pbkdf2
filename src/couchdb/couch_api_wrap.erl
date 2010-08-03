@@ -52,15 +52,20 @@ db_open(Db, Options) ->
 
 db_open(#httpdb{} = Db, _Options, Create) ->
     #httpdb{url=Url, oauth=OAuth, headers=Headers} = Db,
+    Headers2 = oauth_header(Url, [], put, OAuth) ++ Headers,
     case Create of
     false ->
         ok;
     true ->
-        Headers2 = oauth_header(Url, [], put, OAuth) ++ Headers,
-        catch ibrowse:send_req(Url, Headers2, put, [],
-            [{response_format, binary}], infinity)
+        catch ibrowse:send_req(Url, Headers2, put)
     end,
-    {ok, Db};
+    case (catch ibrowse:send_req(Url, Headers2, head)) of
+    {ok, "200", _, _} ->
+        {ok, Db};
+    {ok, _Code, _, _} ->
+        % TODO deal with HTTP redirects
+        throw({db_not_found, ?l2b(Url)})
+    end;
 db_open(DbName, Options, Create) ->
     case Create of
     false ->
@@ -73,7 +78,12 @@ db_open(DbName, Options, Create) ->
             ok
         end
     end,
-    couch_db:open(DbName,Options).
+    case couch_db:open(DbName, Options) of
+    {not_found, _Reason} ->
+        throw({db_not_found, DbName});
+    {ok, _Db2} = Success ->
+        Success
+    end.
 
 db_close(#httpdb{}) ->
     ok;

@@ -157,6 +157,12 @@ start_primary_services() ->
                 permanent,
                 brutal_kill,
                 worker,
+                dynamic},
+            {couch_replication_event,
+                {gen_event, start_link, [{local, couch_replication}]},
+                permanent,
+                brutal_kill,
+                worker,
                 dynamic}
             ]
         }).
