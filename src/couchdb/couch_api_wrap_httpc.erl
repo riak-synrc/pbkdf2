@@ -1,0 +1,226 @@
+% Licensed under the Apache License, Version 2.0 (the "License"); you may not
+% use this file except in compliance with the License. You may obtain a copy of
+% the License at
+%
+%   http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+% WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+% License for the specific language governing permissions and limitations under
+% the License.
+
+-module(couch_api_wrap_httpc).
+
+-include("couch_db.hrl").
+-include("couch_api_wrap.hrl").
+-include("../ibrowse/ibrowse.hrl").
+
+-export([httpdb_setup/1]).
+-export([send_req/3]).
+
+
+httpdb_setup(#httpdb{url = Url} = Db) ->
+    #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
+    ibrowse:set_max_sessions(Host, Port, max_sessions()),
+    ibrowse:set_max_pipeline_size(Host, Port, pipeline_size()),
+    {ok, Db}.
+
+
+pipeline_size() ->
+    ?l2i(couch_config:get("replicator", "max_http_pipeline_size", "10")).
+
+max_sessions() ->
+    ?l2i(couch_config:get("replicator", "max_http_sessions", "10")).
+
+
+send_req(HttpDb, Params, Callback) ->
+    #httpdb{headers = BaseHeaders, oauth = OAuth} = HttpDb,
+    Method = couch_util:get_value(method, Params, get),
+    Headers = couch_util:get_value(headers, Params, []),
+    Body = couch_util:get_value(body, Params, []),
+    IbrowseOptions = [
+        {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout}
+        | couch_util:get_value(ibrowse_options, Params, [])
+    ],
+    Url = full_url(HttpDb, Params),
+    Headers2 = oauth_header(Url, [], Method, OAuth) ++ BaseHeaders ++ Headers,
+    {Response, Worker} = case couch_util:get_value(direct, Params, false) of
+    false ->
+        Resp = ibrowse:send_req(
+            Url, Headers2, Method, Body, IbrowseOptions, infinity),
+        {Resp, nil};
+    true ->
+        #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
+        {ok, Conn} = ibrowse:spawn_link_worker_process(Host, Port),
+        Resp = ibrowse:send_req_direct(
+            Conn, Url, Headers2, Method, Body, IbrowseOptions, infinity),
+        {Resp, Conn}
+    end,
+    process_response(Response, Worker, HttpDb, Params, Callback).
+
+
+process_response({ibrowse_req_id, ReqId}, Worker, HttpDb, Params, Callback) ->
+    process_stream_response(ReqId, Worker, HttpDb, Params, Callback);
+
+process_response(Resp, Worker, HttpDb, Params, Callback) ->
+    stop_worker(Worker),
+    case Resp of
+    {ok, Code, Headers, Body} ->
+        case ?l2i(Code) of
+        Ok when Ok =:= 200 ; Ok =:= 201 ; (Ok >= 400 andalso Ok < 500) ->
+            EJson = case Body of
+            <<>> ->
+                null;
+            Json ->
+                ?JSON_DECODE(Json)
+            end,
+            Callback(Ok, Headers, EJson);
+        R when R =:= 301 ; R =:= 302 ->
+            do_redirect(Headers, HttpDb, Params, Callback);
+        Error ->
+            report_error(nil, HttpDb, Params, {code, Error})
+        end;
+    {error, Reason} ->
+        report_error(nil, HttpDb, Params, {reason, Reason})
+    end.
+
+
+process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
+    receive
+    {ibrowse_async_headers, ReqId, Code, Headers} ->
+        case ?l2i(Code) of
+        Ok when Ok =:= 200 ; Ok =:= 201 ; (Ok >= 400 andalso Ok < 500) ->
+            StreamDataFun = fun() ->
+                stream_data_self(HttpDb, Params, Worker, ReqId)
+            end,
+            Ret = Callback(Ok, Headers, StreamDataFun),
+            stop_worker(Worker),
+            Ret;
+        R when R =:= 301 ; R =:= 302 ->
+            stop_worker(Worker),
+            do_redirect(Headers, HttpDb, Params, Callback);
+        Error ->
+            report_error(Worker, HttpDb, Params, {code, Error})
+        end
+    after HttpDb#httpdb.timeout ->
+        report_error(Worker, HttpDb, Params, timeout)
+    end.
+
+
+stop_worker(nil) ->
+    ok;
+stop_worker(Worker) when is_pid(Worker) ->
+    unlink(Worker),
+    receive {'EXIT', Worker, _} -> ok after 0 -> ok end,
+    catch ibrowse:stop_worker_process(Worker).
+
+
+report_error(Worker, #httpdb{timeout = Timeout} = HttpDb, Params, timeout) ->
+    report_error(Worker, HttpDb, Params, {timeout, Timeout});
+
+report_error(Worker, HttpDb, Params, Error) ->
+    Method = string:to_upper(
+        atom_to_list(couch_util:get_value(method, Params, get))),
+    Url = strip_creds(full_url(HttpDb, Params)),
+    do_report_error(Url, Method, Error),
+    stop_worker(Worker),
+    exit({http_request_failed, Method, Url}).
+
+
+do_report_error(FullUrl, Method, {reason, Reason}) ->
+    ?LOG_ERROR("Replicator, request ~s to ~p failed due to error ~p",
+        [Method, FullUrl, Reason]);
+
+do_report_error(Url, Method, {code, Code}) ->
+    ?LOG_ERROR("Replicator, request ~s to ~p failed. The received "
+        "HTTP error code is ~p", [Method, Url, Code]);
+
+do_report_error(Url, Method, {timeout, Timeout}) ->
+    ?LOG_ERROR("Replicator, request ~s to ~p failed. Inactivity timeout "
+        " (~p milliseconds).", [Method, Url, Timeout]).
+
+
+stream_data_self(HttpDb, Params, Worker, ReqId) ->
+    ibrowse:stream_next(ReqId),
+    receive {ibrowse_async_response, ReqId, Data} ->
+        {Data, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end};
+    {ibrowse_async_response_end, ReqId} ->
+        {<<>>, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end}
+    after HttpDb#httpdb.timeout ->
+        report_error(Worker, HttpDb, Params, timeout)
+    end.
+
+
+full_url(#httpdb{url = BaseUrl}, Params) ->
+    Path = couch_util:get_value(path, Params, []),
+    QueryArgs = couch_util:get_value(qs, Params, []),
+    BaseUrl ++ Path ++ query_args_to_string(QueryArgs, []).
+
+
+strip_creds(Url) ->
+    re:replace(Url,
+        "http(s)?://([^:]+):[^@]+@(.*)$",
+        "http\\1://\\2:*****@\\3",
+        [{return, list}]).
+
+
+query_args_to_string([], []) ->
+    "";
+query_args_to_string([], Acc) ->
+    "?" ++ string:join(lists:reverse(Acc), "&");
+query_args_to_string([{K, V} | Rest], Acc) ->
+    query_args_to_string(Rest, [(K ++ "=" ++ V) | Acc]).
+
+
+oauth_header(_Url, _QS, _Action, nil) ->
+    [];
+oauth_header(Url, QS, Action, OAuth) ->
+    Consumer = {
+        OAuth#oauth.consumer_key,
+        OAuth#oauth.consumer_secret,
+        OAuth#oauth.signature_method
+    },
+    Method = case Action of
+    get -> "GET";
+    post -> "POST";
+    put -> "PUT";
+    head -> "HEAD"
+    end,
+    Params = oauth:signed_params(Method, Url, QS, Consumer,
+        #oauth.token,
+        #oauth.token_secret),
+    [{"Authorization", "OAuth " ++ oauth_uri:params_to_header_string(Params)}].
+
+
+do_redirect(RespHeaders, #httpdb{url = OrigUrl} = HttpDb, Params, Callback) ->
+    RedirectUrl = redirect_url(RespHeaders, OrigUrl),
+    {HttpDb2, Params2} = after_redirect(RedirectUrl, HttpDb, Params),
+    send_req(HttpDb2, Params2, Callback).
+
+
+redirect_url(RespHeaders, OrigUrl) ->
+    MochiHeaders = mochiweb_headers:make(RespHeaders),
+    RedUrl = mochiweb_headers:get_value("Location", MochiHeaders),
+    #url{
+        host = Base,
+        port = Port,
+        path = Path,  % includes query string
+        protocol = Proto
+    } = ibrowse_lib:parse_url(RedUrl),
+    #url{
+        username = User,
+        password = Passwd
+    } = ibrowse_lib:parse_url(OrigUrl),
+    Creds = case is_list(User) andalso is_list(Passwd) of
+    true ->
+        User ++ ":" ++ Passwd ++ "@";
+    false ->
+        []
+    end,
+    atom_to_list(Proto) ++ "://" ++ Creds ++ Base ++ ":" ++
+        integer_to_list(Port) ++ Path.
+
+after_redirect(RedirectUrl, HttpDb, Params) ->
+    Params2 = lists:keydelete(path, 1, lists:keydelete(qs, 1, Params)),
+    {HttpDb#httpdb{url = RedirectUrl}, Params2}.

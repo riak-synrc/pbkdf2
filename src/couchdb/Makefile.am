@@ -83,6 +83,7 @@ source_files = \
     couch_replication_notifier.erl \
     couch_httpd_rep.erl \
     couch_api_wrap.erl \
+    couch_api_wrap_httpc.erl \
     json_stream_parse.erl
 
 
@@ -146,6 +147,7 @@ compiled_files = \
     couch_replication_notifier.beam \
     couch_httpd_rep.beam \
     couch_api_wrap.beam \
+    couch_api_wrap_httpc.beam \
     json_stream_parse.beam
 
 # doc_base = \

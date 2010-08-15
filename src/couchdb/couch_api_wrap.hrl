@@ -14,8 +14,9 @@
 
 -record(httpdb, {
     url,
-    oauth=nil,
-    headers = []
+    oauth = nil,
+    headers = [],
+    timeout = 30000  % milliseconds
 }).
 
 -record(oauth, {

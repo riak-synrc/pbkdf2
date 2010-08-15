@@ -23,6 +23,10 @@
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
 
+% Can't be greater than the maximum number of child restarts specified
+% in couch_rep_sup.erl.
+-define(MAX_RESTARTS, 3).
+
 
 -record(stats, {
     missing_checked = 0,
@@ -124,14 +128,22 @@ rep_result_listener(RepId) ->
 
 
 wait_for_result(RepId, Listener) ->
-    Result = receive
+    wait_for_result(RepId, Listener, ?MAX_RESTARTS).
+
+wait_for_result(RepId, Listener, RetriesLeft) ->
+    receive
     {finished, RepId, RepResult} ->
+        couch_replication_notifier:stop(Listener),
         {ok, RepResult};
     {error, RepId, Reason} ->
-        {error, Reason}
-    end,
-    couch_replication_notifier:stop(Listener),
-    Result.
+        case RetriesLeft > 0 of
+        true ->
+            wait_for_result(RepId, Listener, RetriesLeft - 1);
+        false ->
+            couch_replication_notifier:stop(Listener),
+            {error, Reason}
+        end
+    end.
 
 
 end_replication({BaseId, Extension}) ->
@@ -242,12 +254,6 @@ handle_info({add_stat, {StatPos, Val}}, #rep_state{stats = Stats} = State) ->
     NewStats = setelement(StatPos, Stats, Stat + Val),
     {noreply, State#rep_state{stats = NewStats}};
 
-handle_info(timed_checkpoint, State) ->
-    State2 = do_checkpoint(State),
-    NewTimer = erlang:start_timer(checkpoint_interval(State2),
-        self(), timed_checkpoint),
-    {noreply, State2#rep_state{timer = NewTimer}};
-
 handle_info(done, #rep_state{seqs_in_progress = SeqsInProgress} = State) ->
     % This means all the worker processes have completed their work.
     % Assert that all the seqs have been processed
@@ -260,6 +266,7 @@ handle_info({'EXIT', Pid, normal}, #rep_state{changes_reader=Pid} = State) ->
     {noreply, State};
 
 handle_info({'EXIT', Pid, Reason}, #rep_state{changes_reader=Pid} = State) ->
+    cancel_timer(State),
     ?LOG_ERROR("ChangesReader process died with reason: ~p", [Reason]),
     {stop, changes_reader_died, State};
 
@@ -267,6 +274,7 @@ handle_info({'EXIT', Pid, normal}, #rep_state{missing_revs_finder=Pid} = St) ->
     {noreply, St};
 
 handle_info({'EXIT', Pid, Reason}, #rep_state{missing_revs_finder=Pid} = St) ->
+    cancel_timer(St),
     ?LOG_ERROR("MissingRevsFinder process died with reason: ~p", [Reason]),
     {stop, missing_revs_finder_died, St};
 
@@ -274,6 +282,7 @@ handle_info({'EXIT', Pid, normal}, #rep_state{doc_copier=Pid} = State) ->
     {noreply, State};
 
 handle_info({'EXIT', Pid, Reason}, #rep_state{doc_copier=Pid} = State) ->
+    cancel_timer(State),
     ?LOG_ERROR("DocCopier process died with reason: ~p", [Reason]),
     {stop, doc_copier_died, State};
 
@@ -281,6 +290,7 @@ handle_info({'EXIT', Pid, normal}, #rep_state{missing_revs_queue=Pid} = St) ->
     {noreply, St};
 
 handle_info({'EXIT', Pid, Reason}, #rep_state{missing_revs_queue=Pid} = St) ->
+    cancel_timer(St),
     ?LOG_ERROR("MissingRevsQueue process died with reason: ~p", [Reason]),
     {stop, missing_revs_queue_died, St};
 
@@ -288,6 +298,7 @@ handle_info({'EXIT', Pid, normal}, #rep_state{changes_queue=Pid} = State) ->
     {noreply, State};
 
 handle_info({'EXIT', Pid, Reason}, #rep_state{changes_queue=Pid} = State) ->
+    cancel_timer(State),
     ?LOG_ERROR("ChangesQueue process died with reason: ~p", [Reason]),
     {stop, changes_queue_died, State}.
 
@@ -296,6 +307,10 @@ handle_call(Msg, _From, State) ->
     ?LOG_ERROR("Replicator received an unexpected synchronous call: ~p", [Msg]),
     {stop, unexpected_sync_message, State}.
 
+
+handle_cast(checkpoint, State) ->
+    State2 = do_checkpoint(State),
+    {noreply, State2#rep_state{timer = start_timer(State)}};
 
 handle_cast(Msg, State) ->
     ?LOG_ERROR("Replicator received an unexpected asynchronous call: ~p", [Msg]),
@@ -319,23 +334,31 @@ terminate(Reason, #rep_state{rep_id = RepId} = State) ->
     couch_replication_notifier:notify({error, RepId, Reason}).
 
 
-terminate_cleanup(State) ->
-    #rep_state{
-        missing_revs_queue = MissingRevsQueue,
-        changes_queue = ChangesQueue,
-        source = Source,
-        target = Target
-    } = State,
-    couch_work_queue:close(MissingRevsQueue),
-    couch_work_queue:close(ChangesQueue),
+terminate_cleanup(#rep_state{source = Source, target = Target}) ->
     couch_api_wrap:db_close(Source),
     couch_api_wrap:db_close(Target).
+
+
+start_timer(#rep_state{rep_options = Options} = State) ->
+    case couch_util:get_value(doc_ids, Options) of
+    undefined ->
+        After = checkpoint_interval(State),
+        case timer:apply_after(After, gen_server, cast, [self(), checkpoint]) of
+        {ok, Ref} ->
+            Ref;
+        Error ->
+            ?LOG_ERROR("Replicator, error scheduling checkpoint:  ~p", [Error]),
+            nil
+        end;
+    _DocIdList ->
+        nil
+    end.
 
 
 cancel_timer(#rep_state{timer = nil}) ->
     ok;
 cancel_timer(#rep_state{timer = Timer}) ->
-    erlang:cancel_timer(Timer).
+    {ok, cancel} = timer:cancel(Timer).
 
 
 get_result(#rep_state{stats = Stats, rep_options = Options} = State) ->
@@ -390,15 +413,7 @@ init_state({BaseId, _Ext} = RepId, Src, Tgt, Options, UserCtx) ->
         src_starttime = couch_util:get_value(instance_start_time, SourceInfo),
         tgt_starttime = couch_util:get_value(instance_start_time, TargetInfo)
     },
-    State#rep_state{
-        timer = case couch_util:get_value(doc_ids, Options) of
-        undefined ->
-            erlang:start_timer(checkpoint_interval(State),
-                self(), timed_checkpoint);
-        _DocIdList ->
-            nil
-        end
-    }.
+    State#rep_state{timer = start_timer(State)}.
 
 
 spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
@@ -598,6 +613,10 @@ commit_to_both(Source, Target) ->
     SourceStartTime =
     receive
     {SrcCommitPid, {ok, Timestamp}} ->
+        receive
+        {'EXIT', SrcCommitPid, normal} ->
+            ok
+        end,
         Timestamp;
     {'EXIT', SrcCommitPid, _} ->
         exit(replication_link_failure)
