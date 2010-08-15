@@ -112,7 +112,9 @@ start_replication({BaseId, Extension} = RepId, Src, Tgt, Options, UserCtx) ->
         ?LOG_DEBUG("replication ~p already running at ~p", [RepChildId, Pid]),
         Pid;
     {error, {{db_not_found, DbUrl}, _}} ->
-        throw({db_not_found, <<"could not open ", DbUrl/binary>>})
+        throw({db_not_found, <<"could not open ", DbUrl/binary>>});
+    {error, Error} ->
+        throw({error, Error})
     end,
     {ok, RepPid}.
 
@@ -141,7 +143,7 @@ wait_for_result(RepId, Listener, RetriesLeft) ->
             wait_for_result(RepId, Listener, RetriesLeft - 1);
         false ->
             couch_replication_notifier:stop(Listener),
-            {error, Reason}
+            {error, couch_util:to_binary(Reason)}
         end
     end.
 
