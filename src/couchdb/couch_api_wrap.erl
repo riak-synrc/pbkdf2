@@ -30,7 +30,6 @@
 
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
--include("../ibrowse/ibrowse.hrl").
 
 -export([
     db_open/2,
