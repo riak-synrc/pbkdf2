@@ -19,6 +19,11 @@
 -export([httpdb_setup/1]).
 -export([send_req/3]).
 
+-import(couch_util, [
+    get_value/2,
+    get_value/3
+    ]).
+
 
 httpdb_setup(#httpdb{url = Url} = Db) ->
     #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
@@ -36,16 +41,16 @@ max_sessions() ->
 
 send_req(HttpDb, Params, Callback) ->
     #httpdb{headers = BaseHeaders, oauth = OAuth} = HttpDb,
-    Method = couch_util:get_value(method, Params, get),
-    Headers = couch_util:get_value(headers, Params, []),
-    Body = couch_util:get_value(body, Params, []),
+    Method = get_value(method, Params, get),
+    Headers = get_value(headers, Params, []),
+    Body = get_value(body, Params, []),
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout}
-        | couch_util:get_value(ibrowse_options, Params, [])
+        | get_value(ibrowse_options, Params, [])
     ],
     Url = full_url(HttpDb, Params),
     Headers2 = oauth_header(Url, [], Method, OAuth) ++ BaseHeaders ++ Headers,
-    {Response, Worker} = case couch_util:get_value(direct, Params, false) of
+    {Response, Worker} = case get_value(direct, Params, false) of
     false ->
         Resp = ibrowse:send_req(
             Url, Headers2, Method, Body, IbrowseOptions, infinity),
@@ -120,8 +125,7 @@ report_error(Worker, #httpdb{timeout = Timeout} = HttpDb, Params, timeout) ->
     report_error(Worker, HttpDb, Params, {timeout, Timeout});
 
 report_error(Worker, HttpDb, Params, Error) ->
-    Method = string:to_upper(
-        atom_to_list(couch_util:get_value(method, Params, get))),
+    Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
     Url = strip_creds(full_url(HttpDb, Params)),
     do_report_error(Url, Method, Error),
     stop_worker(Worker),
@@ -153,8 +157,8 @@ stream_data_self(HttpDb, Params, Worker, ReqId) ->
 
 
 full_url(#httpdb{url = BaseUrl}, Params) ->
-    Path = couch_util:get_value(path, Params, []),
-    QueryArgs = couch_util:get_value(qs, Params, []),
+    Path = get_value(path, Params, []),
+    QueryArgs = get_value(qs, Params, []),
     BaseUrl ++ Path ++ query_args_to_string(QueryArgs, []).
 
 

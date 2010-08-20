@@ -51,6 +51,12 @@
     send_req/3
     ]).
 
+-import(couch_util, [
+    url_encode/1,
+    get_value/2,
+    get_value/3
+    ]).
+
 
 db_open(Db, Options) ->
     db_open(Db, Options, false).
@@ -112,7 +118,7 @@ ensure_full_commit(#httpdb{} = Db) ->
         Db,
         [{method, post}, {path, "_ensure_full_commit"}, {direct, true}],
         fun(201, _, {Props}) ->
-            {ok, couch_util:get_value(<<"instance_start_time">>, Props)}
+            {ok, get_value(<<"instance_start_time">>, Props)}
         end);
 ensure_full_commit(Db) ->
     couch_db:ensure_full_commit(Db).
@@ -127,10 +133,10 @@ get_missing_revs(#httpdb{} = Db, IdRevs) ->
         fun(200, _, {Props}) ->
             ConvertToNativeFun = fun({Id, {Result}}) ->
                 MissingRevs = couch_doc:parse_revs(
-                    couch_util:get_value(<<"missing">>, Result)
+                    get_value(<<"missing">>, Result)
                 ),
                 PossibleAncestors = couch_doc:parse_revs(
-                    couch_util:get_value(<<"possible_ancestors">>, Result, [])
+                    get_value(<<"possible_ancestors">>, Result, [])
                 ),
                 {Id, MissingRevs, PossibleAncestors}
             end,
@@ -150,9 +156,9 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
     ],
     IdEncoded = case Id of
     <<"_design/", RestId/binary>> ->
-        "_design/" ++ couch_util:url_encode(RestId);
+        "_design/" ++ url_encode(RestId);
     _ ->
-        couch_util:url_encode(Id)
+        url_encode(Id)
     end,
     Streamer = spawn_link(fun() ->
             send_req(
@@ -161,9 +167,8 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
                     {ibrowse_options, [{stream_to, {self(), once}}]},
                     {headers, [{"accept", "multipart/mixed"}]}],
                 fun(200, Headers, StreamDataFun) ->
-                    CType = couch_util:get_value("Content-Type", Headers),
                     couch_httpd:parse_multipart_request(
-                        CType,
+                        get_value("Content-Type", Headers),
                         StreamDataFun,
                         fun(Ev) -> mp_parse_mixed(Ev) end)
                 end),
@@ -185,9 +190,9 @@ open_doc(#httpdb{} = HttpDb, Id, Options) ->
     ],
     IdEncoded = case Id of
     <<"_design/", RestId/binary>> ->
-        "_design/" ++ couch_util:url_encode(RestId);
+        "_design/" ++ url_encode(RestId);
     _ ->
-        couch_util:url_encode(Id)
+        url_encode(Id)
     end,
     Self = self(),
     Streamer = spawn_link(fun() ->
@@ -197,7 +202,7 @@ open_doc(#httpdb{} = HttpDb, Id, Options) ->
                     {path, IdEncoded}, {qs, QArgs}, {direct, true},
                     {ibrowse_options, [{stream_to, {self(), once}}]}],
                 fun(Code, Headers, StreamDataFun) ->
-                    CType = couch_util:get_value("Content-Type", Headers),
+                    CType = get_value("Content-Type", Headers),
                     Self ! {self(), CType},
                     case CType of
                     "application/json" ->
@@ -279,10 +284,10 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     end,
     send_req(
         HttpDb,
-        [{method, put}, {path, couch_util:url_encode(DocId)}, {direct, true},
+        [{method, put}, {path, url_encode(DocId)}, {direct, true},
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
-            {ok, couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Props))}
+            {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))}
         end);
 update_doc(Db, Doc, Options, Type) ->
     couch_db:update_doc(Db, Doc, Options, Type).
@@ -305,8 +310,8 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
     Args = #changes_args{
         style = Style,
         since = StartSeq,
-        filter = ?b2l(couch_util:get_value(filter, Options, <<>>)),
-        feed = case couch_util:get_value(continuous, Options, false) of
+        filter = ?b2l(get_value(filter, Options, <<>>)),
+        feed = case get_value(continuous, Options, false) of
             true ->
                 "continuous";
             false ->
@@ -314,7 +319,7 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
         end,
         timeout = infinity
     },
-    QueryParams = couch_util:get_value(query_params, Options, {[]}),
+    QueryParams = get_value(query_params, Options, {[]}),
     Req = changes_json_req(Db, Args#changes_args.filter, QueryParams),
     ChangesFeedFun = couch_changes:handle_changes(Args, {json_req, Req}, Db),
     ChangesFeedFun(fun({change, Change, _}, _) ->
@@ -327,11 +332,11 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
 % internal functions
 
 changes_q_args(BaseQS, Options) ->
-    case couch_util:get_value(filter, Options) of
+    case get_value(filter, Options) of
     undefined ->
         BaseQS;
     FilterName ->
-        {Params} = couch_util:get_value(query_params, Options, {[]}),
+        {Params} = get_value(query_params, Options, {[]}),
         [{"filter", ?b2l(FilterName)} | lists:foldl(
             fun({K, V}, QSAcc) ->
                 Ks = couch_util:to_list(K),
@@ -383,7 +388,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
     Streamer ! {get_headers, self()},
     receive
     {headers, Headers} ->    
-        case couch_util:get_value("content-type", Headers) of
+        case get_value("content-type", Headers) of
         {"multipart/related", _} = ContentType ->
             case couch_doc:doc_from_multi_part_stream(ContentType, 
                 fun() -> receive_doc_data(Streamer) end) of
@@ -398,7 +403,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
             receive_docs(Streamer, UserFun, UserAcc2);
         {"application/json", [{"error","true"}]} ->
             {ErrorProps} = ?JSON_DECODE(receive_all(Streamer, [])),
-            Rev = couch_util:get_value(<<"missing">>, ErrorProps),
+            Rev = get_value(<<"missing">>, ErrorProps),
             Result = {{not_found, missing}, couch_doc:parse_rev(Rev)},
             UserAcc2 = UserFun(Result, UserAcc),
             receive_docs(Streamer, UserFun, UserAcc2)
@@ -482,14 +487,14 @@ changes_ev_done() ->
     fun(_Ev) -> changes_ev_done() end.
 
 json_to_doc_info({Props}) ->
-    Id = couch_util:get_value(<<"id">>, Props),
-    Seq = couch_util:get_value(<<"seq">>, Props),
-    Changes = couch_util:get_value(<<"changes">>, Props),
-
     RevsInfo = lists:map(
         fun({Change}) ->
-            Rev = couch_doc:parse_rev(couch_util:get_value(<<"rev">>, Change)),
-            Del = (true =:= couch_util:get_value(<<"deleted">>, Change)),
+            Rev = couch_doc:parse_rev(get_value(<<"rev">>, Change)),
+            Del = (true =:= get_value(<<"deleted">>, Change)),
             #rev_info{rev=Rev, deleted=Del}
-        end, Changes),
-    #doc_info{id=Id, high_seq=Seq, revs=RevsInfo}.
+        end, get_value(<<"changes">>, Props)),
+    #doc_info{
+        id = get_value(<<"id">>, Props),
+        high_seq = get_value(<<"seq">>, Props),
+        revs = RevsInfo
+    }.
