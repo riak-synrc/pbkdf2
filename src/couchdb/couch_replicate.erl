@@ -195,13 +195,8 @@ do_init([RepId, Src, Tgt, Options, UserCtx]) ->
     DocIds ->
         ChangesQueue = nil,
         ChangesReader = nil,
-        MissingRevsFinder = nil,
-
-        lists:foreach(
-            fun(DocId) ->
-                ok = couch_work_queue:queue(MissingRevsQueue, {doc_id, DocId})
-            end, DocIds),
-        couch_work_queue:close(MissingRevsQueue)
+        MissingRevsFinder = spawn_missing_revs_finder(self(), Target,
+            DocIds, MissingRevsQueue)
     end,
 
     % This starts the doc copy process. It fetches documents from the
@@ -441,6 +436,13 @@ spawn_missing_revs_finder(StatsProcess,
                 Target, ChangesQueue, MissingRevsQueue)
         end).
 
+
+missing_revs_finder_loop(_, _, DocIds, MissingRevsQueue) when is_list(DocIds) ->
+    lists:foreach(
+        fun(DocId) ->
+            ok = couch_work_queue:queue(MissingRevsQueue, {doc_id, DocId})
+        end, DocIds),
+    couch_work_queue:close(MissingRevsQueue);
 
 missing_revs_finder_loop(Cp, 
         Target, ChangesQueue, MissingRevsQueue) ->
