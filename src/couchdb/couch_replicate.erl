@@ -176,11 +176,13 @@ do_init([RepId, Src, Tgt, Options, UserCtx]) ->
         start_seq = StartSeq
     } = State = init_state(RepId, Src, Tgt, Options, UserCtx),
 
-    {ok, MissingRevsQueue} = couch_work_queue:new(100000, 500),
+    {ok, MissingRevsQueue} = couch_work_queue:new(
+        [{max_size, 100000}, {max_items, 500}]),
 
     case couch_util:get_value(doc_ids, Options) of
     undefined ->
-        {ok, ChangesQueue} = couch_work_queue:new(100000, 500),
+        {ok, ChangesQueue} = couch_work_queue:new(
+            [{max_size, 100000}, {max_items, 500}]),
 
         % This starts the _changes reader process. It adds the changes from
         % the source db to the ChangesQueue.

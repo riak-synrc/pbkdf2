@@ -97,7 +97,8 @@ write_multi_part_doc(#http_db{headers=Headers} = Db, #doc{atts=Atts} = Doc) ->
     {_ContentType, Len} = couch_doc:len_doc_to_multi_part_stream(
         Boundary, JsonBytes, Atts, true
     ),
-    {ok, DataQueue} = couch_work_queue:new(1024*1024, 1000),
+    {ok, DataQueue} = couch_work_queue:new(
+        [{max_size, 1024 * 1024}, {max_items, 1000}]),
     _StreamerPid = spawn_link(
         fun() ->
             couch_doc:doc_to_multi_part_stream(
