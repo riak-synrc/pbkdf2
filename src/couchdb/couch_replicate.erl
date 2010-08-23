@@ -197,8 +197,15 @@ do_init([RepId, Src, Tgt, Options, UserCtx]) ->
     DocIds ->
         ChangesQueue = nil,
         ChangesReader = nil,
-        MissingRevsFinder = spawn_missing_revs_finder(self(), Target,
-            DocIds, MissingRevsQueue)
+        MissingRevsFinder = case DocIds of
+        [] ->
+            % avoid getting the doc copier process get blocked if it dequeues
+            % before the queue is closed
+            couch_work_queue:close(MissingRevsQueue),
+            nil;
+        Ids when is_list(Ids) ->
+            spawn_missing_revs_finder(self(), Target, Ids, MissingRevsQueue)
+        end
     end,
 
     % This starts the doc copy process. It fetches documents from the
