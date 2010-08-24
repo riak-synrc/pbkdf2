@@ -71,8 +71,14 @@ replicate(Src, Tgt, Options, UserCtx) ->
         end_replication(RepId);
     false ->
         {ok, Listener} = rep_result_listener(RepId),
-        {ok, _Pid} = start_replication(RepId, Src, Tgt, Options, UserCtx),
-        wait_for_result(RepId, Listener)
+        Result = case start_replication(RepId, Src, Tgt, Options, UserCtx) of
+        {ok, _RepPid} ->
+            wait_for_result(RepId);
+        Error ->
+            Error
+        end,
+        couch_replication_notifier:stop(Listener),
+        Result
     end.
 
 
@@ -87,15 +93,15 @@ start_replication({BaseId, Extension} = RepId, Src, Tgt, Options, UserCtx) ->
         worker,
         [?MODULE]
     },
-    RepPid = case supervisor:start_child(couch_rep_sup, ChildSpec) of
+    case supervisor:start_child(couch_rep_sup, ChildSpec) of
     {ok, Pid} ->
         ?LOG_INFO("starting new replication ~p at ~p", [RepChildId, Pid]),
-        Pid;
+        {ok, Pid};
     {error, already_present} ->
         case supervisor:restart_child(couch_rep_sup, RepChildId) of
         {ok, Pid} ->
             ?LOG_INFO("starting replication ~p at ~p", [RepChildId, Pid]),
-            Pid;
+            {ok, Pid};
         {error, running} ->
             %% this error occurs if multiple replicators are racing
             %% each other to start and somebody else won.  Just grab
@@ -104,19 +110,16 @@ start_replication({BaseId, Extension} = RepId, Src, Tgt, Options, UserCtx) ->
                 supervisor:start_child(couch_rep_sup, ChildSpec),
             ?LOG_DEBUG("replication ~p already running at ~p",
                 [RepChildId, Pid]),
-            Pid;
-        {error, {db_not_found, DbUrl}} ->
-            throw({db_not_found, <<"could not open ", DbUrl/binary>>})
+            {ok, Pid};
+        {error, _} = Err ->
+            Err
         end;
     {error, {already_started, Pid}} ->
         ?LOG_DEBUG("replication ~p already running at ~p", [RepChildId, Pid]),
-        Pid;
-    {error, {{db_not_found, DbUrl}, _}} ->
-        throw({db_not_found, <<"could not open ", DbUrl/binary>>});
-    {error, Error} ->
-        throw({error, Error})
-    end,
-    {ok, RepPid}.
+        {ok, Pid};
+    {error, {Error, _}} ->
+        {error, Error}
+    end.
 
 
 rep_result_listener(RepId) ->
@@ -129,21 +132,19 @@ rep_result_listener(RepId) ->
         end).
 
 
-wait_for_result(RepId, Listener) ->
-    wait_for_result(RepId, Listener, ?MAX_RESTARTS).
+wait_for_result(RepId) ->
+    wait_for_result(RepId, ?MAX_RESTARTS).
 
-wait_for_result(RepId, Listener, RetriesLeft) ->
+wait_for_result(RepId, RetriesLeft) ->
     receive
     {finished, RepId, RepResult} ->
-        couch_replication_notifier:stop(Listener),
         {ok, RepResult};
     {error, RepId, Reason} ->
         case RetriesLeft > 0 of
         true ->
-            wait_for_result(RepId, Listener, RetriesLeft - 1);
+            wait_for_result(RepId, RetriesLeft - 1);
         false ->
-            couch_replication_notifier:stop(Listener),
-            {error, couch_util:to_binary(Reason)}
+            {error, Reason}
         end
     end.
 
@@ -163,8 +164,8 @@ init(InitArgs) ->
     try
         do_init(InitArgs)
     catch
-    throw:{db_not_found, DbUrl} ->
-        {stop, {db_not_found, DbUrl}}
+    throw:Error ->
+        {stop, Error}
     end.
 
 do_init([RepId, Src, Tgt, Options, UserCtx]) ->
@@ -536,8 +537,15 @@ doc_handler({ok, Doc}, Target, Cp) ->
     case couch_api_wrap:update_doc(Target, Doc, [], replicated_changes) of
     {ok, _} ->
         Cp ! {add_stat, {#stats.docs_written, 1}};
-    _Error ->
-        Cp ! {add_stat, {#stats.doc_write_failures, 1}}
+    Error ->
+        Cp ! {add_stat, {#stats.doc_write_failures, 1}},
+        case Error of
+        {error, unauthorized} ->
+            ?LOG_ERROR("Replicator: unauthorized to write document ~s to ~s",
+                [?b2l(Doc#doc.id), couch_api_wrap:db_uri(Target)]);
+        _ ->
+            ok
+        end
     end;
 doc_handler(_, _, _) ->
     ok.

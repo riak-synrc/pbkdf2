@@ -17,7 +17,7 @@
 -include("../ibrowse/ibrowse.hrl").
 
 -export([httpdb_setup/1]).
--export([send_req/3]).
+-export([send_req/3, strip_creds/1]).
 
 -import(couch_util, [
     get_value/2,

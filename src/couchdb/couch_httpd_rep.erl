@@ -35,7 +35,12 @@ handle_req(#httpd{method='POST'} = Req) ->
     Options = convert_options(PostBody),
     try couch_replicate:replicate(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
     {error, Reason} ->
-        send_json(Req, 500, {[{error, Reason}]});
+        try
+            send_json(Req, 500, {[{error, Reason}]})
+        catch
+        exit:{json_encode, _} ->
+            send_json(Req, 500, {[{error, couch_util:to_binary(Reason)}]})
+        end;
     {ok, {cancelled, RepId}} ->
         send_json(Req, 200, {[{ok, true}, {<<"_local_id">>, RepId}]});
     {ok, {HistoryResults}} ->

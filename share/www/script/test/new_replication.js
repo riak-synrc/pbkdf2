@@ -741,7 +741,154 @@ couchTests.new_replication = function(debug) {
   }
 
 
+  //
+  // test replication triggered by non admins
+  //
+
+  // case 1) user triggering the replication is not a DB admin of the target DB
+  var joeUserDoc = CouchDB.prepareUserDoc({
+    name: "joe",
+    roles: ["erlanger"]
+  }, "erly");
+  var usersDb = new CouchDB("test_suite_auth", {"X-Couch-Full-Commit":"false"});
+  var server_config = [
+    {
+      section: "couch_httpd_auth",
+      key: "authentication_db",
+      value: usersDb.name
+    }
+  ];
+
+  docs = makeDocs(1, 6);
+  docs.push({
+    _id: "_design/foo",
+    language: "javascript"
+  });
+
+  dbPairs = [
+    {
+      source: sourceDb.name,
+      target: targetDb.name
+    },
+    {
+      source: "http://" + host + "/" + sourceDb.name,
+      target: targetDb.name
+    },
+    {
+      source: sourceDb.name,
+      target: "http://joe:erly@" + host + "/" + targetDb.name
+    },
+    {
+      source: "http://" + host + "/" + sourceDb.name,
+      target: "http://joe:erly@" + host + "/" + targetDb.name
+    }
+  ];
+
+  for (i = 0; i < dbPairs.length; i++) {
+    usersDb.deleteDb();
+    populateDb(sourceDb, docs);
+    populateDb(targetDb, []);
+
+    T(targetDb.setSecObj({
+      admins: {
+        names: ["superman"],
+        roles: ["god"]
+      }
+    }).ok);
+
+    run_on_modified_server(server_config, function() {
+      delete joeUserDoc._rev;
+      T(usersDb.save(joeUserDoc).ok);
+
+      T(CouchDB.login("joe", "erly").ok);
+      T(CouchDB.session().userCtx.name === "joe");
+
+      repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
+
+      T(CouchDB.logout().ok);
+
+      T(repResult.ok === true);
+      T(repResult.history[0].docs_read === docs.length);
+      T(repResult.history[0].docs_written === (docs.length - 1)); // 1 ddoc
+      T(repResult.history[0].doc_write_failures === 1);
+    });
+
+    for (j = 0; j < docs.length; j++) {
+      doc = docs[j];
+      copy = targetDb.open(doc._id);
+
+      if (doc._id.indexOf("_design/") === 0) {
+        T(copy === null);
+      } else {
+        T(copy !== null);
+        T(compareObjects(doc, copy) === true);
+      }
+    }
+  }
+
+  // case 2) user triggering the replication is not a reader (nor admin) of the
+  //         source DB
+  dbPairs = [
+    {
+      source: sourceDb.name,
+      target: targetDb.name
+    },
+    {
+      source: "http://joe:erly@" + host + "/" + sourceDb.name,
+      target: targetDb.name
+    },
+    {
+      source: sourceDb.name,
+      target: "http://" + host + "/" + targetDb.name
+    },
+    {
+      source: "http://joe:erly@" + host + "/" + sourceDb.name,
+      target: "http://" + host + "/" + targetDb.name
+    }
+  ];
+
+  for (i = 0; i < dbPairs.length; i++) {
+    usersDb.deleteDb();
+    populateDb(sourceDb, docs);
+    populateDb(targetDb, []);
+
+    T(sourceDb.setSecObj({
+      admins: {
+        names: ["superman"],
+        roles: ["god"]
+      },
+      readers: {
+        names: ["john"],
+        roles: ["secret"]
+      }
+    }).ok);
+
+    run_on_modified_server(server_config, function() {
+      delete joeUserDoc._rev;
+      T(usersDb.save(joeUserDoc).ok);
+
+      T(CouchDB.login("joe", "erly").ok);
+      T(CouchDB.session().userCtx.name === "joe");
+
+      try {
+        CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
+        T(false, "should have raised an exception");
+      } catch (x) {
+      }
+
+      T(CouchDB.logout().ok);
+    });
+
+    for (j = 0; j < docs.length; j++) {
+      doc = docs[j];
+      copy = targetDb.open(doc._id);
+      T(copy === null);
+    }
+  }
+
+
   // cleanup
+  usersDb.deleteDb();
   sourceDb.deleteDb();
   targetDb.deleteDb();
 }

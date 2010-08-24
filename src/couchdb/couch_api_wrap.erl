@@ -43,7 +43,8 @@
     open_doc/4,
     open_doc_revs/6,
     update_doc/4,
-    changes_since/5
+    changes_since/5,
+    db_uri/1
     ]).
 
 -import(couch_api_wrap_httpc, [
@@ -56,6 +57,13 @@
     get_value/2,
     get_value/3
     ]).
+
+
+db_uri(#httpdb{url = Url}) ->
+    couch_api_wrap_httpc:strip_creds(Url);
+
+db_uri(#db{name = Name}) ->
+    ?b2l(Name).
 
 
 db_open(Db, Options) ->
@@ -72,6 +80,8 @@ db_open(#httpdb{} = Db, _Options, Create) ->
     send_req(Db2, [{method, head}],
         fun(200, _, _) ->
             {ok, Db2};
+        (401, _, _) ->
+            throw({unauthorized, ?l2b(db_uri(Db))});
         (_, _, _) ->
             throw({db_not_found, ?l2b(Db2#httpdb.url)})
         end);
@@ -87,11 +97,13 @@ db_open(DbName, Options, Create) ->
             ok
         end
     end,
-    case couch_db:open(DbName, Options) of
+    case (catch couch_db:open(DbName, Options)) of
     {not_found, _Reason} ->
         throw({db_not_found, DbName});
     {ok, _Db2} = Success ->
-        Success
+        Success;
+    {unauthorized, _} ->
+        throw({unauthorized, DbName})
     end.
 
 db_close(#httpdb{}) ->
@@ -287,10 +299,17 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
         [{method, put}, {path, url_encode(DocId)}, {direct, true},
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
-            {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))}
+                {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
+            (401, _, _) ->
+                {error, unauthorized}
         end);
 update_doc(Db, Doc, Options, Type) ->
-    couch_db:update_doc(Db, Doc, Options, Type).
+    try
+        couch_db:update_doc(Db, Doc, Options, Type)
+    catch
+    throw:{unauthorized, _} ->
+        {error, unauthorized}
+    end.
 
 changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
     QArgs = changes_q_args(
