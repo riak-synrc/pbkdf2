@@ -231,7 +231,7 @@ handle_info({seq_start, {Seq, NumChanges}}, State) ->
 handle_info({seq_changes_done, {Seq, NumChangesDone}}, State) ->
     #rep_state{seqs_in_progress = SeqsInProgress} = State,
     % Decrement the # changes for this seq by NumChangesDone.
-    TotalChanges = gb_trees:get(Seq, State#rep_state.seqs_in_progress),
+    TotalChanges = gb_trees:get(Seq, SeqsInProgress),
     NewState = case TotalChanges - NumChangesDone of
     0 ->
         % This seq is completely processed. Check to see if it was the
