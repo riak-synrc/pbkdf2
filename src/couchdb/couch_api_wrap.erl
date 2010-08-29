@@ -128,7 +128,8 @@ update_doc(Db, Doc, Options) ->
 ensure_full_commit(#httpdb{} = Db) ->
     send_req(
         Db,
-        [{method, post}, {path, "_ensure_full_commit"}, {direct, true}],
+        [{method, post}, {path, "_ensure_full_commit"}, {direct, true},
+            {headers, [{"Content-Type", "application/json"}]}],
         fun(201, _, {Props}) ->
             {ok, get_value(<<"instance_start_time">>, Props)}
         end);
