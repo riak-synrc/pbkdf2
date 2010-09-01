@@ -25,18 +25,9 @@
     ]).
 
 
-httpdb_setup(#httpdb{url = Url} = Db) ->
-    #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
-    ibrowse:set_max_sessions(Host, Port, max_sessions()),
-    ibrowse:set_max_pipeline_size(Host, Port, pipeline_size()),
+httpdb_setup(#httpdb{} = Db) ->
+    % TODO: setup Ibrowse proxy options
     {ok, Db}.
-
-
-pipeline_size() ->
-    ?l2i(couch_config:get("replicator", "max_http_pipeline_size", "10")).
-
-max_sessions() ->
-    ?l2i(couch_config:get("replicator", "max_http_sessions", "10")).
 
 
 send_req(HttpDb, Params, Callback) ->
@@ -50,18 +41,10 @@ send_req(HttpDb, Params, Callback) ->
     ],
     Url = full_url(HttpDb, Params),
     Headers2 = oauth_header(Url, [], Method, OAuth) ++ BaseHeaders ++ Headers,
-    {Response, Worker} = case get_value(direct, Params, false) of
-    false ->
-        Resp = ibrowse:send_req(
-            Url, Headers2, Method, Body, IbrowseOptions, infinity),
-        {Resp, nil};
-    true ->
-        #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
-        {ok, Conn} = ibrowse:spawn_link_worker_process(Host, Port),
-        Resp = ibrowse:send_req_direct(
-            Conn, Url, Headers2, Method, Body, IbrowseOptions, infinity),
-        {Resp, Conn}
-    end,
+    #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+    Response = ibrowse:send_req_direct(
+            Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity),
     process_response(Response, Worker, HttpDb, Params, Callback).
 
 

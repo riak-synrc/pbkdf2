@@ -128,7 +128,7 @@ update_doc(Db, Doc, Options) ->
 ensure_full_commit(#httpdb{} = Db) ->
     send_req(
         Db,
-        [{method, post}, {path, "_ensure_full_commit"}, {direct, true},
+        [{method, post}, {path, "_ensure_full_commit"},
             {headers, [{"Content-Type", "application/json"}]}],
         fun(201, _, {Props}) ->
             {ok, get_value(<<"instance_start_time">>, Props)}
@@ -141,8 +141,7 @@ get_missing_revs(#httpdb{} = Db, IdRevs) ->
     JsonBody = {[{Id, couch_doc:revs_to_strs(Revs)} || {Id, Revs} <- IdRevs]},
     send_req(
         Db,
-        [{method, post}, {path, "_revs_diff"}, {direct, true},
-            {body, ?JSON_ENCODE(JsonBody)}],
+        [{method, post}, {path, "_revs_diff"}, {body, ?JSON_ENCODE(JsonBody)}],
         fun(200, _, {Props}) ->
             ConvertToNativeFun = fun({Id, {Result}}) ->
                 MissingRevs = couch_doc:parse_revs(
@@ -176,7 +175,7 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
     Streamer = spawn_link(fun() ->
             send_req(
                 HttpDb,
-                [{path, IdEncoded}, {qs, QArgs}, {direct, true},
+                [{path, IdEncoded}, {qs, QArgs},
                     {ibrowse_options, [{stream_to, {self(), once}}]},
                     {headers, [{"accept", "multipart/mixed"}]}],
                 fun(200, Headers, StreamDataFun) ->
@@ -212,7 +211,7 @@ open_doc(#httpdb{} = HttpDb, Id, Options) ->
             send_req(
                 HttpDb,
                 [{headers, [{"accept", "application/json, multipart/related"}]},
-                    {path, IdEncoded}, {qs, QArgs}, {direct, true},
+                    {path, IdEncoded}, {qs, QArgs},
                     {ibrowse_options, [{stream_to, {self(), once}}]}],
                 fun(Code, Headers, StreamDataFun) ->
                     CType = get_value("Content-Type", Headers),
@@ -297,7 +296,7 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     end,
     send_req(
         HttpDb,
-        [{method, put}, {path, url_encode(DocId)}, {direct, true},
+        [{method, put}, {path, url_encode(DocId)},
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
                 {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
@@ -318,7 +317,7 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
         Options),
     send_req(
         HttpDb,
-        [{path, "_changes"}, {qs, QArgs}, {direct, true},
+        [{path, "_changes"}, {qs, QArgs},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
             EventFun = fun(Ev) ->
