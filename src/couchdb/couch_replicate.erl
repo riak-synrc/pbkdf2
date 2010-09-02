@@ -74,15 +74,53 @@ replicate(Src, Tgt, Options, UserCtx) ->
         end_replication(RepId);
     false ->
         {ok, Listener} = rep_result_listener(RepId),
-        Result = case start_replication(RepId, Src, Tgt, Options, UserCtx) of
-        {ok, _RepPid} ->
-            wait_for_result(RepId);
-        Error ->
-            Error
-        end,
+        Result = do_replication_loop(RepId, Src, Tgt, Options, UserCtx),
         couch_replication_notifier:stop(Listener),
         Result
     end.
+
+
+do_replication_loop(RepId, Src, Tgt, Options, UserCtx) ->
+    DocIds = couch_util:get_value(doc_ids, Options),
+    Continuous = couch_util:get_value(continuous, Options, false),
+    Seq = case {DocIds, Continuous} of
+    {undefined, false} ->
+        last_seq(Src);
+    _ ->
+        undefined
+    end,
+    do_replication_loop(RepId, Src, Tgt, Options, UserCtx, Seq).
+
+do_replication_loop(RepId, Src, Tgt, Options, UserCtx, FinalSeq) ->
+    case start_replication(RepId, Src, Tgt, Options, UserCtx) of
+    {ok, _Pid} ->
+        Result = wait_for_result(RepId),
+        maybe_retry(Result, RepId, Src, Tgt, Options, UserCtx, FinalSeq);
+    Error ->
+        Error
+    end.
+
+
+maybe_retry(RepResult, _RepId, _Src, _Tgt, _Options, _UserCtx, undefined) ->
+    RepResult;
+maybe_retry({ok, {Props}} = Result, RepId, Src, Tgt, Options, UserCtx, Seq) ->
+    case couch_util:get_value(source_last_seq, Props) >= Seq of
+    true ->
+        Result;
+    false ->
+        do_replication_loop(RepId, Src, Tgt, Options, UserCtx, Seq)
+    end;
+maybe_retry(RepResult, _RepId, _Src, _Tgt, _Options, _UserCtx, _Seq) ->
+    RepResult.
+
+
+last_seq(DbName) ->
+    {ok, Db} = couch_api_wrap:db_open(
+        DbName, [{user_ctx, #user_ctx{roles = [<<"_admin">>]}}]),
+    {ok, DbInfo} = couch_api_wrap:get_db_info(Db),
+    Seq = couch_util:get_value(update_seq, DbInfo),
+    couch_api_wrap:db_close(Db),
+    Seq.
 
 
 start_replication({BaseId, Extension} = RepId, Src, Tgt, Options, UserCtx) ->
