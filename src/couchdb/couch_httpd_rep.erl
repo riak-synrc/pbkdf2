@@ -33,7 +33,7 @@ handle_req(#httpd{method='POST'} = Req) ->
     SrcDb = parse_rep_db(couch_util:get_value(<<"source">>, PostBody)),
     TgtDb = parse_rep_db(couch_util:get_value(<<"target">>, PostBody)),
     Options = convert_options(PostBody),
-    try couch_replicate:replicate(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
+    case couch_replicate:replicate(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
     {error, Reason} ->
         try
             send_json(Req, 500, {[{error, Reason}]})
@@ -47,9 +47,6 @@ handle_req(#httpd{method='POST'} = Req) ->
         send_json(Req, 200, {[{ok, true}, {<<"_local_id">>, RepId}]});
     {ok, {HistoryResults}} ->
         send_json(Req, {[{ok, true} | HistoryResults]})
-    catch
-    throw:{db_not_found, Msg} ->
-        send_json(Req, 404, {[{error, db_not_found}, {reason, Msg}]})
     end;
 handle_req(Req) ->
     send_method_not_allowed(Req, "POST").
