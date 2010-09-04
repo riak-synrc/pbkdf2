@@ -104,6 +104,28 @@ couchTests.new_replication = function(debug) {
   }
 
 
+  function waitForSeq(sourceDb, targetDb) {
+    var targetSeq,
+        sourceSeq = sourceDb.info().update_seq,
+        t0 = new Date(),
+        t1,
+        ms = 1000;
+
+    do {
+      targetSeq = targetDb.info().update_seq;
+      t1 = new Date();
+    } while (((t1 - t0) <= ms) && targetSeq < sourceSeq);
+  }
+
+
+  function wait(ms) {
+    var t0 = new Date(), t1;
+    do {
+      CouchDB.request("GET", "/");
+      t1 = new Date();
+    } while ((t1 - t0) <= ms);
+  }
+
 
   // test simple replications (not continuous, not filtered), including
   // conflict creation
@@ -738,6 +760,215 @@ couchTests.new_replication = function(debug) {
       T(copy._conflicts.length === 1);
       T(copy._conflicts[0].indexOf("5-") === 0);
     }
+  }
+
+
+  docs = makeDocs(1, 25);
+  docs.push({
+    _id: "_design/foo",
+    language: "javascript"
+  });
+
+  for (i = 0; i < dbPairs.length; i++) {
+    populateDb(sourceDb, docs);
+    populateDb(targetDb, []);
+
+    // add some attachments
+    for (j = 10; j < 15; j++) {
+      addAtt(sourceDb, docs[j], "readme.txt", att1_data, "text/plain");
+    }
+
+    repResult = CouchDB.new_replicate(
+      dbPairs[i].source,
+      dbPairs[i].target,
+      {
+        body: {
+          continuous: true
+        }
+      }
+    );
+    T(repResult.ok === true);
+    T(typeof repResult._local_id === "string");
+
+    var rep_id = repResult._local_id;
+
+    waitForSeq(sourceDb, targetDb);
+
+    for (j = 0; j < docs.length; j++) {
+      doc = docs[j];
+      copy = targetDb.open(doc._id);
+
+      T(copy !== null);
+      T(compareObjects(doc, copy) === true);
+
+      if (j >= 10 && j < 15) {
+        var atts = copy._attachments;
+        T(typeof atts === "object");
+        T(typeof atts["readme.txt"] === "object");
+        T(atts["readme.txt"].revpos === 2);
+        T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
+        T(atts["readme.txt"].stub === true);
+
+        var att_copy = CouchDB.request(
+          "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
+        ).responseText;
+        T(att_copy.length === att1_data.length);
+        T(att_copy === att1_data);
+      }
+    }
+
+    sourceInfo = sourceDb.info();
+    targetInfo = targetDb.info();
+
+    T(sourceInfo.doc_count === targetInfo.doc_count);
+
+    // add attachments to docs in source
+    for (j = 10; j < 15; j++) {
+      addAtt(sourceDb, docs[j], "data.dat", att2_data, "application/binary");
+    }
+
+    var ddoc = docs[docs.length - 1]; // design doc
+    addAtt(sourceDb, ddoc, "readme.txt", att1_data, "text/plain");
+
+    waitForSeq(sourceDb, targetDb);
+
+    var modifDocs = docs.slice(10, 15).concat([ddoc]);
+    for (j = 0; j < modifDocs.length; j++) {
+      doc = modifDocs[j];
+      copy = targetDb.open(doc._id);
+
+      T(copy !== null);
+      T(compareObjects(doc, copy) === true);
+
+      var atts = copy._attachments;
+      T(typeof atts === "object");
+      T(typeof atts["readme.txt"] === "object");
+      T(atts["readme.txt"].revpos === 2);
+      T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
+      T(atts["readme.txt"].stub === true);
+
+      var att1_copy = CouchDB.request(
+        "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
+      ).responseText;
+      T(att1_copy.length === att1_data.length);
+      T(att1_copy === att1_data);
+
+      if (doc._id.indexOf("_design/") === -1) {
+        T(typeof atts["data.dat"] === "object");
+        T(atts["data.dat"].revpos === 3);
+        T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
+        T(atts["data.dat"].stub === true);
+
+        var att2_copy = CouchDB.request(
+          "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
+        ).responseText;
+        T(att2_copy.length === att2_data.length);
+        T(att2_copy === att2_data);
+      }
+    }
+
+    sourceInfo = sourceDb.info();
+    targetInfo = targetDb.info();
+
+    T(sourceInfo.doc_count === targetInfo.doc_count);
+
+    // add another attachment to the ddoc on source
+    addAtt(sourceDb, ddoc, "data.dat", att2_data, "application/binary");
+
+    waitForSeq(sourceDb, targetDb);
+
+    copy = targetDb.open(ddoc._id);
+    var atts = copy._attachments;
+    T(typeof atts === "object");
+    T(typeof atts["readme.txt"] === "object");
+    T(atts["readme.txt"].revpos === 2);
+    T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
+    T(atts["readme.txt"].stub === true);
+
+    var att1_copy = CouchDB.request(
+      "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
+    ).responseText;
+    T(att1_copy.length === att1_data.length);
+    T(att1_copy === att1_data);
+
+    T(typeof atts["data.dat"] === "object");
+    T(atts["data.dat"].revpos === 3);
+    T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
+    T(atts["data.dat"].stub === true);
+
+    var att2_copy = CouchDB.request(
+      "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
+    ).responseText;
+    T(att2_copy.length === att2_data.length);
+    T(att2_copy === att2_data);
+
+    sourceInfo = sourceDb.info();
+    targetInfo = targetDb.info();
+
+    T(sourceInfo.doc_count === targetInfo.doc_count);
+
+
+    // add more docs to source
+    var newDocs = makeDocs(25, 35);
+    populateDb(sourceDb, newDocs, true);
+
+    waitForSeq(sourceDb, targetDb);
+
+    for (j = 0; j < newDocs.length; j++) {
+      doc = newDocs[j];
+      copy = targetDb.open(doc._id);
+
+      T(copy !== null);
+      T(compareObjects(doc, copy) === true);
+    }
+
+    sourceInfo = sourceDb.info();
+    targetInfo = targetDb.info();
+
+    T(sourceInfo.doc_count === targetInfo.doc_count);
+
+    // delete docs from source
+    T(sourceDb.deleteDoc(newDocs[0]).ok);
+    T(sourceDb.deleteDoc(newDocs[6]).ok);
+
+    waitForSeq(sourceDb, targetDb);
+
+    copy = targetDb.open(newDocs[0]._id);
+    T(copy === null);
+    copy = targetDb.open(newDocs[6]._id);
+    T(copy === null);
+
+    var changes = targetDb.changes({since: targetInfo.update_seq});
+    var line1 = changes.results[changes.results.length - 2];
+    var line2 = changes.results[changes.results.length - 1];
+    T(line1.id === newDocs[0]._id);
+    T(line1.deleted === true);
+    T(line2.id === newDocs[6]._id);
+    T(line2.deleted === true);
+
+    // cancel the replication
+    repResult = CouchDB.new_replicate(
+      dbPairs[i].source,
+      dbPairs[i].target,
+      {
+        body: {
+          continuous: true,
+          cancel: true
+        }
+      }
+    );
+    T(repResult.ok === true);
+    T(repResult._local_id === rep_id);
+
+    doc = {
+      _id: 'foobar',
+      value: 666
+    };
+    T(sourceDb.save(doc).ok);
+
+    wait(2000);
+    copy = targetDb.open(doc._id);
+    T(copy === null);
   }
 
 

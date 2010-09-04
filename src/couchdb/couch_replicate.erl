@@ -91,11 +91,16 @@ do_replication_loop(RepId, Src, Tgt, Options, UserCtx) ->
     end,
     do_replication_loop(RepId, Src, Tgt, Options, UserCtx, Seq).
 
-do_replication_loop(RepId, Src, Tgt, Options, UserCtx, FinalSeq) ->
+do_replication_loop({BaseId, _} = RepId, Src, Tgt, Options, UserCtx, Seq) ->
     case start_replication(RepId, Src, Tgt, Options, UserCtx) of
     {ok, _Pid} ->
-        Result = wait_for_result(RepId),
-        maybe_retry(Result, RepId, Src, Tgt, Options, UserCtx, FinalSeq);
+        case couch_util:get_value(continuous, Options, false) of
+        true ->
+            {ok, {continuous, ?l2b(BaseId)}};
+        false ->
+            Result = wait_for_result(RepId),
+            maybe_retry(Result, RepId, Src, Tgt, Options, UserCtx, Seq)
+        end;
     Error ->
         Error
     end.
@@ -611,17 +616,16 @@ doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
     {ok, [{Id, Revs, PossibleAncestors, Seq}]} ->
         ?LOG_DEBUG("Doc copier ~p got {~p, ~p, ~p, ~p}",
             [CopierId, Id, Revs, PossibleAncestors, Seq]),
+        Source2 = couch_api_wrap:maybe_reopen_db(Source, Seq),
         couch_api_wrap:open_doc_revs(
-            Source, Id, Revs, [{atts_since, PossibleAncestors}],
+            Source2, Id, Revs, [{atts_since, PossibleAncestors}],
             fun(R, _) -> doc_handler(R, Target, Cp) end, []),
         Cp ! {seq_changes_done, {Seq, length(Revs)}},
-        doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue)
+        doc_copy_loop(CopierId, Cp, Source2, Target, MissingRevsQueue)
     end.
 
 doc_handler({ok, Doc}, Target, Cp) ->
-    % we are called for every rev read on the source
     Cp ! {add_stat, {#stats.docs_read, 1}},
-    % now write the doc to the target.
     case couch_api_wrap:update_doc(Target, Doc, [], replicated_changes) of
     {ok, _} ->
         Cp ! {add_stat, {#stats.docs_written, 1}};

@@ -34,6 +34,7 @@
 -export([
     db_open/2,
     db_open/3,
+    maybe_reopen_db/2,
     db_close/1,
     get_db_info/1,
     update_doc/3,
@@ -254,6 +255,18 @@ open_doc(Db, Id, Options) ->
     couch_db:open_doc(Db, Id, Options).
 
 
+maybe_reopen_db(#httpdb{} = Db, _TargetSeq) ->
+    Db;
+maybe_reopen_db(#db{update_seq = UpSeq, main_pid = Pid} = Db, TargetSeq) ->
+    case TargetSeq > UpSeq of
+    true ->
+        {ok, Db2} = gen_server:call(Pid, get_db, infinity),
+        Db2;
+    false ->
+        Db
+    end.
+
+
 update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     QArgs = case Type of
     replicated_changes ->
@@ -320,10 +333,15 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
         [{path, "_changes"}, {qs, QArgs},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
-            EventFun = fun(Ev) ->
-                changes_ev1(Ev, fun(DocInfo, _Acc) -> UserFun(DocInfo) end, [])
-            end,
-            json_stream_parse:events(DataStreamFun, EventFun)
+            case couch_util:get_value(continuous, Options, false) of
+            true ->
+                continuous_changes(DataStreamFun, UserFun);
+            false ->
+                EventFun = fun(Ev) ->
+                    changes_ev1(Ev, fun(DocInfo, _) -> UserFun(DocInfo) end, [])
+                end,
+                json_stream_parse:events(DataStreamFun, EventFun)
+            end
         end);
 changes_since(Db, Style, StartSeq, UserFun, Options) ->
     Args = #changes_args{
@@ -367,6 +385,12 @@ changes_q_args(BaseQS, Options) ->
                 end
             end,
             BaseQS, Params)]
+    end ++
+    case get_value(continuous, Options, false) of
+    false ->
+        [{"feed", "normal"}];
+    true ->
+        [{"feed", "continuous"}, {"heartbeat", "10000"}]
     end.
 
 changes_json_req(_Db, "", _QueryParams) ->
@@ -504,6 +528,18 @@ changes_ev_loop(array_end, _UserFun, _UserAcc) ->
 
 changes_ev_done() ->
     fun(_Ev) -> changes_ev_done() end.
+
+continuous_changes(DataFun, UserFun) ->
+    {DataFun2, _, Rest} = json_stream_parse:events(
+        DataFun,
+        fun(Ev) -> parse_changes_line(Ev, UserFun) end),
+    continuous_changes(fun() -> {Rest, DataFun2} end, UserFun).
+
+parse_changes_line(object_start, UserFun) ->
+    fun(Ev) ->
+        json_stream_parse:collect_object(Ev,
+            fun(Obj) -> UserFun(json_to_doc_info(Obj)) end)
+    end.
 
 json_to_doc_info({Props}) ->
     RevsInfo = lists:map(

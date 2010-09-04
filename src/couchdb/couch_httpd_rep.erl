@@ -43,6 +43,8 @@ handle_req(#httpd{method='POST'} = Req) ->
         end;
     {ok, {cancelled, RepId}} ->
         send_json(Req, 200, {[{ok, true}, {<<"_local_id">>, RepId}]});
+    {ok, {continuous, RepId}} ->
+        send_json(Req, 200, {[{ok, true}, {<<"_local_id">>, RepId}]});
     {ok, {HistoryResults}} ->
         send_json(Req, {[{ok, true} | HistoryResults]})
     catch

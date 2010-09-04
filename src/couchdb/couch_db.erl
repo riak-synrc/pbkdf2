@@ -987,7 +987,9 @@ handle_call({db_updated, NewDb}, _From, #db{fd_ref_counter=OldRefCntr}) ->
         couch_ref_counter:add(NewRefCntr),
         couch_ref_counter:drop(OldRefCntr)
     end,
-    {reply, ok, NewDb}.
+    {reply, ok, NewDb};
+handle_call(get_db, _From, Db) ->
+    {reply, {ok, Db}, Db}.
 
 
 handle_cast(Msg, Db) ->
