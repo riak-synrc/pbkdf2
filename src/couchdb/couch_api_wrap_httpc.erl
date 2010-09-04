@@ -30,8 +30,7 @@ httpdb_setup(#httpdb{} = Db) ->
     {ok, Db}.
 
 
-send_req(HttpDb, Params, Callback) ->
-    #httpdb{headers = BaseHeaders, oauth = OAuth} = HttpDb,
+send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     Method = get_value(method, Params, get),
     Headers = get_value(headers, Params, []),
     Body = get_value(body, Params, []),
@@ -39,8 +38,8 @@ send_req(HttpDb, Params, Callback) ->
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout}
         | get_value(ibrowse_options, Params, [])
     ],
+    Headers2 = oauth_header(HttpDb, Params) ++ BaseHeaders ++ Headers,
     Url = full_url(HttpDb, Params),
-    Headers2 = oauth_header(Url, [], Method, OAuth) ++ BaseHeaders ++ Headers,
     #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
     {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
     Response = ibrowse:send_req_direct(
@@ -160,24 +159,26 @@ query_args_to_string([{K, V} | Rest], Acc) ->
     query_args_to_string(Rest, [(K ++ "=" ++ V) | Acc]).
 
 
-oauth_header(_Url, _QS, _Action, nil) ->
+oauth_header(#httpdb{oauth = nil}, _ConnParams) ->
     [];
-oauth_header(Url, QS, Action, OAuth) ->
+oauth_header(#httpdb{url = BaseUrl, oauth = OAuth}, ConnParams) ->
     Consumer = {
         OAuth#oauth.consumer_key,
         OAuth#oauth.consumer_secret,
         OAuth#oauth.signature_method
     },
-    Method = case Action of
+    Method = case get_value(method, ConnParams, get) of
     get -> "GET";
     post -> "POST";
     put -> "PUT";
     head -> "HEAD"
     end,
-    Params = oauth:signed_params(Method, Url, QS, Consumer,
-        #oauth.token,
-        #oauth.token_secret),
-    [{"Authorization", "OAuth " ++ oauth_uri:params_to_header_string(Params)}].
+    OAuthParams = oauth:signed_params(Method,
+        BaseUrl ++ get_value(path, ConnParams, []),
+        get_value(qs, ConnParams, []),
+        Consumer, OAuth#oauth.token, OAuth#oauth.token_secret),
+    [{"Authorization",
+        "OAuth " ++ oauth_uri:params_to_header_string(OAuthParams)}].
 
 
 do_redirect(RespHeaders, #httpdb{url = OrigUrl} = HttpDb, Params, Callback) ->
