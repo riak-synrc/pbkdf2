@@ -301,15 +301,15 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
                 {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
-            (401, _, _) ->
-                {error, unauthorized}
+            (_, _, {Props}) ->
+                {error, get_value(<<"error">>, Props)}
         end);
 update_doc(Db, Doc, Options, Type) ->
     try
         couch_db:update_doc(Db, Doc, Options, Type)
     catch
     throw:{unauthorized, _} ->
-        {error, unauthorized}
+        {error, <<"unauthorized">>}
     end.
 
 changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->

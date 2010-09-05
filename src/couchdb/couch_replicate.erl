@@ -633,7 +633,7 @@ doc_handler({ok, Doc}, Target, Cp) ->
     Error ->
         Cp ! {add_stat, {#stats.doc_write_failures, 1}},
         case Error of
-        {error, unauthorized} ->
+        {error, <<"unauthorized">>} ->
             ?LOG_ERROR("Replicator: unauthorized to write document ~s to ~s",
                 [?b2l(Doc#doc.id), couch_api_wrap:db_uri(Target)]);
         _ ->
