@@ -13,7 +13,6 @@
 -module(couch_httpd_rep).
 
 -include("couch_db.hrl").
--include("couch_api_wrap.hrl").
 
 -import(couch_httpd, [
     send_json/2,
