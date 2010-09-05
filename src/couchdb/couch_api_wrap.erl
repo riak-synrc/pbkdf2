@@ -167,16 +167,10 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
         {"open_revs", ?JSON_ENCODE(couch_doc:revs_to_strs(Revs))} |
         options_to_query_args(Options, [])
     ],
-    IdEncoded = case Id of
-    <<"_design/", RestId/binary>> ->
-        "_design/" ++ url_encode(RestId);
-    _ ->
-        url_encode(Id)
-    end,
     Streamer = spawn_link(fun() ->
             send_req(
                 HttpDb,
-                [{path, IdEncoded}, {qs, QArgs},
+                [{path, encode_doc_id(Id)}, {qs, QArgs},
                     {ibrowse_options, [{stream_to, {self(), once}}]},
                     {headers, [{"accept", "multipart/mixed"}]}],
                 fun(200, Headers, StreamDataFun) ->
@@ -201,18 +195,12 @@ open_doc(#httpdb{} = HttpDb, Id, Options) ->
         {"revs", "true"} |
         options_to_query_args(Options, [])
     ],
-    IdEncoded = case Id of
-    <<"_design/", RestId/binary>> ->
-        "_design/" ++ url_encode(RestId);
-    _ ->
-        url_encode(Id)
-    end,
     Self = self(),
     Streamer = spawn_link(fun() ->
             send_req(
                 HttpDb,
                 [{headers, [{"accept", "application/json, multipart/related"}]},
-                    {path, IdEncoded}, {qs, QArgs},
+                    {path, encode_doc_id(Id)}, {qs, QArgs},
                     {ibrowse_options, [{stream_to, {self(), once}}]}],
                 fun(Code, Headers, StreamDataFun) ->
                     CType = get_value("Content-Type", Headers),
@@ -553,3 +541,10 @@ json_to_doc_info({Props}) ->
         high_seq = get_value(<<"seq">>, Props),
         revs = RevsInfo
     }.
+
+encode_doc_id(<<"_design/", RestId/binary>>) ->
+    "_design/" ++ url_encode(RestId);
+encode_doc_id(<<"_local/", RestId/binary>>) ->
+    "_local/" ++ url_encode(RestId);
+encode_doc_id(DocId) ->
+    url_encode(DocId).
