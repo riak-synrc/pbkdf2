@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 % public API
--export([replicate/4]).
+-export([replicate/1]).
 
 % gen_server callbacks
 -export([init/1, terminate/2, code_change/3]).
@@ -37,8 +37,7 @@
     }).
 
 -record(rep_state, {
-    rep_id,
-    rep_options,
+    rep_details,
     source_name,
     target_name,
     source,
@@ -67,20 +66,19 @@
     }).
 
 
-replicate(Src, Tgt, Options, UserCtx) ->
-    RepId = make_replication_id(Src, Tgt, UserCtx, Options),
+replicate(#rep{id = RepId, options = Options} = Rep) ->
     case couch_util:get_value(cancel, Options, false) of
     true ->
         end_replication(RepId);
     false ->
         {ok, Listener} = rep_result_listener(RepId),
-        Result = do_replication_loop(RepId, Src, Tgt, Options, UserCtx),
+        Result = do_replication_loop(Rep),
         couch_replication_notifier:stop(Listener),
         Result
     end.
 
 
-do_replication_loop(RepId, Src, Tgt, Options, UserCtx) ->
+do_replication_loop(#rep{options = Options, source = Src} = Rep) ->
     DocIds = couch_util:get_value(doc_ids, Options),
     Continuous = couch_util:get_value(continuous, Options, false),
     Seq = case {DocIds, Continuous} of
@@ -89,33 +87,33 @@ do_replication_loop(RepId, Src, Tgt, Options, UserCtx) ->
     _ ->
         undefined
     end,
-    do_replication_loop(RepId, Src, Tgt, Options, UserCtx, Seq).
+    do_replication_loop(Rep, Seq).
 
-do_replication_loop({BaseId, _} = RepId, Src, Tgt, Options, UserCtx, Seq) ->
-    case start_replication(RepId, Src, Tgt, Options, UserCtx) of
+do_replication_loop(#rep{id = {BaseId,_} = Id, options = Options} = Rep, Seq) ->
+    case start_replication(Rep) of
     {ok, _Pid} ->
         case couch_util:get_value(continuous, Options, false) of
         true ->
             {ok, {continuous, ?l2b(BaseId)}};
         false ->
-            Result = wait_for_result(RepId),
-            maybe_retry(Result, RepId, Src, Tgt, Options, UserCtx, Seq)
+            Result = wait_for_result(Id),
+            maybe_retry(Result, Rep, Seq)
         end;
     Error ->
         Error
     end.
 
 
-maybe_retry(RepResult, _RepId, _Src, _Tgt, _Options, _UserCtx, undefined) ->
+maybe_retry(RepResult, _Rep, undefined) ->
     RepResult;
-maybe_retry({ok, {Props}} = Result, RepId, Src, Tgt, Options, UserCtx, Seq) ->
+maybe_retry({ok, {Props}} = Result, Rep, Seq) ->
     case couch_util:get_value(source_last_seq, Props) >= Seq of
     true ->
         Result;
     false ->
-        do_replication_loop(RepId, Src, Tgt, Options, UserCtx, Seq)
+        do_replication_loop(Rep, Seq)
     end;
-maybe_retry(RepResult, _RepId, _Src, _Tgt, _Options, _UserCtx, _Seq) ->
+maybe_retry(RepResult, _Rep, _Seq) ->
     RepResult.
 
 
@@ -128,12 +126,11 @@ last_seq(DbName) ->
     Seq.
 
 
-start_replication({BaseId, Extension} = RepId, Src, Tgt, Options, UserCtx) ->
+start_replication(#rep{id = {BaseId, Extension}} = Rep) ->
     RepChildId = BaseId ++ Extension,
     ChildSpec = {
         RepChildId,
-        {gen_server, start_link,
-           [?MODULE, [RepId, Src, Tgt, Options, UserCtx], []]},
+        {gen_server, start_link, [?MODULE, Rep, []]},
         transient,
         1,
         worker,
@@ -214,14 +211,14 @@ init(InitArgs) ->
         {stop, Error}
     end.
 
-do_init([RepId, Src, Tgt, Options, UserCtx]) ->
+do_init(#rep{options = Options} = Rep) ->
     process_flag(trap_exit, true),
 
     #rep_state{
         source = Source,
         target = Target,
         start_seq = StartSeq
-    } = State = init_state(RepId, Src, Tgt, Options, UserCtx),
+    } = State = init_state(Rep),
 
     {ok, MissingRevsQueue} = couch_work_queue:new(
         [{max_size, 100000}, {max_items, 500}, {multi_workers, true}]),
@@ -414,7 +411,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-terminate(normal, #rep_state{rep_id = RepId} = State) ->
+terminate(normal, #rep_state{rep_details = #rep{id = RepId}} = State) ->
     terminate_cleanup(State),
     couch_replication_notifier:notify({finished, RepId, get_result(State)});
 
@@ -422,7 +419,7 @@ terminate(shutdown, State) ->
     % cancelled replication throught ?MODULE:end_replication/1
     terminate_cleanup(State);
 
-terminate(Reason, #rep_state{rep_id = RepId} = State) ->
+terminate(Reason, #rep_state{rep_details = #rep{id = RepId}} = State) ->
     terminate_cleanup(State),
     couch_replication_notifier:notify({error, RepId, Reason}).
 
@@ -432,7 +429,7 @@ terminate_cleanup(#rep_state{source = Source, target = Target}) ->
     couch_api_wrap:db_close(Target).
 
 
-start_timer(#rep_state{rep_options = Options} = State) ->
+start_timer(#rep_state{rep_details = #rep{options = Options}} = State) ->
     case couch_util:get_value(doc_ids, Options) of
     undefined ->
         After = checkpoint_interval(State),
@@ -454,8 +451,8 @@ cancel_timer(#rep_state{timer = Timer}) ->
     {ok, cancel} = timer:cancel(Timer).
 
 
-get_result(#rep_state{stats = Stats, rep_options = Options} = State) ->
-    case couch_util:get_value(doc_ids, Options) of
+get_result(#rep_state{stats = Stats, rep_details = Rep} = State) ->
+    case couch_util:get_value(doc_ids, Rep#rep.options) of
     undefined ->
         State#rep_state.checkpoint_history;
     _DocIdList ->
@@ -469,7 +466,12 @@ get_result(#rep_state{stats = Stats, rep_options = Options} = State) ->
     end.
 
 
-init_state({BaseId, _Ext} = RepId, Src, Tgt, Options, UserCtx) ->
+init_state(Rep) ->
+    #rep{
+        id = {BaseId, _Ext},
+        source = Src, target = Tgt,
+        options = Options, user_ctx = UserCtx
+    } = Rep,
     {ok, Source} = couch_api_wrap:db_open(Src, [{user_ctx, UserCtx}]),
     {ok, Target} = couch_api_wrap:db_open(Tgt, [{user_ctx, UserCtx}],
         couch_util:get_value(create_target, Options, false)),
@@ -489,8 +491,7 @@ init_state({BaseId, _Ext} = RepId, Src, Tgt, Options, UserCtx) ->
     {StartSeq, History} = compare_replication_logs(SourceLog, TargetLog),
     #doc{body={CheckpointHistory}} = SourceLog,
     State = #rep_state{
-        rep_id = RepId,
-        rep_options = Options,
+        rep_details = Rep,
         source_name = couch_api_wrap:db_uri(Source),
         target_name = couch_api_wrap:db_uri(Target),
         source = Source,
@@ -747,51 +748,6 @@ commit_to_both(Source, Target) ->
         exit(replication_link_failure)
     end,
     {SourceStartTime, TargetStartTime}.
-
-
-make_replication_id(Source, Target, UserCtx, Options) ->
-    %% funky algorithm to preserve backwards compatibility
-    {ok, HostName} = inet:gethostname(),
-    % Port = mochiweb_socket_server:get(couch_httpd, port),
-    Src = get_rep_endpoint(UserCtx, Source),
-    Tgt = get_rep_endpoint(UserCtx, Target),
-    Base = [HostName, Src, Tgt] ++
-        case couch_util:get_value(filter, Options) of
-        undefined ->
-            case couch_util:get_value(doc_ids, Options) of
-            undefined ->
-                [];
-            DocIds ->
-                [DocIds]
-            end;
-        Filter ->
-            [Filter, couch_util:get_value(query_params, Options, {[]})]
-        end,
-    Extension = maybe_append_options([continuous, create_target], Options),
-    {couch_util:to_hex(couch_util:md5(term_to_binary(Base))), Extension}.
-
-
-maybe_append_options(Options, RepOptions) ->
-    lists:foldl(fun(Option, Acc) ->
-        Acc ++
-        case couch_util:get_value(Option, RepOptions, false) of
-        true ->
-            "+" ++ atom_to_list(Option);
-        false ->
-            ""
-        end
-    end, [], Options).
-
-
-get_rep_endpoint(_UserCtx, #httpdb{url=Url, headers=Headers, oauth=OAuth}) ->
-    case OAuth of
-    nil ->
-        {remote, Url, Headers};
-    {OAuth} ->
-        {remote, Url, Headers, OAuth}
-    end;
-get_rep_endpoint(UserCtx, <<DbName/binary>>) ->
-    {local, DbName, UserCtx}.
 
 
 compare_replication_logs(SrcDoc, TgtDoc) ->

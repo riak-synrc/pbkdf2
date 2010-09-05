@@ -80,6 +80,7 @@ source_files = \
     couch_db_updater.erl \
     couch_work_queue.erl \
     couch_replicate.erl \
+    couch_replicator_utils.erl \
     couch_replication_notifier.erl \
     couch_httpd_rep.erl \
     couch_api_wrap.erl \
@@ -144,6 +145,7 @@ compiled_files = \
     couch_db_updater.beam \
     couch_work_queue.beam \
     couch_replicate.beam \
+    couch_replicator_utils.beam \
     couch_replication_notifier.beam \
     couch_httpd_rep.beam \
     couch_api_wrap.beam \

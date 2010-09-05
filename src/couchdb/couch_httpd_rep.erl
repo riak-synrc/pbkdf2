@@ -24,12 +24,10 @@
 -export([handle_req/1]).
 
 
-handle_req(#httpd{method='POST'} = Req) ->
-    {PostBody} = couch_httpd:json_body_obj(Req),
-    SrcDb = parse_rep_db(couch_util:get_value(<<"source">>, PostBody)),
-    TgtDb = parse_rep_db(couch_util:get_value(<<"target">>, PostBody)),
-    Options = convert_options(PostBody),
-    case couch_replicate:replicate(SrcDb, TgtDb, Options, Req#httpd.user_ctx) of
+handle_req(#httpd{method = 'POST', user_ctx = UserCtx} = Req) ->
+    RepDoc = couch_httpd:json_body_obj(Req),
+    {ok, Rep} = couch_replicator_utils:parse_rep_doc(RepDoc, UserCtx),
+    case couch_replicate:replicate(Rep) of
     {error, Reason} ->
         try
             send_json(Req, 500, {[{error, Reason}]})
@@ -44,77 +42,6 @@ handle_req(#httpd{method='POST'} = Req) ->
     {ok, {HistoryResults}} ->
         send_json(Req, {[{ok, true} | HistoryResults]})
     end;
+
 handle_req(Req) ->
     send_method_not_allowed(Req, "POST").
-
-
-maybe_add_trailing_slash(Url) when is_binary(Url) ->
-    maybe_add_trailing_slash(?b2l(Url));
-maybe_add_trailing_slash(Url) ->
-    case lists:last(Url) of
-    $/ ->
-        Url;
-    _ ->
-        Url ++ "/"
-    end.
-
-parse_rep_db({Props}) ->
-    Url = maybe_add_trailing_slash(couch_util:get_value(<<"url">>, Props)),
-    {AuthProps} = couch_util:get_value(<<"auth">>, Props, {[]}),
-    {BinHeaders} = couch_util:get_value(<<"headers">>, Props, {[]}),
-    Headers = [{?b2l(K), ?b2l(V)} || {K, V} <- BinHeaders],
-    
-    case couch_util:get_value(<<"oauth">>, AuthProps) of
-    undefined ->
-        OAuth = nil;
-    {OauthProps} -> 
-        OAuth = #oauth{
-            consumer_key = 
-                ?b2l(couch_util:get_value(<<"consumer_key">>, OauthProps)),
-            token = 
-                ?b2l(couch_util:get_value(<<"token">>, OauthProps)),
-            token_secret = 
-                ?b2l(couch_util:get_value(<<"token_secret">>, OauthProps)),
-            consumer_secret = 
-                ?b2l(couch_util:get_value(<<"consumer_secret">>, OauthProps)),
-            signature_method = 
-                case couch_util:get_value(<<"signature_method">>, OauthProps) of
-                undefined ->        hmac_sha1;
-                <<"PLAINTEXT">> ->  plaintext;
-                <<"HMAC-SHA1">> ->  hmac_sha1;
-                <<"RSA-SHA1">> ->   rsa_sha1
-                end
-        }
-    end,
-    
-    #httpdb{
-        url = Url,
-        oauth = OAuth,
-        headers = Headers
-    };
-parse_rep_db(<<"http://", _/binary>> = Url) ->
-    parse_rep_db({[{<<"url">>, Url}]});
-parse_rep_db(<<"https://", _/binary>> = Url) ->
-    parse_rep_db({[{<<"url">>, Url}]});
-parse_rep_db(<<DbName/binary>>) ->
-    DbName.
-
-
-convert_options([])->
-    [];
-convert_options([{<<"cancel">>, V} | R]) ->
-    [{cancel, V} | convert_options(R)];
-convert_options([{<<"create_target">>, V} | R]) ->
-    [{create_target, V} | convert_options(R)];
-convert_options([{<<"continuous">>, V} | R]) ->
-    [{continuous, V} | convert_options(R)];
-convert_options([{<<"filter">>, V} | R]) ->
-    [{filter, V} | convert_options(R)];
-convert_options([{<<"query_params">>, V} | R]) ->
-    [{query_params, V} | convert_options(R)];
-convert_options([{<<"doc_ids">>, V} | R]) ->
-    [{doc_ids, V} | convert_options(R)];
-convert_options([_ | R]) -> % skip unknown option
-    convert_options(R).
-
-
