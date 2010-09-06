@@ -618,8 +618,9 @@ doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
         Cp ! {done, CopierId};
     {ok, [{doc_id, Id}]} ->
         ?LOG_DEBUG("Doc copier ~p got {doc_id, ~p}", [CopierId, Id]),
-        couch_api_wrap:open_doc(
-            Source, Id, [], fun(R) -> doc_handler(R, Target, Cp) end),
+        couch_api_wrap:open_doc_revs(
+            Source, Id, all, [],
+            fun(R, _) -> doc_handler(R, Target, Cp) end, []),
         doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue);
     {ok, [{Id, Revs, PossibleAncestors, Seq}]} ->
         ?LOG_DEBUG("Doc copier ~p got {~p, ~p, ~p, ~p}",

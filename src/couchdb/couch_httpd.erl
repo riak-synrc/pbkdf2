@@ -823,17 +823,20 @@ read_until(#mp{data_fun=DataFun, buffer=Buffer}=Mp, Pattern, Callback) ->
     end.
 
 
-parse_part_header(#mp{callback=UserCallBack}=Mp) ->
-    {Mp2, AccCallback} = read_until(Mp, <<"\r\n\r\n">>,
-            fun(Next) -> acc_callback(Next, []) end),
-    HeaderData = AccCallback(get_data),
-    
-    Headers =
-    lists:foldl(fun(Line, Acc) ->
-            split_header(Line) ++ Acc
-        end, [], re:split(HeaderData,<<"\r\n">>, [])),
-    NextCallback = UserCallBack({headers, Headers}),
-    parse_part_body(Mp2#mp{callback=NextCallback}).
+parse_part_header(Mp) ->
+    case check_for_last(Mp) of
+    {last, #mp{callback=UserCallBack} = Mp2} ->
+        Mp2#mp{callback=UserCallBack(eof)};
+    {more, #mp{callback=UserCallBack} = Mp2} ->
+        {Mp3, AccCallback} = read_until(Mp2, <<"\r\n\r\n">>,
+                fun(Next) -> acc_callback(Next, []) end),
+        HeaderData = AccCallback(get_data),
+        Headers = lists:foldl(fun(Line, Acc) ->
+                split_header(Line) ++ Acc
+            end, [], re:split(HeaderData,<<"\r\n">>, [])),
+        NextCallback = UserCallBack({headers, Headers}),
+        parse_part_body(Mp3#mp{callback=NextCallback})
+     end.
 
 parse_part_body(#mp{boundary=Prefix, callback=Callback}=Mp) ->
     {Mp2, WrappedCallback} = read_until(Mp, Prefix,

@@ -41,7 +41,6 @@
     ensure_full_commit/1,
     get_missing_revs/2,
     open_doc/3,
-    open_doc/4,
     open_doc_revs/6,
     update_doc/4,
     changes_since/5,
@@ -162,10 +161,15 @@ get_missing_revs(Db, IdRevs) ->
 
 
 open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
+    RevStr = case Revs of
+    all ->
+        "all";
+    _ ->
+        ?JSON_ENCODE(couch_doc:revs_to_strs(Revs))
+    end,
     Self = self(),
     QArgs = [
-        {"revs", "true"},
-        {"open_revs", ?JSON_ENCODE(couch_doc:revs_to_strs(Revs))} |
+        {"revs", "true"}, {"open_revs", RevStr} |
         options_to_query_args(Options, [])
     ],
     Streamer = spawn_link(fun() ->
@@ -187,59 +191,16 @@ open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
 
-open_doc(Db, Id, Options, Fun) ->
-    Fun(open_doc(Db, Id, Options)).
 
-open_doc(#httpdb{} = HttpDb, Id, Options) ->
-    QArgs = [
-        {"attachments", "true"},
-        {"revs", "true"} |
-        options_to_query_args(Options, [])
-    ],
-    Self = self(),
-    Streamer = spawn_link(fun() ->
-            send_req(
-                HttpDb,
-                [{headers, [{"accept", "application/json, multipart/related"}]},
-                    {path, encode_doc_id(Id)}, {qs, QArgs},
-                    {ibrowse_options, [{stream_to, {self(), once}}]}],
-                fun(Code, Headers, StreamDataFun) ->
-                    CType = get_value("Content-Type", Headers),
-                    Self ! {self(), CType},
-                    case CType of
-                    "application/json" ->
-                        receive
-                        {get, From} ->
-                            EJson = json_stream_parse:to_ejson(StreamDataFun),
-                            case Code of
-                            200 ->
-                                Doc = couch_doc:from_json_obj(EJson),
-                                From ! {data, self(), Doc};
-                            _ErrorCode ->
-                                From ! {data, self(), EJson}
-                            end
-                        end;
-                    "multipart/related;" ++ _ ->
-                        couch_httpd:parse_multipart_request(
-                            CType,
-                            StreamDataFun,
-                            fun(Ev)-> couch_doc:mp_parse_doc(Ev, []) end)
-                    end
-                end),
-            unlink(Self)
-        end),
-    receive
-    {Streamer, "application/json"} ->
-        Streamer ! {get, self()},
-        receive
-        {data, Streamer, #doc{} = Doc} ->
-            {ok, Doc};
-        {data, Streamer, Error} ->
-            Error
-        end;
-    {Streamer, "multipart/related;" ++ _} ->
-        couch_doc:doc_from_multi_part_stream(Streamer)
-    end;
+open_doc(#httpdb{} = Db, Id, Options) ->
+    send_req(
+        Db,
+        [{path, encode_doc_id(Id)}, {qs, options_to_query_args(Options, [])}],
+        fun(200, _, Body) ->
+            {ok, couch_doc:from_json_obj(Body)};
+        (_, _, {Props}) ->
+            {error, get_value(<<"error">>, Props)}
+        end);
 open_doc(Db, Id, Options) ->
     couch_db:open_doc(Db, Id, Options).
 
