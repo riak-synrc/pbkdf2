@@ -88,7 +88,7 @@ do_replication_loop(#rep{options = Options, source = Src} = Rep) ->
     Continuous = get_value(continuous, Options, false),
     Seq = case {DocIds, Continuous} of
     {undefined, false} ->
-        last_seq(Src);
+        last_seq(Src, Rep#rep.user_ctx);
     _ ->
         undefined
     end,
@@ -122,12 +122,15 @@ maybe_retry(RepResult, _Rep, _Seq) ->
     RepResult.
 
 
-last_seq(DbName) ->
-    {ok, Db} = couch_api_wrap:db_open(
-        DbName, [{user_ctx, #user_ctx{roles = [<<"_admin">>]}}]),
-    {ok, DbInfo} = couch_api_wrap:get_db_info(Db),
-    couch_api_wrap:db_close(Db),
-    get_value(<<"update_seq">>, DbInfo).
+last_seq(DbName, UserCtx) ->
+    case (catch couch_api_wrap:db_open(DbName, [{user_ctx, UserCtx}])) of
+    {ok, Db} ->
+        {ok, DbInfo} = couch_api_wrap:get_db_info(Db),
+        couch_api_wrap:db_close(Db),
+        get_value(<<"update_seq">>, DbInfo);
+    _ ->
+        undefined
+    end.
 
 
 start_replication(#rep{id = {BaseId, Extension}} = Rep) ->
