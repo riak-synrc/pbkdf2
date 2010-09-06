@@ -116,10 +116,11 @@ db_close(DbName) ->
 get_db_info(#httpdb{} = Db) ->
     send_req(Db, [],
         fun(200, _, {Props}) ->
-            {ok, [{couch_util:to_existing_atom(K), V} || {K, V} <- Props]}
+            {ok, Props}
         end);
 get_db_info(Db) ->
-    couch_db:get_db_info(Db).
+    {ok, Info} = couch_db:get_db_info(Db),
+    {ok, [{couch_util:to_binary(K), V} || {K, V} <- Info]}.
 
 
 update_doc(Db, Doc, Options) ->

@@ -127,7 +127,7 @@ last_seq(DbName) ->
         DbName, [{user_ctx, #user_ctx{roles = [<<"_admin">>]}}]),
     {ok, DbInfo} = couch_api_wrap:get_db_info(Db),
     couch_api_wrap:db_close(Db),
-    get_value(update_seq, DbInfo).
+    get_value(<<"update_seq">>, DbInfo).
 
 
 start_replication(#rep{id = {BaseId, Extension}} = Rep) ->
@@ -508,8 +508,8 @@ init_state(Rep) ->
         source_log = SourceLog,
         target_log = TargetLog,
         rep_starttime = httpd_util:rfc1123_date(),
-        src_starttime = get_value(instance_start_time, SourceInfo),
-        tgt_starttime = get_value(instance_start_time, TargetInfo)
+        src_starttime = get_value(<<"instance_start_time">>, SourceInfo),
+        tgt_starttime = get_value(<<"instance_start_time">>, TargetInfo)
     },
     State#rep_state{timer = start_timer(State)}.
 
