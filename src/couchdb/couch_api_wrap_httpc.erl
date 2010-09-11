@@ -111,7 +111,7 @@ report_error(Worker, HttpDb, Params, Error) ->
     Url = strip_creds(full_url(HttpDb, Params)),
     do_report_error(Url, Method, Error),
     stop_worker(Worker),
-    exit({http_request_failed, Method, Url}).
+    exit({http_request_failed, Method, Url, Error}).
 
 
 do_report_error(FullUrl, Method, {reason, Reason}) ->
@@ -129,7 +129,10 @@ do_report_error(Url, Method, {timeout, Timeout}) ->
 
 stream_data_self(HttpDb, Params, Worker, ReqId) ->
     ibrowse:stream_next(ReqId),
-    receive {ibrowse_async_response, ReqId, Data} ->
+    receive
+    {ibrowse_async_response, ReqId, {error, Error}} ->
+        report_error(Worker, HttpDb, Params, {reason, Error});
+    {ibrowse_async_response, ReqId, Data} ->
         {Data, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end};
     {ibrowse_async_response_end, ReqId} ->
         {<<>>, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end}
