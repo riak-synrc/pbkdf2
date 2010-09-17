@@ -17,7 +17,7 @@
 -include("../ibrowse/ibrowse.hrl").
 
 -export([httpdb_setup/1]).
--export([send_req/3, strip_creds/1]).
+-export([send_req/3]).
 
 -import(couch_util, [
     get_value/2,
@@ -108,7 +108,7 @@ report_error(Worker, #httpdb{timeout = Timeout} = HttpDb, Params, timeout) ->
 
 report_error(Worker, HttpDb, Params, Error) ->
     Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
-    Url = strip_creds(full_url(HttpDb, Params)),
+    Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
     do_report_error(Url, Method, Error),
     stop_worker(Worker),
     exit({http_request_failed, Method, Url, Error}).
@@ -145,13 +145,6 @@ full_url(#httpdb{url = BaseUrl}, Params) ->
     Path = get_value(path, Params, []),
     QueryArgs = get_value(qs, Params, []),
     BaseUrl ++ Path ++ query_args_to_string(QueryArgs, []).
-
-
-strip_creds(Url) ->
-    re:replace(Url,
-        "http(s)?://([^:]+):[^@]+@(.*)$",
-        "http\\1://\\2:*****@\\3",
-        [{return, list}]).
 
 
 query_args_to_string([], []) ->

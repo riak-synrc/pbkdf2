@@ -60,7 +60,7 @@
 
 
 db_uri(#httpdb{url = Url}) ->
-    couch_api_wrap_httpc:strip_creds(Url);
+    couch_util:url_strip_password(Url);
 
 db_uri(#db{name = Name}) ->
     ?b2l(Name).

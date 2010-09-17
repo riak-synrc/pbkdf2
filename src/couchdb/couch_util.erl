@@ -25,6 +25,7 @@
 -export([compressible_att_type/1]).
 -export([get_value/2, get_value/3]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
+-export([url_strip_password/1]).
 
 -include("couch_db.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -429,3 +430,9 @@ md5_update(Ctx, D) ->
 -spec md5_final(Context::binary()) -> Digest::binary().
 md5_final(Ctx) ->
     try crypto:md5_final(Ctx) catch error:_ -> erlang:md5_final(Ctx) end.
+
+url_strip_password(Url) ->
+    re:replace(Url,
+        "http(s)?://([^:]+):[^@]+@(.*)$",
+        "http\\1://\\2:*****@\\3",
+        [{return, list}]).
