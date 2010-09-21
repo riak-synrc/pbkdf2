@@ -31,6 +31,7 @@
 % Can't be greater than the maximum number of child restarts specified
 % in couch_rep_sup.erl.
 -define(MAX_RESTARTS, 3).
+-define(DOC_BATCH_SIZE, 50).
 
 
 -record(stats, {
@@ -600,7 +601,7 @@ remove_missing(IdRevsSeqDict, [{MissingId, MissingRevs, _} | Rest]) ->
 
 
 spawn_doc_copiers(Cp, Source, Target, MissingRevsQueue) ->
-    Count = ?l2i(couch_config:get("replicator", "copy_processes", "8")),
+    Count = ?l2i(couch_config:get("replicator", "copy_processes", "10")),
     lists:map(
         fun(CopierId) ->
             Pid = spawn_link(fun() ->
@@ -612,44 +613,104 @@ spawn_doc_copiers(Cp, Source, Target, MissingRevsQueue) ->
 
 
 doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
-    case couch_work_queue:dequeue(MissingRevsQueue,1) of
+    case couch_work_queue:dequeue(MissingRevsQueue, ?DOC_BATCH_SIZE) of
     closed ->
         ?LOG_DEBUG("Doc copier ~p got missing revs queue closed", [CopierId]),
         Cp ! {done, CopierId};
-    {ok, [{doc_id, Id}]} ->
-        ?LOG_DEBUG("Doc copier ~p got {doc_id, ~p}", [CopierId, Id]),
-        couch_api_wrap:open_doc_revs(
-            Source, Id, all, [],
-            fun(R, _) -> doc_handler(R, Target, Cp) end, []),
+    {ok, [{doc_id, _} | _] = DocIds} ->
+        {BulkList, []} = lists:foldl(
+            fun({doc_id, Id}, Acc) ->
+                ?LOG_DEBUG("Doc copier ~p got {doc_id, ~p}", [CopierId, Id]),
+                {ok, Acc2} = couch_api_wrap:open_doc_revs(
+                    Source, Id, all, [],
+                    fun(R, A) -> doc_handler(R, nil, Target, Cp, A) end, Acc),
+                Acc2
+            end,
+            {[], []}, DocIds),
+        bulk_write_docs(lists:reverse(BulkList), [], Target, Cp),
         doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue);
-    {ok, [{Id, Revs, PossibleAncestors, Seq}]} ->
-        ?LOG_DEBUG("Doc copier ~p got {~p, ~p, ~p, ~p}",
-            [CopierId, Id, Revs, PossibleAncestors, Seq]),
-        Source2 = couch_api_wrap:maybe_reopen_db(Source, Seq),
-        couch_api_wrap:open_doc_revs(
-            Source2, Id, Revs, [{atts_since, PossibleAncestors}],
-            fun(R, _) -> doc_handler(R, Target, Cp) end, []),
-        Cp ! {seq_changes_done, {Seq, length(Revs)}},
+    {ok, IdRevList} ->
+        {Source2, {BulkList, SeqList}} = lists:foldl(
+            fun({Id, Revs, PossibleAncestors, Seq} = IdRev, {SrcDb, BulkAcc}) ->
+                ?LOG_DEBUG("Doc copier ~p got ~p", [CopierId, IdRev]),
+                SrcDb2 = couch_api_wrap:maybe_reopen_db(SrcDb, Seq),
+                {ok, BulkAcc2} = couch_api_wrap:open_doc_revs(
+                    SrcDb2, Id, Revs, [{atts_since, PossibleAncestors}],
+                    fun(R, A) -> doc_handler(R, Seq, Target, Cp, A) end,
+                    BulkAcc),
+                {SrcDb2, BulkAcc2}
+            end,
+            {Source, {[], []}}, IdRevList),
+        bulk_write_docs(
+            lists:reverse(BulkList),
+            lists:reverse(SeqList),
+            Target,
+            Cp),
         doc_copy_loop(CopierId, Cp, Source2, Target, MissingRevsQueue)
     end.
 
-doc_handler({ok, Doc}, Target, Cp) ->
+
+doc_handler({ok, #doc{atts = []} = Doc}, Seq, _Target, Cp, Acc) ->
     Cp ! {add_stat, {#stats.docs_read, 1}},
-    case couch_api_wrap:update_doc(Target, Doc, [], replicated_changes) of
+    update_bulk_doc_acc(Acc, Seq, Doc);
+
+doc_handler({ok, Doc}, Seq, Target, Cp, Acc) ->
+    Cp ! {add_stat, {#stats.docs_read, 1}},
+    write_doc(Doc, Seq, Target, Cp),
+    Acc;
+
+doc_handler(_, _, _, _, Acc) ->
+    Acc.
+
+
+update_bulk_doc_acc({DocAcc, SeqAcc}, nil, Doc) ->
+    {[Doc | DocAcc], SeqAcc};
+update_bulk_doc_acc({DocAcc, [{Seq, Count} | RestSeq]}, Seq, Doc) ->
+    {[Doc | DocAcc], [{Seq, Count + 1} | RestSeq]};
+update_bulk_doc_acc({DocAcc, SeqAcc}, Seq, Doc) ->
+    {[Doc | DocAcc], [{Seq, 1} | SeqAcc]}.
+
+
+write_doc(Doc, Seq, Db, Cp) ->
+    case couch_api_wrap:update_doc(Db, Doc, [], replicated_changes) of
     {ok, _} ->
         Cp ! {add_stat, {#stats.docs_written, 1}};
-    Error ->
+    {error, <<"unauthorized">>} ->
         Cp ! {add_stat, {#stats.doc_write_failures, 1}},
-        case Error of
-        {error, <<"unauthorized">>} ->
-            ?LOG_ERROR("Replicator: unauthorized to write document ~s to ~s",
-                [?b2l(Doc#doc.id), couch_api_wrap:db_uri(Target)]);
-        _ ->
-            ok
-        end
-    end;
-doc_handler(_, _, _) ->
-    ok.
+        ?LOG_ERROR("Replicator: unauthorized to write document ~s to ~s",
+            [Doc#doc.id, couch_api_wrap:db_uri(Db)]);
+    _ ->
+        Cp ! {add_stat, {#stats.doc_write_failures, 1}}
+    end,
+    seqs_done([{Seq, 1}], Cp).
+
+
+bulk_write_docs(Docs, Seqs, Db, Cp) ->
+    case couch_api_wrap:update_docs(
+        Db, Docs, [delay_commit], replicated_changes) of
+    {ok, []} ->
+        Cp ! {add_stat, {#stats.docs_written, length(Docs)}};
+    {ok, Errors} ->
+        Cp ! {add_stat, {#stats.doc_write_failures, length(Errors)}},
+        Cp ! {add_stat, {#stats.docs_written, length(Docs) - length(Errors)}},
+        DbUri = couch_api_wrap:db_uri(Db),
+        lists:foreach(
+            fun({[ {<<"id">>, Id}, {<<"error">>, <<"unauthorized">>} ]}) ->
+                    ?LOG_ERROR("Replicator: unauthorized to write document"
+                        " ~s to ~s", [Id, DbUri]);
+                (_) ->
+                    ok
+            end, Errors)
+    end,
+    seqs_done(Seqs, Cp).
+
+
+seqs_done(SeqCounts, Cp) ->
+    lists:foreach(fun({nil, _}) ->
+            ok;
+        (SeqCount) ->
+            Cp ! {seq_changes_done, SeqCount}
+        end, SeqCounts).
 
 
 checkpoint_interval(_State) ->

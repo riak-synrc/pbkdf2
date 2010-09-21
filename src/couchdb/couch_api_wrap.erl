@@ -38,11 +38,13 @@
     db_close/1,
     get_db_info/1,
     update_doc/3,
+    update_doc/4,
+    update_docs/3,
+    update_docs/4,
     ensure_full_commit/1,
     get_missing_revs/2,
     open_doc/3,
     open_doc_revs/6,
-    update_doc/4,
     changes_since/5,
     db_uri/1
     ]).
@@ -120,10 +122,6 @@ get_db_info(#httpdb{} = Db) ->
 get_db_info(Db) ->
     {ok, Info} = couch_db:get_db_info(Db),
     {ok, [{couch_util:to_binary(K), V} || {K, V} <- Info]}.
-
-
-update_doc(Db, Doc, Options) ->
-    update_doc(Db,Doc,Options,interactive_edit).
 
 
 ensure_full_commit(#httpdb{} = Db) ->
@@ -216,6 +214,8 @@ maybe_reopen_db(#db{update_seq = UpSeq, main_pid = Pid} = Db, TargetSeq) ->
         Db
     end.
 
+update_doc(Db, Doc, Options) ->
+    update_doc(Db, Doc, Options, interactive_edit).
 
 update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     QArgs = case Type of
@@ -273,6 +273,35 @@ update_doc(Db, Doc, Options, Type) ->
     throw:{unauthorized, _} ->
         {error, <<"unauthorized">>}
     end.
+
+
+update_docs(Db, DocList, Options) ->
+    update_docs(Db, DocList, Options, interactive_edit).
+
+update_docs(#httpdb{} = HttpDb, DocList, Options, UpdateType) ->
+    DocList1 = [couch_doc:to_json_obj(Doc, [revs]) || Doc <- DocList],
+    Body = case UpdateType of
+    replicated_changes ->
+        {[{new_edits, false}, {docs, DocList1}]};
+    interactive_edit ->
+        {[{docs, DocList1}]}
+    end,
+    FullCommit = atom_to_list(not lists:member(delay_commit, Options)),
+    send_req(
+        HttpDb,
+        [{method, post}, {path, "_bulk_docs"}, {body, ?JSON_ENCODE(Body)},
+            {headers, [
+                {"X-Couch-Full-Commit", FullCommit},
+                {"Content-Type", "application/json"} ]}],
+        fun(201, _, Results) when is_list(Results) ->
+                {ok, bulk_results_to_errors(DocList, Results, remote)};
+           (417, _, Results) when is_list(Results) ->
+                {ok, bulk_results_to_errors(DocList, Results, remote)}
+        end);
+update_docs(Db, DocList, Options, UpdateType) ->
+    Result = couch_db:update_docs(Db, DocList, Options, UpdateType),
+    {ok, bulk_results_to_errors(DocList, Result, UpdateType)}.
+
 
 changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
     QArgs = changes_q_args(
@@ -510,3 +539,38 @@ encode_doc_id(<<"_local/", RestId/binary>>) ->
     "_local/" ++ url_encode(RestId);
 encode_doc_id(DocId) ->
     url_encode(DocId).
+
+
+bulk_results_to_errors(Docs, {ok, Results}, interactive_edit) ->
+    lists:reverse(lists:foldl(
+        fun({_, {ok, _}}, Acc) ->
+            Acc;
+        ({#doc{id = Id}, Error}, Acc) ->
+            {_, Error, _Reason} = couch_httpd:error_info(Error),
+            [ {[{<<"id">>, Id}, {<<"error">>, Error}]} | Acc ]
+        end,
+        [], lists:zip(Docs, Results)));
+
+bulk_results_to_errors(Docs, {ok, Results}, replicated_changes) ->
+    bulk_results_to_errors(Docs, {aborted, Results}, interactive_edit);
+
+bulk_results_to_errors(_Docs, {aborted, Results}, interactive_edit) ->
+    lists:map(
+        fun({{Id, _Rev}, Err}) ->
+            {_, Error, _Reason} = couch_httpd:error_info(Err),
+            {[{<<"id">>, Id}, {<<"error">>, Error}]}
+        end,
+        Results);
+
+bulk_results_to_errors(_Docs, Results, remote) ->
+    lists:reverse(lists:foldl(
+        fun({Props}, Acc) ->
+            case get_value(<<"error">>, Props, get_value(error, Props)) of
+            undefined ->
+                Acc;
+            Error ->
+                Id = get_value(<<"id">>, Props, get_value(id, Props)),
+                [ {[{<<"id">>, Id}, {<<"error">>, Error}]} | Acc ]
+            end
+        end,
+        [], Results)).
