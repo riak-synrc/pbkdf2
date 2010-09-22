@@ -308,7 +308,7 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
         [{"style", atom_to_list(Style)}, {"since", integer_to_list(StartSeq)}],
         Options),
     send_req(
-        HttpDb#httpdb{timeout = infinity},
+        HttpDb,
         [{path, "_changes"}, {qs, QArgs},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
