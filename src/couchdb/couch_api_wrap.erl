@@ -55,7 +55,7 @@
     ]).
 
 -import(couch_util, [
-    url_encode/1,
+    encode_doc_id/1,
     get_value/2,
     get_value/3
     ]).
@@ -259,7 +259,7 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     end,
     send_req(
         HttpDb,
-        [{method, put}, {path, url_encode(DocId)},
+        [{method, put}, {path, encode_doc_id(DocId)},
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
                 {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
@@ -532,13 +532,6 @@ json_to_doc_info({Props}) ->
         high_seq = get_value(<<"seq">>, Props),
         revs = RevsInfo
     }.
-
-encode_doc_id(<<"_design/", RestId/binary>>) ->
-    "_design/" ++ url_encode(RestId);
-encode_doc_id(<<"_local/", RestId/binary>>) ->
-    "_local/" ++ url_encode(RestId);
-encode_doc_id(DocId) ->
-    url_encode(DocId).
 
 
 bulk_results_to_errors(Docs, {ok, Results}, interactive_edit) ->
