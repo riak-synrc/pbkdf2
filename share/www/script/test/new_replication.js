@@ -541,6 +541,7 @@ couchTests.new_replication = function(debug) {
     { initial: ["1", "2"], after: ["7"], conflict_id: "1" },
     { initial: ["1", "foo_666", "10"], after: ["7"], conflict_id: "10" },
     { initial: ["_design/foo", "8"], after: ["foo_5"], conflict_id: "8" },
+    { initial: ["_design%2Ffoo", "8"], after: ["foo_5"], conflict_id: "8" },
     { initial: [], after: ["foo_1000", "_design/foo", "1"], conflict_id: "1" }
   ];
   var doc_ids, after_doc_ids;
@@ -582,7 +583,7 @@ couchTests.new_replication = function(debug) {
       T(repResult.doc_write_failures === 0);
 
       for (k = 0; k < doc_ids.length; k++) {
-        id = doc_ids[k];
+        id = decodeURIComponent(doc_ids[k]);
         doc = sourceDb.open(id);
         copy = targetDb.open(id);
 
@@ -598,10 +599,11 @@ couchTests.new_replication = function(debug) {
 
       // be absolutely sure that other docs were not replicated
       for (k = 0; k < docs.length; k++) {
-        id = docs[k]._id;
-        doc = targetDb.open(id);
+        var base_id = docs[k]._id;
+        id = encodeURIComponent(base_id);
+        doc = targetDb.open(base_id);
 
-        if (doc_ids.indexOf(id) >= 0) {
+        if ((doc_ids.indexOf(id) >= 0) || (doc_ids.indexOf(base_id) >= 0)) {
             T(doc !== null);
         } else {
             T(doc === null);
@@ -658,10 +660,13 @@ couchTests.new_replication = function(debug) {
 
       // be absolutely sure that other docs were not replicated
       for (k = 0; k < docs.length; k++) {
-        id = docs[k]._id;
-        doc = targetDb.open(id);
+        var base_id = docs[k]._id;
+        id = encodeURIComponent(base_id);
+        doc = targetDb.open(base_id);
 
-        if ((doc_ids.indexOf(id) >= 0) || (after_doc_ids.indexOf(id) >= 0)) {
+        if ((doc_ids.indexOf(id) >= 0) || (after_doc_ids.indexOf(id) >= 0) ||
+            (doc_ids.indexOf(base_id) >= 0) ||
+            (after_doc_ids.indexOf(base_id) >= 0)) {
             T(doc !== null);
         } else {
             T(doc === null);

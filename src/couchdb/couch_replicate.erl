@@ -545,7 +545,10 @@ spawn_missing_revs_finder(StatsProcess,
 missing_revs_finder_loop(_, _, DocIds, MissingRevsQueue) when is_list(DocIds) ->
     lists:foreach(
         fun(DocId) ->
-            ok = couch_work_queue:queue(MissingRevsQueue, {doc_id, DocId})
+            % Ensure same behaviour as old replicator: accept a list of percent
+            % encoded doc IDs.
+            Id = ?l2b(couch_httpd:unquote(DocId)),
+            ok = couch_work_queue:queue(MissingRevsQueue, {doc_id, Id})
         end, DocIds),
     couch_work_queue:close(MissingRevsQueue);
 
