@@ -50,10 +50,21 @@ make_replication_id(Source, Target, UserCtx, Options) ->
                 [DocIds]
             end;
         Filter ->
-            [Filter, ?getv(query_params, Options, {[]})]
+            [filter_code(Filter, Source, UserCtx),
+                ?getv(query_params, Options, {[]})]
         end,
     Extension = maybe_append_options([continuous, create_target], Options),
     {couch_util:to_hex(couch_util:md5(term_to_binary(Base))), Extension}.
+
+
+filter_code(Filter, Source, UserCtx) ->
+    {match, [DDocName, FilterName]} =
+        re:run(Filter, "(.*?)/(.*)", [{capture, [1, 2], binary}]),
+    {ok, Db} = couch_api_wrap:db_open(Source, [{user_ctx, UserCtx}]),
+    {ok, #doc{body = Body}} =
+        couch_api_wrap:open_doc(Db, <<"_design/", DDocName/binary>>, []),
+    Code = couch_util:get_nested_json_value(Body, [<<"filters">>, FilterName]),
+    re:replace(Code, "^\s*(.*?)\s*$", "\\1", [{return, binary}]).
 
 
 maybe_append_options(Options, RepOptions) ->
