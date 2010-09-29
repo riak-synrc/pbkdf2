@@ -20,8 +20,9 @@
 
 
 parse_rep_doc({Props} = RepObj, UserCtx) ->
-    Source = parse_rep_db(?getv(<<"source">>, Props)),
-    Target = parse_rep_db(?getv(<<"target">>, Props)),
+    ProxyParams = parse_proxy_params(?getv(<<"proxy">>, Props, <<>>)),
+    Source = parse_rep_db(?getv(<<"source">>, Props), ProxyParams),
+    Target = parse_rep_db(?getv(<<"target">>, Props), ProxyParams),
     Options = convert_options(Props),
     Rep = #rep{
         id = make_replication_id(Source, Target, UserCtx, Options),
@@ -90,7 +91,7 @@ get_rep_endpoint(UserCtx, <<DbName/binary>>) ->
     {local, DbName, UserCtx}.
 
 
-parse_rep_db({Props}) ->
+parse_rep_db({Props}, ProxyParams) ->
     Url = maybe_add_trailing_slash(?getv(<<"url">>, Props)),
     {AuthProps} = ?getv(<<"auth">>, Props, {[]}),
     {BinHeaders} = ?getv(<<"headers">>, Props, {[]}),
@@ -116,13 +117,14 @@ parse_rep_db({Props}) ->
     #httpdb{
         url = Url,
         oauth = OAuth,
-        headers = Headers
+        headers = Headers,
+        proxy_options = ProxyParams
     };
-parse_rep_db(<<"http://", _/binary>> = Url) ->
-    parse_rep_db({[{<<"url">>, Url}]});
-parse_rep_db(<<"https://", _/binary>> = Url) ->
-    parse_rep_db({[{<<"url">>, Url}]});
-parse_rep_db(<<DbName/binary>>) ->
+parse_rep_db(<<"http://", _/binary>> = Url, ProxyParams) ->
+    parse_rep_db({[{<<"url">>, Url}]}, ProxyParams);
+parse_rep_db(<<"https://", _/binary>> = Url, ProxyParams) ->
+    parse_rep_db({[{<<"url">>, Url}]}, ProxyParams);
+parse_rep_db(<<DbName/binary>>, _ProxyParams) ->
     DbName.
 
 
@@ -153,4 +155,24 @@ convert_options([{<<"doc_ids">>, V} | R]) ->
     [{doc_ids, V} | convert_options(R)];
 convert_options([_ | R]) -> % skip unknown option
     convert_options(R).
+
+
+parse_proxy_params(ProxyUrl) when is_binary(ProxyUrl) ->
+    parse_proxy_params(?b2l(ProxyUrl));
+parse_proxy_params([]) ->
+    [];
+parse_proxy_params(ProxyUrl) ->
+    #url{
+        host = Host,
+        port = Port,
+        username = User,
+        password = Passwd
+    } = ibrowse_lib:parse_url(ProxyUrl),
+    [{proxy_host, Host}, {proxy_port, Port}] ++
+        case is_list(User) andalso is_list(Passwd) of
+        false ->
+            [];
+        true ->
+            [{proxy_user, User}, {proxy_password, Passwd}]
+        end.
 
