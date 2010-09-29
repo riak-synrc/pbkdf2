@@ -62,10 +62,15 @@ filter_code(Filter, Source, UserCtx) ->
     {match, [DDocName, FilterName]} =
         re:run(Filter, "(.*?)/(.*)", [{capture, [1, 2], binary}]),
     {ok, Db} = couch_api_wrap:db_open(Source, [{user_ctx, UserCtx}]),
-    {ok, #doc{body = Body}} =
-        couch_api_wrap:open_doc(Db, <<"_design/", DDocName/binary>>, []),
-    Code = couch_util:get_nested_json_value(Body, [<<"filters">>, FilterName]),
-    re:replace(Code, "^\s*(.*?)\s*$", "\\1", [{return, binary}]).
+    try
+        {ok, #doc{body = Body}} =
+            couch_api_wrap:open_doc(Db, <<"_design/", DDocName/binary>>, []),
+        Code = couch_util:get_nested_json_value(
+            Body, [<<"filters">>, FilterName]),
+        re:replace(Code, "^\s*(.*?)\s*$", "\\1", [{return, binary}])
+    after
+        couch_api_wrap:db_close(Db)
+    end.
 
 
 maybe_append_options(Options, RepOptions) ->
