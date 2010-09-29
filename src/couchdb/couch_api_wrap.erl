@@ -55,9 +55,7 @@
     ]).
 
 -import(couch_util, [
-    encode_doc_id/1,
-    get_value/2,
-    get_value/3
+    encode_doc_id/1
     ]).
 
 
@@ -130,7 +128,7 @@ ensure_full_commit(#httpdb{} = Db) ->
         [{method, post}, {path, "_ensure_full_commit"},
             {headers, [{"Content-Type", "application/json"}]}],
         fun(201, _, {Props}) ->
-            {ok, get_value(<<"instance_start_time">>, Props)}
+            {ok, ?getv(<<"instance_start_time">>, Props)}
         end);
 ensure_full_commit(Db) ->
     couch_db:ensure_full_commit(Db).
@@ -144,10 +142,10 @@ get_missing_revs(#httpdb{} = Db, IdRevs) ->
         fun(200, _, {Props}) ->
             ConvertToNativeFun = fun({Id, {Result}}) ->
                 MissingRevs = couch_doc:parse_revs(
-                    get_value(<<"missing">>, Result)
+                    ?getv(<<"missing">>, Result)
                 ),
                 PossibleAncestors = couch_doc:parse_revs(
-                    get_value(<<"possible_ancestors">>, Result, [])
+                    ?getv(<<"possible_ancestors">>, Result, [])
                 ),
                 {Id, MissingRevs, PossibleAncestors}
             end,
@@ -178,7 +176,7 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
                     {headers, [{"accept", "multipart/mixed"}]}],
                 fun(200, Headers, StreamDataFun) ->
                     couch_httpd:parse_multipart_request(
-                        get_value("Content-Type", Headers),
+                        ?getv("Content-Type", Headers),
                         StreamDataFun,
                         fun(Ev) -> mp_parse_mixed(Ev) end)
                 end),
@@ -197,7 +195,7 @@ open_doc(#httpdb{} = Db, Id, Options) ->
         fun(200, _, Body) ->
             {ok, couch_doc:from_json_obj(Body)};
         (_, _, {Props}) ->
-            {error, get_value(<<"error">>, Props)}
+            {error, ?getv(<<"error">>, Props)}
         end);
 open_doc(Db, Id, Options) ->
     couch_db:open_doc(Db, Id, Options).
@@ -262,9 +260,9 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
         [{method, put}, {path, encode_doc_id(DocId)},
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
-                {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
+                {ok, couch_doc:parse_rev(?getv(<<"rev">>, Props))};
             (_, _, {Props}) ->
-                {error, get_value(<<"error">>, Props)}
+                {error, ?getv(<<"error">>, Props)}
         end);
 update_doc(Db, Doc, Options, Type) ->
     try
@@ -312,7 +310,7 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
         [{path, "_changes"}, {qs, QArgs},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
-            case couch_util:get_value(continuous, Options, false) of
+            case ?getv(continuous, Options, false) of
             true ->
                 continuous_changes(DataStreamFun, UserFun);
             false ->
@@ -326,8 +324,8 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
     Args = #changes_args{
         style = Style,
         since = StartSeq,
-        filter = ?b2l(get_value(filter, Options, <<>>)),
-        feed = case get_value(continuous, Options, false) of
+        filter = ?b2l(?getv(filter, Options, <<>>)),
+        feed = case ?getv(continuous, Options, false) of
             true ->
                 "continuous";
             false ->
@@ -335,7 +333,7 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
         end,
         timeout = infinity
     },
-    QueryParams = get_value(query_params, Options, {[]}),
+    QueryParams = ?getv(query_params, Options, {[]}),
     Req = changes_json_req(Db, Args#changes_args.filter, QueryParams),
     ChangesFeedFun = couch_changes:handle_changes(Args, {json_req, Req}, Db),
     ChangesFeedFun(fun({change, Change, _}, _) ->
@@ -348,11 +346,11 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
 % internal functions
 
 changes_q_args(BaseQS, Options) ->
-    case get_value(filter, Options) of
+    case ?getv(filter, Options) of
     undefined ->
         BaseQS;
     FilterName ->
-        {Params} = get_value(query_params, Options, {[]}),
+        {Params} = ?getv(query_params, Options, {[]}),
         [{"filter", ?b2l(FilterName)} | lists:foldl(
             fun({K, V}, QSAcc) ->
                 Ks = couch_util:to_list(K),
@@ -365,7 +363,7 @@ changes_q_args(BaseQS, Options) ->
             end,
             BaseQS, Params)]
     end ++
-    case get_value(continuous, Options, false) of
+    case ?getv(continuous, Options, false) of
     false ->
         [{"feed", "normal"}];
     true ->
@@ -410,7 +408,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
     Streamer ! {get_headers, self()},
     receive
     {headers, Headers} ->    
-        case get_value("content-type", Headers) of
+        case ?getv("content-type", Headers) of
         {"multipart/related", _} = ContentType ->
             case couch_doc:doc_from_multi_part_stream(ContentType, 
                 fun() -> receive_doc_data(Streamer) end) of
@@ -425,7 +423,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
             receive_docs(Streamer, UserFun, UserAcc2);
         {"application/json", [{"error","true"}]} ->
             {ErrorProps} = ?JSON_DECODE(receive_all(Streamer, [])),
-            Rev = get_value(<<"missing">>, ErrorProps),
+            Rev = ?getv(<<"missing">>, ErrorProps),
             Result = {{not_found, missing}, couch_doc:parse_rev(Rev)},
             UserAcc2 = UserFun(Result, UserAcc),
             receive_docs(Streamer, UserFun, UserAcc2)
@@ -523,13 +521,13 @@ parse_changes_line(object_start, UserFun) ->
 json_to_doc_info({Props}) ->
     RevsInfo = lists:map(
         fun({Change}) ->
-            Rev = couch_doc:parse_rev(get_value(<<"rev">>, Change)),
-            Del = (true =:= get_value(<<"deleted">>, Change)),
+            Rev = couch_doc:parse_rev(?getv(<<"rev">>, Change)),
+            Del = (true =:= ?getv(<<"deleted">>, Change)),
             #rev_info{rev=Rev, deleted=Del}
-        end, get_value(<<"changes">>, Props)),
+        end, ?getv(<<"changes">>, Props)),
     #doc_info{
-        id = get_value(<<"id">>, Props),
-        high_seq = get_value(<<"seq">>, Props),
+        id = ?getv(<<"id">>, Props),
+        high_seq = ?getv(<<"seq">>, Props),
         revs = RevsInfo
     }.
 
@@ -558,11 +556,11 @@ bulk_results_to_errors(_Docs, {aborted, Results}, interactive_edit) ->
 bulk_results_to_errors(_Docs, Results, remote) ->
     lists:reverse(lists:foldl(
         fun({Props}, Acc) ->
-            case get_value(<<"error">>, Props, get_value(error, Props)) of
+            case ?getv(<<"error">>, Props, ?getv(error, Props)) of
             undefined ->
                 Acc;
             Error ->
-                Id = get_value(<<"id">>, Props, get_value(id, Props)),
+                Id = ?getv(<<"id">>, Props, ?getv(id, Props)),
                 [ {[{<<"id">>, Id}, {<<"error">>, Error}]} | Acc ]
             end
         end,

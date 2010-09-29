@@ -19,11 +19,6 @@
 -export([httpdb_setup/1]).
 -export([send_req/3]).
 
--import(couch_util, [
-    get_value/2,
-    get_value/3
-    ]).
-
 
 httpdb_setup(#httpdb{} = Db) ->
     % TODO: setup Ibrowse proxy options
@@ -31,12 +26,12 @@ httpdb_setup(#httpdb{} = Db) ->
 
 
 send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
-    Method = get_value(method, Params, get),
-    Headers = get_value(headers, Params, []),
-    Body = get_value(body, Params, []),
+    Method = ?getv(method, Params, get),
+    Headers = ?getv(headers, Params, []),
+    Body = ?getv(body, Params, []),
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout}
-        | get_value(ibrowse_options, Params, [])
+        | ?getv(ibrowse_options, Params, [])
     ],
     Headers2 = oauth_header(HttpDb, Params) ++ BaseHeaders ++ Headers,
     Url = full_url(HttpDb, Params),
@@ -107,7 +102,7 @@ report_error(Worker, #httpdb{timeout = Timeout} = HttpDb, Params, timeout) ->
     report_error(Worker, HttpDb, Params, {timeout, Timeout});
 
 report_error(Worker, HttpDb, Params, Error) ->
-    Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
+    Method = string:to_upper(atom_to_list(?getv(method, Params, get))),
     Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
     do_report_error(Url, Method, Error),
     stop_worker(Worker),
@@ -142,8 +137,8 @@ stream_data_self(HttpDb, Params, Worker, ReqId) ->
 
 
 full_url(#httpdb{url = BaseUrl}, Params) ->
-    Path = get_value(path, Params, []),
-    QueryArgs = get_value(qs, Params, []),
+    Path = ?getv(path, Params, []),
+    QueryArgs = ?getv(qs, Params, []),
     BaseUrl ++ Path ++ query_args_to_string(QueryArgs, []).
 
 
@@ -163,15 +158,15 @@ oauth_header(#httpdb{url = BaseUrl, oauth = OAuth}, ConnParams) ->
         OAuth#oauth.consumer_secret,
         OAuth#oauth.signature_method
     },
-    Method = case get_value(method, ConnParams, get) of
+    Method = case ?getv(method, ConnParams, get) of
     get -> "GET";
     post -> "POST";
     put -> "PUT";
     head -> "HEAD"
     end,
     OAuthParams = oauth:signed_params(Method,
-        BaseUrl ++ get_value(path, ConnParams, []),
-        get_value(qs, ConnParams, []),
+        BaseUrl ++ ?getv(path, ConnParams, []),
+        ?getv(qs, ConnParams, []),
         Consumer, OAuth#oauth.token, OAuth#oauth.token_secret),
     [{"Authorization",
         "OAuth " ++ oauth_uri:params_to_header_string(OAuthParams)}].

@@ -271,7 +271,7 @@ terminate(_Reason, {_Langs, PidProcs, _LangProcs}) ->
 
 handle_call({get_proc, #doc{body={Props}}=DDoc, DDocKey}, _From, {Langs, PidProcs, LangProcs}=Server) ->
     % Note to future self. Add max process limit.
-    Lang = couch_util:get_value(<<"language">>, Props, <<"javascript">>),
+    Lang = ?getv(<<"language">>, Props, <<"javascript">>),
     case ets:lookup(LangProcs, Lang) of
     [{Lang, [P|Rest]}] ->
         % find a proc in the set that has the DDoc
