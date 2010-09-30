@@ -23,6 +23,11 @@
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
 
+-import(couch_util, [
+    get_value/2,
+    get_value/3
+]).
+
 % Can't be greater than the maximum number of child restarts specified
 % in couch_rep_sup.erl.
 -define(MAX_RESTARTS, 3).
@@ -68,7 +73,7 @@
 
 
 replicate(#rep{id = RepId, options = Options} = Rep) ->
-    case ?getv(cancel, Options, false) of
+    case get_value(cancel, Options, false) of
     true ->
         end_replication(RepId);
     false ->
@@ -80,8 +85,8 @@ replicate(#rep{id = RepId, options = Options} = Rep) ->
 
 
 do_replication_loop(#rep{options = Options, source = Src} = Rep) ->
-    DocIds = ?getv(doc_ids, Options),
-    Continuous = ?getv(continuous, Options, false),
+    DocIds = get_value(doc_ids, Options),
+    Continuous = get_value(continuous, Options, false),
     Seq = case {DocIds, Continuous} of
     {undefined, false} ->
         last_seq(Src, Rep#rep.user_ctx);
@@ -93,7 +98,7 @@ do_replication_loop(#rep{options = Options, source = Src} = Rep) ->
 do_replication_loop(#rep{id = {BaseId,_} = Id, options = Options} = Rep, Seq) ->
     case start_replication(Rep) of
     {ok, _Pid} ->
-        case ?getv(continuous, Options, false) of
+        case get_value(continuous, Options, false) of
         true ->
             {ok, {continuous, ?l2b(BaseId)}};
         false ->
@@ -108,7 +113,7 @@ do_replication_loop(#rep{id = {BaseId,_} = Id, options = Options} = Rep, Seq) ->
 maybe_retry(RepResult, _Rep, undefined) ->
     RepResult;
 maybe_retry({ok, {Props}} = Result, Rep, Seq) ->
-    case ?getv(source_last_seq, Props) >= Seq of
+    case get_value(source_last_seq, Props) >= Seq of
     true ->
         Result;
     false ->
@@ -123,7 +128,7 @@ last_seq(DbName, UserCtx) ->
     {ok, Db} ->
         {ok, DbInfo} = couch_api_wrap:get_db_info(Db),
         couch_api_wrap:db_close(Db),
-        ?getv(<<"update_seq">>, DbInfo);
+        get_value(<<"update_seq">>, DbInfo);
     _ ->
         undefined
     end.
@@ -226,7 +231,7 @@ do_init(#rep{options = Options} = Rep) ->
     {ok, MissingRevsQueue} = couch_work_queue:new(
         [{max_size, 100000}, {max_items, 500}, {multi_workers, true}]),
 
-    case ?getv(doc_ids, Options) of
+    case get_value(doc_ids, Options) of
     undefined ->
         {ok, ChangesQueue} = couch_work_queue:new(
             [{max_size, 100000}, {max_items, 500}]),
@@ -265,7 +270,7 @@ do_init(#rep{options = Options} = Rep) ->
             changes_reader = ChangesReader,
             missing_revs_finder = MissingRevsFinder,
             doc_copiers = DocCopiers,
-            is_successor_seq = ?getv(is_successor_seq, Options,
+            is_successor_seq = get_value(is_successor_seq, Options,
                 fun(Seq, NextSeq) -> (Seq + 1) =:= NextSeq end)
         }
     }.
@@ -379,7 +384,7 @@ handle_info({'EXIT', Pid, Reason}, #rep_state{changes_queue=Pid} = State) ->
 
 handle_info({'EXIT', Pid, Reason}, State) ->
     #rep_state{doc_copiers = DocCopiers} = State,
-    case ?getv(Pid, DocCopiers) of
+    case get_value(Pid, DocCopiers) of
     undefined ->
         cancel_timer(State),
         {stop, {unknown_process_died, Pid, Reason}, State};
@@ -433,7 +438,7 @@ terminate_cleanup(#rep_state{source = Source, target = Target}) ->
 
 
 start_timer(#rep_state{rep_details = #rep{options = Options}} = State) ->
-    case ?getv(doc_ids, Options) of
+    case get_value(doc_ids, Options) of
     undefined ->
         After = checkpoint_interval(State),
         case timer:apply_after(After, gen_server, cast, [self(), checkpoint]) of
@@ -455,7 +460,7 @@ cancel_timer(#rep_state{timer = Timer}) ->
 
 
 get_result(#rep_state{stats = Stats, rep_details = Rep} = State) ->
-    case ?getv(doc_ids, Rep#rep.options) of
+    case get_value(doc_ids, Rep#rep.options) of
     undefined ->
         State#rep_state.checkpoint_history;
     _DocIdList ->
@@ -477,7 +482,7 @@ init_state(Rep) ->
     } = Rep,
     {ok, Source} = couch_api_wrap:db_open(Src, [{user_ctx, UserCtx}]),
     {ok, Target} = couch_api_wrap:db_open(Tgt, [{user_ctx, UserCtx}],
-        ?getv(create_target, Options, false)),
+        get_value(create_target, Options, false)),
 
     {ok, SourceInfo} = couch_api_wrap:get_db_info(Source),
     {ok, TargetInfo} = couch_api_wrap:get_db_info(Target),
@@ -507,8 +512,8 @@ init_state(Rep) ->
         source_log = SourceLog,
         target_log = TargetLog,
         rep_starttime = httpd_util:rfc1123_date(),
-        src_starttime = ?getv(<<"instance_start_time">>, SourceInfo),
-        tgt_starttime = ?getv(<<"instance_start_time">>, TargetInfo)
+        src_starttime = get_value(<<"instance_start_time">>, SourceInfo),
+        tgt_starttime = get_value(<<"instance_start_time">>, TargetInfo)
     },
     State#rep_state{timer = start_timer(State)}.
 
@@ -820,17 +825,17 @@ commit_to_both(Source, Target) ->
 compare_replication_logs(SrcDoc, TgtDoc) ->
     #doc{body={RepRecProps}} = SrcDoc,
     #doc{body={RepRecPropsTgt}} = TgtDoc,
-    case ?getv(<<"session_id">>, RepRecProps) ==
-            ?getv(<<"session_id">>, RepRecPropsTgt) of
+    case get_value(<<"session_id">>, RepRecProps) ==
+            get_value(<<"session_id">>, RepRecPropsTgt) of
     true ->
         % if the records have the same session id,
         % then we have a valid replication history
-        OldSeqNum = ?getv(<<"source_last_seq">>, RepRecProps, 0),
-        OldHistory = ?getv(<<"history">>, RepRecProps, []),
+        OldSeqNum = get_value(<<"source_last_seq">>, RepRecProps, 0),
+        OldHistory = get_value(<<"history">>, RepRecProps, []),
         {OldSeqNum, OldHistory};
     false ->
-        SourceHistory = ?getv(<<"history">>, RepRecProps, []),
-        TargetHistory = ?getv(<<"history">>, RepRecPropsTgt, []),
+        SourceHistory = get_value(<<"history">>, RepRecProps, []),
+        TargetHistory = get_value(<<"history">>, RepRecPropsTgt, []),
         ?LOG_INFO("Replication records differ. "
                 "Scanning histories to find a common ancestor.", []),
         ?LOG_DEBUG("Record on source:~p~nRecord on target:~p~n",
@@ -842,18 +847,18 @@ compare_rep_history(S, T) when S =:= [] orelse T =:= [] ->
     ?LOG_INFO("no common ancestry -- performing full replication", []),
     {0, []};
 compare_rep_history([{S} | SourceRest], [{T} | TargetRest] = Target) ->
-    SourceId = ?getv(<<"session_id">>, S),
+    SourceId = get_value(<<"session_id">>, S),
     case has_session_id(SourceId, Target) of
     true ->
-        RecordSeqNum = ?getv(<<"recorded_seq">>, S, 0),
+        RecordSeqNum = get_value(<<"recorded_seq">>, S, 0),
         ?LOG_INFO("found a common replication record with source_seq ~p",
             [RecordSeqNum]),
         {RecordSeqNum, SourceRest};
     false ->
-        TargetId = ?getv(<<"session_id">>, T),
+        TargetId = get_value(<<"session_id">>, T),
         case has_session_id(TargetId, SourceRest) of
         true ->
-            RecordSeqNum = ?getv(<<"recorded_seq">>, T, 0),
+            RecordSeqNum = get_value(<<"recorded_seq">>, T, 0),
             ?LOG_INFO("found a common replication record with source_seq ~p",
                 [RecordSeqNum]),
             {RecordSeqNum, TargetRest};
@@ -866,7 +871,7 @@ compare_rep_history([{S} | SourceRest], [{T} | TargetRest] = Target) ->
 has_session_id(_SessionId, []) ->
     false;
 has_session_id(SessionId, [{Props} | Rest]) ->
-    case ?getv(<<"session_id">>, Props, nil) of
+    case get_value(<<"session_id">>, Props, nil) of
     SessionId ->
         true;
     _Else ->

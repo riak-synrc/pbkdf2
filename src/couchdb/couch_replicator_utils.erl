@@ -18,11 +18,16 @@
 -include("couch_api_wrap.hrl").
 -include("../ibrowse/ibrowse.hrl").
 
+-import(couch_util, [
+    get_value/2,
+    get_value/3
+]).
+
 
 parse_rep_doc({Props} = RepObj, UserCtx) ->
-    ProxyParams = parse_proxy_params(?getv(<<"proxy">>, Props, <<>>)),
-    Source = parse_rep_db(?getv(<<"source">>, Props), ProxyParams),
-    Target = parse_rep_db(?getv(<<"target">>, Props), ProxyParams),
+    ProxyParams = parse_proxy_params(get_value(<<"proxy">>, Props, <<>>)),
+    Source = parse_rep_db(get_value(<<"source">>, Props), ProxyParams),
+    Target = parse_rep_db(get_value(<<"target">>, Props), ProxyParams),
     Options = convert_options(Props),
     Rep = #rep{
         id = make_replication_id(Source, Target, UserCtx, Options),
@@ -42,9 +47,9 @@ make_replication_id(Source, Target, UserCtx, Options) ->
     Src = get_rep_endpoint(UserCtx, Source),
     Tgt = get_rep_endpoint(UserCtx, Target),
     Base = [HostName, Src, Tgt] ++
-        case ?getv(filter, Options) of
+        case get_value(filter, Options) of
         undefined ->
-            case ?getv(doc_ids, Options) of
+            case get_value(doc_ids, Options) of
             undefined ->
                 [];
             DocIds ->
@@ -52,7 +57,7 @@ make_replication_id(Source, Target, UserCtx, Options) ->
             end;
         Filter ->
             [filter_code(Filter, Source, UserCtx),
-                ?getv(query_params, Options, {[]})]
+                get_value(query_params, Options, {[]})]
         end,
     Extension = maybe_append_options([continuous, create_target], Options),
     {couch_util:to_hex(couch_util:md5(term_to_binary(Base))), Extension}.
@@ -76,7 +81,7 @@ filter_code(Filter, Source, UserCtx) ->
 maybe_append_options(Options, RepOptions) ->
     lists:foldl(fun(Option, Acc) ->
         Acc ++
-        case ?getv(Option, RepOptions, false) of
+        case get_value(Option, RepOptions, false) of
         true ->
             "+" ++ atom_to_list(Option);
         false ->
@@ -97,21 +102,21 @@ get_rep_endpoint(UserCtx, <<DbName/binary>>) ->
 
 
 parse_rep_db({Props}, ProxyParams) ->
-    Url = maybe_add_trailing_slash(?getv(<<"url">>, Props)),
-    {AuthProps} = ?getv(<<"auth">>, Props, {[]}),
-    {BinHeaders} = ?getv(<<"headers">>, Props, {[]}),
+    Url = maybe_add_trailing_slash(get_value(<<"url">>, Props)),
+    {AuthProps} = get_value(<<"auth">>, Props, {[]}),
+    {BinHeaders} = get_value(<<"headers">>, Props, {[]}),
     Headers = [{?b2l(K), ?b2l(V)} || {K, V} <- BinHeaders],
-    OAuth = case ?getv(<<"oauth">>, AuthProps) of
+    OAuth = case get_value(<<"oauth">>, AuthProps) of
     undefined ->
         nil;
     {OauthProps} ->
         #oauth{
-            consumer_key = ?b2l(?getv(<<"consumer_key">>, OauthProps)),
-            token = ?b2l(?getv(<<"token">>, OauthProps)),
-            token_secret = ?b2l(?getv(<<"token_secret">>, OauthProps)),
-            consumer_secret = ?b2l(?getv(<<"consumer_secret">>, OauthProps)),
+            consumer_key = ?b2l(get_value(<<"consumer_key">>, OauthProps)),
+            token = ?b2l(get_value(<<"token">>, OauthProps)),
+            token_secret = ?b2l(get_value(<<"token_secret">>, OauthProps)),
+            consumer_secret = ?b2l(get_value(<<"consumer_secret">>, OauthProps)),
             signature_method =
-                case ?getv(<<"signature_method">>, OauthProps) of
+                case get_value(<<"signature_method">>, OauthProps) of
                 undefined ->        hmac_sha1;
                 <<"PLAINTEXT">> ->  plaintext;
                 <<"HMAC-SHA1">> ->  hmac_sha1;

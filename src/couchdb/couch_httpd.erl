@@ -167,7 +167,7 @@ handle_request(MochiReq, DefaultFun,
     Vhost = MochiReq:get_header_value("Host"),
 
     % find Vhost in config
-    case ?getv(Vhost, VirtualHosts) of
+    case couch_util:get_value(Vhost, VirtualHosts) of
     undefined -> % business as usual
         handle_request_int(MochiReq, DefaultFun,
             UrlHandlers, DbUrlHandlers, DesignUrlHandlers);
@@ -359,7 +359,7 @@ qs_value(Req, Key) ->
     qs_value(Req, Key, undefined).
 
 qs_value(Req, Key, Default) ->
-    ?getv(Key, qs(Req), Default).
+    couch_util:get_value(Key, qs(Req), Default).
 
 qs(#httpd{mochi_req=MochiReq}) ->
     MochiReq:parse_qs().
@@ -774,7 +774,7 @@ nil_callback(_Data)->
     fun(Next) -> nil_callback(Next) end.
 
 get_boundary({"multipart/" ++ _, Opts}) ->
-    case ?getv("boundary", Opts) of
+    case couch_util:get_value("boundary", Opts) of
         S when is_list(S) ->
             S
     end;

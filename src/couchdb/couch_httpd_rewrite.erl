@@ -123,7 +123,7 @@ handle_rewrite_req(#httpd{
     #doc{body={Props}} = DDoc,
 
     % get rules from ddoc
-    case ?getv(<<"rewrites">>, Props) of
+    case couch_util:get_value(<<"rewrites">>, Props) of
         undefined ->
             couch_httpd:send_error(Req, 404, <<"rewrite_error">>,
                             <<"Invalid path.">>);
@@ -205,7 +205,7 @@ try_bind_path([Dispatch|Rest], Method, PathParts, QueryList) ->
                     % QueryArgs1
                     Bindings2 = lists:foldl(fun({K, V}, Acc) ->
                         K1 = to_atom(K),
-                        KV = case ?getv(K1, QueryArgs1) of
+                        KV = case couch_util:get_value(K1, QueryArgs1) of
                             undefined -> [{K1, V}];
                             _V1 -> []
                         end,
@@ -275,7 +275,7 @@ replace_var(Key, Value, Bindings) ->
 
 get_var(VarName, Props, Default) ->
     VarName1 = list_to_atom(binary_to_list(VarName)),
-    ?getv(VarName1, Props, Default).
+    couch_util:get_value(VarName1, Props, Default).
 
 %% doc: build new patch from bindings. bindings are query args
 %% (+ dynamic query rewritten if needed) and bindings found in
@@ -289,7 +289,7 @@ make_new_path([?MATCH_ALL|_Rest], _Bindings, Remaining, Acc) ->
     Acc1 = lists:reverse(Acc) ++ Remaining,
     Acc1;
 make_new_path([P|Rest], Bindings, Remaining, Acc) when is_atom(P) ->
-    P2 = case ?getv(P, Bindings) of
+    P2 = case couch_util:get_value(P, Bindings) of
         undefined -> << "undefined">>;
         P1 -> P1
     end,
@@ -349,20 +349,20 @@ normalize_path1([Path|Rest], Acc) ->
 
 %% @doc transform json rule in erlang for pattern matching
 make_rule(Rule) ->
-    Method = case ?getv(<<"method">>, Rule) of
+    Method = case couch_util:get_value(<<"method">>, Rule) of
         undefined -> '*';
         M -> list_to_atom(?b2l(M))
     end,
-    QueryArgs = case ?getv(<<"query">>, Rule) of
+    QueryArgs = case couch_util:get_value(<<"query">>, Rule) of
         undefined -> [];
         {Args} -> Args
         end,
-    FromParts  = case ?getv(<<"from">>, Rule) of
+    FromParts  = case couch_util:get_value(<<"from">>, Rule) of
         undefined -> ['*'];
         From ->
             parse_path(From)
         end,
-    ToParts  = case ?getv(<<"to">>, Rule) of
+    ToParts  = case couch_util:get_value(<<"to">>, Rule) of
         undefined ->
             throw({error, invalid_rewrite_target});
         To ->
