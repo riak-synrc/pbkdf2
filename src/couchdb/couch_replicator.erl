@@ -278,42 +278,8 @@ handle_info({seq_start, {Seq, NumChanges}}, State) ->
         State#rep_state.seqs_in_progress),
     {noreply, State#rep_state{seqs_in_progress = SeqsInProgress2}};
 
-handle_info({seq_changes_done, {Seq, NumChangesDone}}, State) ->
-    #rep_state{
-        seqs_in_progress = SeqsInProgress,
-        next_through_seqs = DoneSeqs,
-        is_successor_seq = IsSuccFun
-    } = State,
-    % Decrement the # changes for this seq by NumChangesDone.
-    TotalChanges = gb_trees:get(Seq, SeqsInProgress),
-    NewState = case TotalChanges - NumChangesDone of
-    0 ->
-        % This seq is completely processed. Check to see if it was the
-        % smallest seq in progess. If so, we've made progress that can
-        % be checkpointed.
-        State2 = case gb_trees:smallest(SeqsInProgress) of
-        {Seq, _} ->
-            {CheckpointSeq, DoneSeqs2} = next_seq_before_gap(
-                Seq, DoneSeqs, IsSuccFun),
-            State#rep_state{
-                current_through_seq = CheckpointSeq,
-                next_through_seqs = DoneSeqs2
-            };
-        _ ->
-            DoneSeqs2 = ordsets:add_element(Seq, DoneSeqs),
-            State#rep_state{next_through_seqs = DoneSeqs2}
-        end,
-        State2#rep_state{
-            seqs_in_progress = gb_trees:delete(Seq, SeqsInProgress)
-        };
-    NewTotalChanges when NewTotalChanges > 0 ->
-        % There are still some changes that need work done.
-        % Put the new count back.
-        State#rep_state{
-            seqs_in_progress =
-                gb_trees:update(Seq, NewTotalChanges, SeqsInProgress)
-        }
-    end,
+handle_info({seq_changes_done, Changes}, State) ->
+    NewState = lists:foldl(fun process_seq_changes_done/2, State, Changes),
     {noreply, NewState};
 
 handle_info({add_stat, {StatPos, Val}}, #rep_state{stats = Stats} = State) ->
@@ -710,3 +676,40 @@ has_session_id(SessionId, [{Props} | Rest]) ->
         has_session_id(SessionId, Rest)
     end.
 
+
+process_seq_changes_done({Seq, NumChangesDone}, State) ->
+    #rep_state{
+        seqs_in_progress = SeqsInProgress,
+        next_through_seqs = DoneSeqs,
+        is_successor_seq = IsSuccFun
+    } = State,
+    % Decrement the # changes for this seq by NumChangesDone.
+    TotalChanges = gb_trees:get(Seq, SeqsInProgress),
+    case TotalChanges - NumChangesDone of
+    0 ->
+        % This seq is completely processed. Check to see if it was the
+        % smallest seq in progess. If so, we've made progress that can
+        % be checkpointed.
+        State2 = case gb_trees:smallest(SeqsInProgress) of
+        {Seq, _} ->
+            {CheckpointSeq, DoneSeqs2} = next_seq_before_gap(
+                Seq, DoneSeqs, IsSuccFun),
+            State#rep_state{
+                current_through_seq = CheckpointSeq,
+                next_through_seqs = DoneSeqs2
+            };
+        _ ->
+            DoneSeqs2 = ordsets:add_element(Seq, DoneSeqs),
+            State#rep_state{next_through_seqs = DoneSeqs2}
+        end,
+        State2#rep_state{
+            seqs_in_progress = gb_trees:delete(Seq, SeqsInProgress)
+        };
+    NewTotalChanges when NewTotalChanges > 0 ->
+        % There are still some changes that need work done.
+        % Put the new count back.
+        State#rep_state{
+            seqs_in_progress =
+                gb_trees:update(Seq, NewTotalChanges, SeqsInProgress)
+        }
+    end.

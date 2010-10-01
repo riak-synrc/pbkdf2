@@ -69,9 +69,9 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
                     #doc_info{id=Id, revs=RevsInfo, high_seq=Seq} <- DocInfos]),
         NonMissingIdRevsSeqDict = remove_missing(IdRevsSeqDict, Missing),
         % signal the completion of these that aren't missing
-        lists:foreach(fun({_Id, {Revs, Seq}}) ->
-                Cp ! {seq_changes_done, {Seq, length(Revs)}}
-            end, dict:to_list(NonMissingIdRevsSeqDict)),
+        Cp ! {seq_changes_done,
+            [{Seq, length(Revs)} ||
+                {_Id, {Revs, Seq}} <- dict:to_list(NonMissingIdRevsSeqDict)]},
 
         % Expand out each docs and seq into it's own work item
         lists:foreach(fun({Id, Revs, PAs}) ->

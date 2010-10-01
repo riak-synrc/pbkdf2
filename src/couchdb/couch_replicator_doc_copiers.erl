@@ -105,6 +105,8 @@ write_doc(Doc, Seq, Db, Cp) ->
     seqs_done([{Seq, 1}], Cp).
 
 
+bulk_write_docs([], _, _, _) ->
+    ok;
 bulk_write_docs(Docs, Seqs, Db, Cp) ->
     case couch_api_wrap:update_docs(
         Db, Docs, [delay_commit], replicated_changes) of
@@ -125,9 +127,9 @@ bulk_write_docs(Docs, Seqs, Db, Cp) ->
     seqs_done(Seqs, Cp).
 
 
+seqs_done([], _) ->
+    ok;
+seqs_done([{nil, _} | _], _) ->
+    ok;
 seqs_done(SeqCounts, Cp) ->
-    lists:foreach(fun({nil, _}) ->
-            ok;
-        (SeqCount) ->
-            Cp ! {seq_changes_done, SeqCount}
-        end, SeqCounts).
+    Cp ! {seq_changes_done, SeqCounts}.
