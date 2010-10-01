@@ -79,7 +79,9 @@ source_files = \
     couch_view_group.erl \
     couch_db_updater.erl \
     couch_work_queue.erl \
-    couch_replicate.erl \
+    couch_replicator.erl \
+    couch_replicator_rev_finders.erl \
+    couch_replicator_doc_copiers.erl \
     couch_replicator_utils.erl \
     couch_replication_notifier.erl \
     couch_httpd_rep.erl \
@@ -144,7 +146,9 @@ compiled_files = \
     couch_view_group.beam \
     couch_db_updater.beam \
     couch_work_queue.beam \
-    couch_replicate.beam \
+    couch_replicator.beam \
+    couch_replicator_rev_finders.beam \
+    couch_replicator_doc_copiers.beam \
     couch_replicator_utils.beam \
     couch_replication_notifier.beam \
     couch_httpd_rep.beam \

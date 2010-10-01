@@ -26,7 +26,7 @@
 handle_req(#httpd{method = 'POST', user_ctx = UserCtx} = Req) ->
     RepDoc = couch_httpd:json_body_obj(Req),
     {ok, Rep} = couch_replicator_utils:parse_rep_doc(RepDoc, UserCtx),
-    case couch_replicate:replicate(Rep) of
+    case couch_replicator:replicate(Rep) of
     {error, Reason} ->
         try
             send_json(Req, 500, {[{error, Reason}]})
