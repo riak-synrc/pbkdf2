@@ -74,12 +74,14 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
                 {_Id, {Revs, Seq}} <- dict:to_list(NonMissingIdRevsSeqDict)]},
 
         % Expand out each docs and seq into it's own work item
-        lists:foreach(fun({Id, Revs, PAs}) ->
-            % PA means "possible ancestor"
-            Cp ! {add_stat, {#rep_stats.missing_found, length(Revs)}},
-            {_, Seq} = dict:fetch(Id, IdRevsSeqDict),
-            ok = couch_work_queue:queue(RevsQueue, {Id, Revs, PAs, Seq})
-            end, Missing),
+        MissingCount = lists:foldl(
+            fun({Id, Revs, PAs}, Count) ->
+                % PA means "possible ancestor"
+                {_, Seq} = dict:fetch(Id, IdRevsSeqDict),
+                ok = couch_work_queue:queue(RevsQueue, {Id, Revs, PAs, Seq}),
+                Count + length(Revs)
+            end, 0, Missing),
+        Cp ! {add_stat, {#rep_stats.missing_found, MissingCount}},
         missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue)
     end.
 
