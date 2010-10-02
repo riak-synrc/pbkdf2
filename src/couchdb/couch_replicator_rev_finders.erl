@@ -69,9 +69,7 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
                     #doc_info{id=Id, revs=RevsInfo, high_seq=Seq} <- DocInfos]),
         NonMissingIdRevsSeqDict = remove_missing(IdRevsSeqDict, Missing),
         % signal the completion of these that aren't missing
-        Cp ! {seq_changes_done,
-            [{Seq, length(Revs)} ||
-                {_Id, {Revs, Seq}} <- dict:to_list(NonMissingIdRevsSeqDict)]},
+        report_non_missing(NonMissingIdRevsSeqDict, Cp),
 
         % Expand out each docs and seq into it's own work item
         MissingCount = lists:foldl(
@@ -81,9 +79,26 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
                 ok = couch_work_queue:queue(RevsQueue, {Id, Revs, PAs, Seq}),
                 Count + length(Revs)
             end, 0, Missing),
-        Cp ! {add_stat, {#rep_stats.missing_found, MissingCount}},
+        maybe_add_stat(MissingCount, #rep_stats.missing_found, Cp),
         missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue)
     end.
+
+
+report_non_missing(RevsDict, Cp) ->
+    case dict:size(RevsDict) of
+    0 ->
+        ok;
+    N when N > 0 ->
+        Cp ! {seq_changes_done,
+            [{Seq, length(Revs)} ||
+                {_Id, {Revs, Seq}} <- dict:to_list(RevsDict)]}
+    end.
+
+
+maybe_add_stat(0, _StatPos, _Cp) ->
+    ok;
+maybe_add_stat(Value, StatPos, Cp) ->
+    Cp ! {add_stat, {StatPos, Value}}.
 
 
 remove_missing(IdRevsSeqDict, []) ->
