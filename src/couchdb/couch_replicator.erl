@@ -271,9 +271,15 @@ do_init(#rep{options = Options} = Rep) ->
 
 
 handle_info({seq_start, {Seq, NumChanges}}, State) ->
-    SeqsInProgress2 = gb_trees:insert(Seq, NumChanges,
-        State#rep_state.seqs_in_progress),
-    {noreply, State#rep_state{seqs_in_progress = SeqsInProgress2}};
+    #rep_state{
+        seqs_in_progress = SeqsInProgress,
+        stats = #rep_stats{missing_checked = Mc} = Stats
+    } = State,
+    NewState = State#rep_state{
+        seqs_in_progress = gb_trees:insert(Seq, NumChanges, SeqsInProgress),
+        stats = Stats#rep_stats{missing_checked = Mc + NumChanges}
+    },
+    {noreply, NewState};
 
 handle_info({seq_changes_done, Changes}, State) ->
     {noreply, process_seq_changes_done(Changes, State)};
@@ -505,7 +511,6 @@ spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
             couch_api_wrap:changes_since(Source, all_docs, StartSeq,
                 fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo) ->
                     Cp ! {seq_start, {Seq, length(Revs)}},
-                    Cp ! {add_stat, {#rep_stats.missing_checked, length(Revs)}},
                     ok = couch_work_queue:queue(ChangesQueue, DocInfo)
                 end, Options),
             couch_work_queue:close(ChangesQueue)
