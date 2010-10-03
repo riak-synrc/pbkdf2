@@ -270,53 +270,6 @@ do_init(#rep{options = Options} = Rep) ->
     }.
 
 
-handle_info({seq_start, {Seq, NumChanges}}, State) ->
-    #rep_state{
-        seqs_in_progress = SeqsInProgress,
-        stats = #rep_stats{missing_checked = Mc} = Stats
-    } = State,
-    NewState = State#rep_state{
-        seqs_in_progress = gb_trees:insert(Seq, NumChanges, SeqsInProgress),
-        stats = Stats#rep_stats{missing_checked = Mc + NumChanges}
-    },
-    {noreply, NewState};
-
-handle_info({seq_changes_done, Changes}, State) ->
-    {noreply, process_seq_changes_done(Changes, State)};
-
-handle_info({add_stat, {StatPos, Val}}, #rep_state{stats = Stats} = State) ->
-    Stat = element(StatPos, Stats),
-    NewStats = setelement(StatPos, Stats, Stat + Val),
-    {noreply, State#rep_state{stats = NewStats}};
-
-handle_info({done, _CopierId}, State) ->
-    #rep_state{
-        finished_doc_copiers = Finished,
-        doc_copiers = DocCopiers,
-        next_through_seqs = DoneSeqs,
-        current_through_seq = Seq
-    } = State,
-    State1 = State#rep_state{finished_doc_copiers = Finished + 1},
-    case length(DocCopiers) - 1 of
-    Finished ->
-        % This means all the worker processes have completed their work.
-        % Assert that all the seqs have been processed.
-        0 = gb_trees:size(State#rep_state.seqs_in_progress),
-        LastSeq = case DoneSeqs of
-        [] ->
-            Seq;
-        _ ->
-            lists:max([Seq, lists:last(DoneSeqs)])
-        end,
-        State2 = do_checkpoint(State1#rep_state{
-            current_through_seq = LastSeq,
-            next_through_seqs = []}),
-        cancel_timer(State2),
-        {stop, normal, State2};
-    _ ->
-        {noreply, State1}
-    end;
-
 handle_info({'EXIT', Pid, normal}, #rep_state{changes_reader=Pid} = State) ->
     {noreply, State};
 
@@ -396,6 +349,53 @@ handle_call(Msg, _From, State) ->
 handle_cast(checkpoint, State) ->
     State2 = do_checkpoint(State),
     {noreply, State2#rep_state{timer = start_timer(State)}};
+
+handle_cast({seq_start, {Seq, NumChanges}}, State) ->
+    #rep_state{
+        seqs_in_progress = SeqsInProgress,
+        stats = #rep_stats{missing_checked = Mc} = Stats
+    } = State,
+    NewState = State#rep_state{
+        seqs_in_progress = gb_trees:insert(Seq, NumChanges, SeqsInProgress),
+        stats = Stats#rep_stats{missing_checked = Mc + NumChanges}
+    },
+    {noreply, NewState};
+
+handle_cast({seq_changes_done, Changes}, State) ->
+    {noreply, process_seq_changes_done(Changes, State)};
+
+handle_cast({add_stat, {StatPos, Val}}, #rep_state{stats = Stats} = State) ->
+    Stat = element(StatPos, Stats),
+    NewStats = setelement(StatPos, Stats, Stat + Val),
+    {noreply, State#rep_state{stats = NewStats}};
+
+handle_cast({done, _CopierId}, State) ->
+    #rep_state{
+        finished_doc_copiers = Finished,
+        doc_copiers = DocCopiers,
+        next_through_seqs = DoneSeqs,
+        current_through_seq = Seq
+    } = State,
+    State1 = State#rep_state{finished_doc_copiers = Finished + 1},
+    case length(DocCopiers) - 1 of
+    Finished ->
+        % This means all the worker processes have completed their work.
+        % Assert that all the seqs have been processed.
+        0 = gb_trees:size(State#rep_state.seqs_in_progress),
+        LastSeq = case DoneSeqs of
+        [] ->
+            Seq;
+        _ ->
+            lists:max([Seq, lists:last(DoneSeqs)])
+        end,
+        State2 = do_checkpoint(State1#rep_state{
+            current_through_seq = LastSeq,
+            next_through_seqs = []}),
+        cancel_timer(State2),
+        {stop, normal, State2};
+    _ ->
+        {noreply, State1}
+    end;
 
 handle_cast(Msg, State) ->
     ?LOG_ERROR("Replicator received an unexpected asynchronous call: ~p", [Msg]),
@@ -510,7 +510,7 @@ spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
         fun()->
             couch_api_wrap:changes_since(Source, all_docs, StartSeq,
                 fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo) ->
-                    Cp ! {seq_start, {Seq, length(Revs)}},
+                    ok = gen_server:cast(Cp, {seq_start, {Seq, length(Revs)}}),
                     ok = couch_work_queue:queue(ChangesQueue, DocInfo)
                 end, Options),
             couch_work_queue:close(ChangesQueue)

@@ -45,7 +45,7 @@ doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
     case couch_work_queue:dequeue(MissingRevsQueue, ?DOC_BATCH_SIZE) of
     closed ->
         ?LOG_DEBUG("Doc copier ~p got missing revs queue closed", [CopierId]),
-        Cp ! {done, CopierId};
+        ok = gen_server:cast(Cp, {done, CopierId});
 
     {ok, [{doc_id, _} | _] = DocIds} ->
         DocAcc = lists:foldl(
@@ -154,11 +154,11 @@ seqs_done([], _) ->
 seqs_done([{nil, _} | _], _) ->
     ok;
 seqs_done(SeqCounts, Cp) ->
-    Cp ! {seq_changes_done, SeqCounts}.
+    ok = gen_server:cast(Cp, {seq_changes_done, SeqCounts}).
 
 
 maybe_send_stat(0, _StatPos, _Cp) ->
     ok;
 maybe_send_stat(Value, StatPos, Cp) ->
-    Cp ! {add_stat, {StatPos, Value}}.
+    ok = gen_server:cast(Cp, {add_stat, {StatPos, Value}}).
 

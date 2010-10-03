@@ -89,16 +89,16 @@ report_non_missing(RevsDict, Cp) ->
     0 ->
         ok;
     N when N > 0 ->
-        Cp ! {seq_changes_done,
-            [{Seq, length(Revs)} ||
-                {_Id, {Revs, Seq}} <- dict:to_list(RevsDict)]}
+        SeqsDone = [{Seq, length(Revs)} ||
+            {_Id, {Revs, Seq}} <- dict:to_list(RevsDict)],
+        ok = gen_server:cast(Cp, {seq_changes_done, SeqsDone})
     end.
 
 
 maybe_add_stat(0, _StatPos, _Cp) ->
     ok;
 maybe_add_stat(Value, StatPos, Cp) ->
-    Cp ! {add_stat, {StatPos, Value}}.
+    ok = gen_server:cast(Cp, {add_stat, {StatPos, Value}}).
 
 
 remove_missing(IdRevsSeqDict, []) ->
