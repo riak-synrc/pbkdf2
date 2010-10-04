@@ -41,13 +41,13 @@ spawn_doc_copiers(Cp, Source, Target, MissingRevsQueue, CopiersCount) ->
 }).
 
 doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
-    case couch_work_queue:dequeue(MissingRevsQueue, ?DOC_BATCH_SIZE) of
+    Result = case couch_work_queue:dequeue(MissingRevsQueue, ?DOC_BATCH_SIZE) of
     closed ->
         ?LOG_DEBUG("Doc copier ~p got missing revs queue closed", [CopierId]),
-        ok;
+        stop;
 
     {ok, [{doc_id, _} | _] = DocIds} ->
-        DocAcc = lists:foldl(
+        Acc = lists:foldl(
             fun({doc_id, Id}, Acc) ->
                 ?LOG_DEBUG("Doc copier ~p got {doc_id, ~p}", [CopierId, Id]),
                 {ok, Acc2} = couch_api_wrap:open_doc_revs(
@@ -56,17 +56,10 @@ doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
                 Acc2
             end,
             #doc_acc{}, DocIds),
-        maybe_send_stat(DocAcc#doc_acc.read, #rep_stats.docs_read, Cp),
-        #doc_acc{written = W, wfail = Wf} = bulk_write_docs(DocAcc, Target),
-        #doc_acc{written = W, wfail = Wf, seqs = SeqsDone} =
-            bulk_write_docs(DocAcc, Target),
-        seqs_done(SeqsDone, Cp),
-        maybe_send_stat(W, #rep_stats.docs_written, Cp),
-        maybe_send_stat(Wf, #rep_stats.doc_write_failures, Cp),
-        doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue);
+        {Source, Acc};
 
     {ok, IdRevList} ->
-        {Source2, DocAcc} = lists:foldl(
+        lists:foldl(
             fun({Id, Revs, PossibleAncestors, Seq} = IdRev, {SrcDb, BulkAcc}) ->
                 ?LOG_DEBUG("Doc copier ~p got ~p", [CopierId, IdRev]),
                 SrcDb2 = couch_api_wrap:maybe_reopen_db(SrcDb, Seq),
@@ -76,14 +69,19 @@ doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
                     BulkAcc),
                 {SrcDb2, BulkAcc2}
             end,
-            {Source, #doc_acc{}}, IdRevList),
+            {Source, #doc_acc{}}, IdRevList)
+    end,
+    case Result of
+    {Source2, DocAcc} ->
         maybe_send_stat(DocAcc#doc_acc.read, #rep_stats.docs_read, Cp),
         #doc_acc{written = W, wfail = Wf, seqs = SeqsDone} =
             bulk_write_docs(DocAcc, Target),
         seqs_done(SeqsDone, Cp),
         maybe_send_stat(W, #rep_stats.docs_written, Cp),
         maybe_send_stat(Wf, #rep_stats.doc_write_failures, Cp),
-        doc_copy_loop(CopierId, Cp, Source2, Target, MissingRevsQueue)
+        doc_copy_loop(CopierId, Cp, Source2, Target, MissingRevsQueue);
+    stop ->
+        ok
     end.
 
 
