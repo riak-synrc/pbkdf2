@@ -35,16 +35,15 @@ spawn_missing_rev_finders(_, _, DocIds, MissingRevsQueue, _)
 spawn_missing_rev_finders(StatsProcess,
         Target, ChangesQueue, MissingRevsQueue, RevFindersCount) ->
     lists:map(
-        fun(FinderId) ->
-            Pid = spawn_link(fun() ->
-                missing_revs_finder_loop(FinderId, StatsProcess,
+        fun(_) ->
+            spawn_link(fun() ->
+                missing_revs_finder_loop(StatsProcess,
                     Target, ChangesQueue, MissingRevsQueue)
-            end),
-            {Pid, FinderId}
+            end)
         end, lists:seq(1, RevFindersCount)).
 
 
-missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
+missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue) ->
     case couch_work_queue:dequeue(ChangesQueue, ?REV_BATCH_SIZE) of
     closed ->
         ok;
@@ -52,10 +51,10 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
         IdRevs = [{Id, [Rev || #rev_info{rev=Rev} <- RevsInfo]} ||
                 #doc_info{id=Id, revs=RevsInfo} <- DocInfos],
         ?LOG_DEBUG("Revs finder ~p got ~p IdRev pairs from queue",
-            [FinderId, length(IdRevs)]),
+            [self(), length(IdRevs)]),
         {ok, Missing} = couch_api_wrap:get_missing_revs(Target, IdRevs),
         ?LOG_DEBUG("Revs finder ~p found ~p missing IdRev pairs",
-            [FinderId, length(Missing)]),
+            [self(), length(Missing)]),
         % Figured out which on the target are missing.
         % Missing contains the id and revs missing, and any possible
         % ancestors that already exist on the target. This enables
@@ -80,7 +79,7 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
                 Count + length(Revs)
             end, 0, Missing),
         send_missing_found(MissingCount, Cp),
-        missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue)
+        missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue)
     end.
 
 

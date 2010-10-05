@@ -296,21 +296,21 @@ handle_info({'EXIT', Pid, normal}, State) ->
         missing_rev_finders = RevFinders,
         missing_revs_queue = RevsQueue
     } = State,
-    case get_value(Pid, RevFinders) of
-    undefined ->
-        case get_value(Pid, DocCopiers) of
-        undefined ->
+    case lists:member(Pid, RevFinders) of
+    false ->
+        case lists:member(Pid, DocCopiers) of
+        false ->
             {stop, {unknown_process_died, Pid, normal}, State};
-        _CopierId ->
-            case lists:keydelete(Pid, 1, DocCopiers) of
+        true ->
+            case DocCopiers -- [Pid] of
             [] ->
                 {stop, normal, do_last_checkpoint(State)};
             DocCopiers2 ->
                 {noreply, State#rep_state{doc_copiers = DocCopiers2}}
             end
         end;
-    _FinderId ->
-        case lists:keydelete(Pid, 1, RevFinders) of
+    true ->
+        case RevFinders -- [Pid] of
         [] ->
             couch_work_queue:close(RevsQueue),
             {noreply, State#rep_state{missing_rev_finders = []}};
@@ -325,19 +325,17 @@ handle_info({'EXIT', Pid, Reason}, State) ->
         missing_rev_finders = RevFinders
     } = State,
     State2 = cancel_timer(State),
-    case get_value(Pid, DocCopiers) of
-    undefined ->
-        case get_value(Pid, RevFinders) of
-        undefined ->
+    case lists:member(Pid, DocCopiers) of
+    false ->
+        case lists:member(Pid, RevFinders) of
+        false ->
             {stop, {unknown_process_died, Pid, Reason}, State2};
-        FinderId ->
-            ?LOG_ERROR("RevsFinder process ~p died with reason: ~p",
-                [FinderId, Reason]),
+        true ->
+            ?LOG_ERROR("RevsFinder ~p died with reason: ~p", [Pid, Reason]),
             {stop, {revs_finder_died, Pid, Reason}, State2}
         end;
-    CopierId ->
-        ?LOG_ERROR("DocCopier process ~p died with reason: ~p",
-            [CopierId, Reason]),
+    true ->
+        ?LOG_ERROR("DocCopier ~p died with reason: ~p", [Pid, Reason]),
         {stop, {doc_copier_died, Pid, Reason}, State2}
     end.
 
