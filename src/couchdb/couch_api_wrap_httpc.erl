@@ -32,8 +32,14 @@ httpdb_setup(#httpdb{} = Db) ->
 
 send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     Method = get_value(method, Params, get),
-    Headers = get_value(headers, Params, []),
-    Body = get_value(body, Params, []),
+    Headers1 = get_value(headers, Params, []),
+    {Body, Headers} = case get_value(body, Params, []) of
+    {chunkify, BodyFun, Acc0} ->
+        NewBodyFun = chunkify_fun(BodyFun),
+        {{NewBodyFun, Acc0}, [{"Transfer-Encoding", "chunked"} | Headers1]};
+    Else ->
+        {Else, Headers1}
+    end,
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout}
         | get_value(ibrowse_options, Params, []) ++ HttpDb#httpdb.proxy_options
@@ -208,3 +214,21 @@ redirect_url(RespHeaders, OrigUrl) ->
 after_redirect(RedirectUrl, HttpDb, Params) ->
     Params2 = lists:keydelete(path, 1, lists:keydelete(qs, 1, Params)),
     {HttpDb#httpdb{url = RedirectUrl}, Params2}.
+
+
+chunkify_fun(BodyFun) ->
+    fun(eof_body_fun) ->
+        eof;
+    (Acc) ->
+        case BodyFun(Acc) of
+        eof ->
+            {ok, <<"0\r\n\r\n">>, eof_body_fun};
+        {ok, Data, NewAcc} ->
+            DataBin = iolist_to_binary(Data),
+            Chunk = [hex_size(DataBin), "\r\n", DataBin, "\r\n"],
+            {ok, iolist_to_binary(Chunk), NewAcc}
+        end
+    end.
+
+hex_size(Bin) ->
+    hd(io_lib:format("~.16B", [size(Bin)])).

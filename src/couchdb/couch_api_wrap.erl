@@ -279,17 +279,33 @@ update_docs(Db, DocList, Options) ->
     update_docs(Db, DocList, Options, interactive_edit).
 
 update_docs(#httpdb{} = HttpDb, DocList, Options, UpdateType) ->
-    DocList1 = [couch_doc:to_json_obj(Doc, [revs]) || Doc <- DocList],
-    Body = case UpdateType of
-    replicated_changes ->
-        {[{new_edits, false}, {docs, DocList1}]};
-    interactive_edit ->
-        {[{docs, DocList1}]}
-    end,
     FullCommit = atom_to_list(not lists:member(delay_commit, Options)),
+    Part1 = case UpdateType of
+    replicated_changes ->
+        <<"{\"new_edits\":false,\"docs\":[">>;
+    interactive_edit ->
+        <<"{\"docs\":[">>
+    end,
+    BodyFun = fun(eof) ->
+            eof;
+        ([]) ->
+            {ok, <<"]}">>, eof};
+        ([Part | RestParts]) when is_binary(Part) ->
+            {ok, Part, RestParts};
+        ([Doc | RestParts]) ->
+            DocJson = couch_doc:to_json_obj(Doc, [revs, attachments]),
+            Data = case RestParts of
+            [] ->
+                ?JSON_ENCODE(DocJson);
+            _ ->
+                [?JSON_ENCODE(DocJson), ","]
+            end,
+            {ok, Data, RestParts}
+    end,
     send_req(
         HttpDb,
-        [{method, post}, {path, "_bulk_docs"}, {body, ?JSON_ENCODE(Body)},
+        [{method, post}, {path, "_bulk_docs"},
+            {body, {chunkify, BodyFun, [Part1 | DocList]}},
             {headers, [
                 {"X-Couch-Full-Commit", FullCommit},
                 {"Content-Type", "application/json"} ]}],
