@@ -365,10 +365,8 @@ handle_cast({seq_start, {Seq, NumChanges}}, State) ->
 handle_cast({seq_changes_done, Changes}, State) ->
     {noreply, process_seq_changes_done(Changes, State)};
 
-handle_cast({add_stat, {StatPos, Val}}, #rep_state{stats = Stats} = State) ->
-    Stat = element(StatPos, Stats),
-    NewStats = setelement(StatPos, Stats, Stat + Val),
-    {noreply, State#rep_state{stats = NewStats}};
+handle_cast({add_stats, StatsInc}, #rep_state{stats = Stats} = State) ->
+    {noreply, State#rep_state{stats = sum_stats([Stats, StatsInc])}};
 
 handle_cast(Msg, State) ->
     ?LOG_ERROR("Replicator received an unexpected asynchronous call: ~p", [Msg]),
@@ -730,3 +728,20 @@ get_next_through_seq(Current, SmallestInProgress, Done, NewDone) ->
             ordsets:del_element(LargestDone, NewDone), [LargestDone | NewDone])
     end.
 
+
+sum_stats([Stats1 | RestStats]) ->
+    lists:foldl(
+        fun(Stats, Acc) ->
+            #rep_stats{
+                missing_checked = Stats#rep_stats.missing_checked +
+                    Acc#rep_stats.missing_checked,
+                missing_found = Stats#rep_stats.missing_found +
+                    Acc#rep_stats.missing_found,
+                docs_read = Stats#rep_stats.docs_read + Acc#rep_stats.docs_read,
+                docs_written = Stats#rep_stats.docs_written +
+                    Acc#rep_stats.docs_written,
+                doc_write_failures = Stats#rep_stats.doc_write_failures +
+                    Acc#rep_stats.doc_write_failures
+            }
+        end,
+        Stats1, RestStats).

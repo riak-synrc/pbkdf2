@@ -73,12 +73,9 @@ doc_copy_loop(CopierId, Cp, Source, Target, MissingRevsQueue) ->
     end,
     case Result of
     {Source2, DocAcc} ->
-        maybe_send_stat(DocAcc#doc_acc.read, #rep_stats.docs_read, Cp),
-        #doc_acc{written = W, wfail = Wf, seqs = SeqsDone} =
-            bulk_write_docs(DocAcc, Target),
+        #doc_acc{seqs = SeqsDone} = DocAcc2 = bulk_write_docs(DocAcc, Target),
         seqs_done(SeqsDone, Cp),
-        maybe_send_stat(W, #rep_stats.docs_written, Cp),
-        maybe_send_stat(Wf, #rep_stats.doc_write_failures, Cp),
+        send_stats(DocAcc2, Cp),
         doc_copy_loop(CopierId, Cp, Source2, Target, MissingRevsQueue);
     stop ->
         ok
@@ -162,8 +159,10 @@ seqs_done(SeqCounts, Cp) ->
     ok = gen_server:cast(Cp, {seq_changes_done, SeqCounts}).
 
 
-maybe_send_stat(0, _StatPos, _Cp) ->
-    ok;
-maybe_send_stat(Value, StatPos, Cp) ->
-    ok = gen_server:cast(Cp, {add_stat, {StatPos, Value}}).
-
+send_stats(#doc_acc{read = R, written = W, wfail = Wf}, Cp) ->
+    Stats = #rep_stats{
+        docs_read = R,
+        docs_written = W,
+        doc_write_failures = Wf
+    },
+    ok = gen_server:cast(Cp, {add_stats, Stats}).

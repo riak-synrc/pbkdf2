@@ -79,7 +79,7 @@ missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue) ->
                 ok = couch_work_queue:queue(RevsQueue, {Id, Revs, PAs, Seq}),
                 Count + length(Revs)
             end, 0, Missing),
-        maybe_add_stat(MissingCount, #rep_stats.missing_found, Cp),
+        send_missing_found(MissingCount, Cp),
         missing_revs_finder_loop(FinderId, Cp, Target, ChangesQueue, RevsQueue)
     end.
 
@@ -95,10 +95,10 @@ report_non_missing(RevsDict, Cp) ->
     end.
 
 
-maybe_add_stat(0, _StatPos, _Cp) ->
+send_missing_found(0, _Cp) ->
     ok;
-maybe_add_stat(Value, StatPos, Cp) ->
-    ok = gen_server:cast(Cp, {add_stat, {StatPos, Value}}).
+send_missing_found(Value, Cp) ->
+    ok = gen_server:cast(Cp, {add_stats, #rep_stats{missing_found = Value}}).
 
 
 remove_missing(IdRevsSeqDict, []) ->
