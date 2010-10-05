@@ -72,20 +72,19 @@ db_open(Db, Options) ->
     db_open(Db, Options, false).
 
 db_open(#httpdb{} = Db, _Options, Create) ->
-    {ok, Db2} = httpdb_setup(Db),
     case Create of
     false ->
         ok;
     true ->
-        send_req(Db2, [{method, put}], fun(_, _, _) -> ok end)
+        send_req(Db, [{method, put}], fun(_, _, _) -> ok end)
     end,
-    send_req(Db2, [{method, head}],
+    send_req(Db, [{method, head}],
         fun(200, _, _) ->
-            {ok, Db2};
+            {ok, Db};
         (401, _, _) ->
             throw({unauthorized, ?l2b(db_uri(Db))});
         (_, _, _) ->
-            throw({db_not_found, ?l2b(Db2#httpdb.url)})
+            throw({db_not_found, ?l2b(Db#httpdb.url)})
         end);
 db_open(DbName, Options, Create) ->
     case Create of

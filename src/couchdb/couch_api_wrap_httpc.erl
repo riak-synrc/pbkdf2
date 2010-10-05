@@ -16,18 +16,12 @@
 -include("couch_api_wrap.hrl").
 -include("../ibrowse/ibrowse.hrl").
 
--export([httpdb_setup/1]).
 -export([send_req/3]).
 
 -import(couch_util, [
     get_value/2,
     get_value/3
     ]).
-
-
-httpdb_setup(#httpdb{} = Db) ->
-    % TODO: setup Ibrowse proxy options
-    {ok, Db}.
 
 
 send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
