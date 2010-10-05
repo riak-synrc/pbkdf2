@@ -17,7 +17,7 @@
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
 
--define(DOC_BATCH_SIZE, 50).
+-define(DOC_BATCH_SIZE, 1000).
 
 
 

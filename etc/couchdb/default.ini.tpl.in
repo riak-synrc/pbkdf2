@@ -118,3 +118,5 @@ compressible_types = text/*, application/javascript, application/json,  applicat
 [replicator]
 ; should be at least 2
 worker_processes = 10
+; integer value in bytes
+buffer_size = 1048576

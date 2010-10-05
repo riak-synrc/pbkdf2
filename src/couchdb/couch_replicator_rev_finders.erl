@@ -16,7 +16,7 @@
 
 -include("couch_db.hrl").
 
--define(REV_BATCH_SIZE, 100).
+-define(REV_BATCH_SIZE, 3000).
 
 
 

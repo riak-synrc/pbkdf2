@@ -217,8 +217,10 @@ do_init(#rep{options = Options} = Rep) ->
         start_seq = StartSeq
     } = State = init_state(Rep),
 
+    QueueSize = round(
+        (?l2i(couch_config:get("replicator", "buffer_size", "1048576"))) / 2),
     {ok, MissingRevsQueue} = couch_work_queue:new(
-        [{max_size, 100000}, {max_items, 2000}, {multi_workers, true}]),
+        [{max_size, QueueSize}, {multi_workers, true}]),
 
     {RevFindersCount, CopiersCount} = case ?l2i(
         couch_config:get("replicator", "worker_processes", "10")) of
@@ -227,13 +229,13 @@ do_init(#rep{options = Options} = Rep) ->
             "should be at least 2", []),
         {1, 1};
     N ->
-        {N div 2, (N div 2) + (N rem 2)}
+        {lists:max([N div 3, 1]), lists:max([2 * (N div 3) + (N rem 3), 1])}
     end,
 
     case get_value(doc_ids, Options) of
     undefined ->
         {ok, ChangesQueue} = couch_work_queue:new(
-            [{max_size, 100000}, {max_items, 500}, {multi_workers, true}]),
+            [{max_size, QueueSize}, {multi_workers, true}]),
 
         % This starts the _changes reader process. It adds the changes from
         % the source db to the ChangesQueue.
