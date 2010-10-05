@@ -75,7 +75,7 @@ handle_call({queue, Item}, From, #q{work_waiters = []} = Q0) ->
                 items = Q0#q.items + 1,
                 queue = queue:in(Item, Q0#q.queue)},
     case (Q#q.size >= Q#q.max_size) orelse
-            (Q#q.items >= Q#q.max_items) of
+        (is_integer(Q#q.max_items) andalso (Q#q.items >= Q#q.max_items)) of
     true ->
         {noreply, Q#q{blocked = [From | Q#q.blocked]}};
     false ->
