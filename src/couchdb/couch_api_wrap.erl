@@ -323,7 +323,9 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
         [{"style", atom_to_list(Style)}, {"since", integer_to_list(StartSeq)}],
         Options),
     send_req(
-        HttpDb,
+        % Shouldn't be infinity, but somehow if it's not, issues arise
+        % frequently with ibrowse.
+        HttpDb#httpdb{timeout = infinity},
         [{path, "_changes"}, {qs, QArgs},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
