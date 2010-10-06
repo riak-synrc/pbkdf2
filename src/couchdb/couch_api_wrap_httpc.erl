@@ -41,8 +41,7 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     ],
     Headers2 = oauth_header(HttpDb, Params) ++ BaseHeaders ++ Headers,
     Url = full_url(HttpDb, Params),
-    #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Host, Port),
+    {ok, Worker} = ibrowse:spawn_link_worker_process(Url),
     Response = ibrowse:send_req_direct(
             Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity),
     process_response(Response, Worker, HttpDb, Params, Callback).
