@@ -36,7 +36,7 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     end,
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout},
-        {socket_options, [{reuseaddr, true}]}
+        {socket_options, [{reuseaddr, true}, {keepalive, true}]}
         | get_value(ibrowse_options, Params, []) ++ HttpDb#httpdb.proxy_options
     ],
     Headers2 = oauth_header(HttpDb, Params) ++ BaseHeaders ++ Headers,
@@ -64,12 +64,12 @@ process_response(Resp, Worker, HttpDb, Params, Callback) ->
             end,
             Callback(Ok, Headers, EJson);
         R when R =:= 301 ; R =:= 302 ->
-            do_redirect(Headers, HttpDb, Params, Callback);
+            do_redirect(Worker, Headers, HttpDb, Params, Callback);
         Error ->
             report_error(nil, HttpDb, Params, {code, Error})
         end;
-    {error, Reason} ->
-        report_error(nil, HttpDb, Params, {reason, Reason})
+    Error ->
+        report_error(nil, HttpDb, Params, {error, Error})
     end.
 
 
@@ -85,13 +85,12 @@ process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
             stop_worker(Worker),
             Ret;
         R when R =:= 301 ; R =:= 302 ->
-            stop_worker(Worker),
-            do_redirect(Headers, HttpDb, Params, Callback);
+            do_redirect(Worker, Headers, HttpDb, Params, Callback);
         Error ->
             report_error(Worker, HttpDb, Params, {code, Error})
-        end
-    after HttpDb#httpdb.timeout ->
-        report_error(Worker, HttpDb, Params, timeout)
+        end;
+    {ibrowse_async_response, ReqId, {error, _} = Error} ->
+        report_error(Worker, HttpDb, Params, Error)
     end.
 
 
@@ -106,6 +105,9 @@ stop_worker(Worker) when is_pid(Worker) ->
 report_error(Worker, #httpdb{timeout = Timeout} = HttpDb, Params, timeout) ->
     report_error(Worker, HttpDb, Params, {timeout, Timeout});
 
+report_error(Worker, #httpdb{timeout = T} = Db, Params, {error, req_timedout}) ->
+    report_error(Worker, Db, Params, {timeout, T});
+
 report_error(Worker, HttpDb, Params, Error) ->
     Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
     Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
@@ -114,9 +116,9 @@ report_error(Worker, HttpDb, Params, Error) ->
     exit({http_request_failed, Method, Url, Error}).
 
 
-do_report_error(FullUrl, Method, {reason, Reason}) ->
+do_report_error(FullUrl, Method, {error, Error}) ->
     ?LOG_ERROR("Replicator, request ~s to ~p failed due to error ~p",
-        [Method, FullUrl, Reason]);
+        [Method, FullUrl, Error]);
 
 do_report_error(Url, Method, {code, Code}) ->
     ?LOG_ERROR("Replicator, request ~s to ~p failed. The received "
@@ -130,14 +132,14 @@ do_report_error(Url, Method, {timeout, Timeout}) ->
 stream_data_self(HttpDb, Params, Worker, ReqId) ->
     ibrowse:stream_next(ReqId),
     receive
-    {ibrowse_async_response, ReqId, {error, Error}} ->
-        report_error(Worker, HttpDb, Params, {reason, Error});
+    {ibrowse_async_response, ReqId, {error, _} = Error} ->
+        report_error(Worker, HttpDb, Params, {error, Error});
     {ibrowse_async_response, ReqId, Data} ->
         {Data, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end};
     {ibrowse_async_response_end, ReqId} ->
-        {<<>>, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end}
-    after HttpDb#httpdb.timeout ->
-        report_error(Worker, HttpDb, Params, timeout)
+        {<<>>, fun() ->
+            report_error(Worker, HttpDb, Params, {error, more_data_expected})
+        end}
     end.
 
 
@@ -177,10 +179,11 @@ oauth_header(#httpdb{url = BaseUrl, oauth = OAuth}, ConnParams) ->
         "OAuth " ++ oauth_uri:params_to_header_string(OAuthParams)}].
 
 
-do_redirect(RespHeaders, #httpdb{url = OrigUrl} = HttpDb, Params, Callback) ->
-    RedirectUrl = redirect_url(RespHeaders, OrigUrl),
+do_redirect(Worker, RespHeaders, #httpdb{url = Url} = HttpDb, Params, Cb) ->
+    stop_worker(Worker),
+    RedirectUrl = redirect_url(RespHeaders, Url),
     {HttpDb2, Params2} = after_redirect(RedirectUrl, HttpDb, Params),
-    send_req(HttpDb2, Params2, Callback).
+    send_req(HttpDb2, Params2, Cb).
 
 
 redirect_url(RespHeaders, OrigUrl) ->
