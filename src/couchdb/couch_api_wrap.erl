@@ -168,8 +168,7 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
         {"revs", "true"}, {"open_revs", RevStr} |
         options_to_query_args(Options, [])
     ],
-    TrapExit = element(2, erlang:process_info(self(), trap_exit)),
-    process_flag(trap_exit, true),
+    Self = self(),
     Streamer = spawn_link(fun() ->
             send_req(
                 HttpDb,
@@ -181,13 +180,10 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
                         get_value("Content-Type", Headers),
                         StreamDataFun,
                         fun(Ev) -> mp_parse_mixed(Ev) end)
-                end)
+                end),
+            unlink(Self)
         end),
-    Result = receive_docs(Streamer, Fun, Acc),
-    unlink(Streamer),
-    receive {'EXIT', Streamer, _} -> ok after 0 -> ok end,
-    process_flag(trap_exit, TrapExit),
-    Result;
+    receive_docs(Streamer, Fun, Acc);
 open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
@@ -238,8 +234,7 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     false ->
         []
     end ++ [{"Content-Type", ?b2l(ContentType)}, {"Content-Length", Len}],
-    TrapExit = element(2, erlang:process_info(self(), trap_exit)),
-    process_flag(trap_exit, true),
+    Self = self(),
     DocStreamer = spawn_link(fun() ->
         couch_doc:doc_to_multi_part_stream(
             Boundary, JsonBytes, Doc#doc.atts,
@@ -247,7 +242,8 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
                 receive {get_data, From} ->
                     From ! {data, Data}
                 end
-            end, false)
+            end, false),
+        unlink(Self)
     end),
     SendFun = fun(0) ->
             eof;
@@ -257,7 +253,7 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
                 {ok, Data, LenLeft - iolist_size(Data)}
             end
     end,
-    Result = send_req(
+    send_req(
         HttpDb,
         [{method, put}, {path, encode_doc_id(DocId)},
             {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
@@ -265,11 +261,7 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
                 {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
             (_, _, {Props}) ->
                 {error, get_value(<<"error">>, Props)}
-        end),
-    process_flag(trap_exit, TrapExit),
-    unlink(DocStreamer),
-    receive {'EXIT', DocStreamer, _} -> ok after 0 -> ok end,
-    Result;
+        end);
 update_doc(Db, Doc, Options, Type) ->
     try
         couch_db:update_doc(Db, Doc, Options, Type)
