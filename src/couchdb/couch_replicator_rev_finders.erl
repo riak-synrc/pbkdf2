@@ -61,15 +61,9 @@ missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue) ->
         % incremental attachment replication, so the source only needs to send
         % attachments modified since the common ancestor on target.
 
-        % Signal to the checkpointer any that are already on the target are
-        % now complete.
         IdRevsSeqDict = dict:from_list(
             [{Id, {[Rev || #rev_info{rev=Rev} <- RevsInfo], Seq}} ||
                     #doc_info{id=Id, revs=RevsInfo, high_seq=Seq} <- DocInfos]),
-        NonMissingIdRevsSeqDict = remove_missing(IdRevsSeqDict, Missing),
-        % signal the completion of these that aren't missing
-        report_non_missing(NonMissingIdRevsSeqDict, Cp),
-
         % Expand out each docs and seq into it's own work item
         MissingCount = lists:foldl(
             fun({Id, Revs, PAs}, Count) ->
@@ -83,33 +77,7 @@ missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue) ->
     end.
 
 
-report_non_missing(RevsDict, Cp) ->
-    case dict:size(RevsDict) of
-    0 ->
-        ok;
-    N when N > 0 ->
-        SeqsDone = [{Seq, length(Revs)} ||
-            {_Id, {Revs, Seq}} <- dict:to_list(RevsDict)],
-        ok = gen_server:cast(Cp, {seq_changes_done, SeqsDone})
-    end.
-
-
 send_missing_found(0, _Cp) ->
     ok;
 send_missing_found(Value, Cp) ->
     ok = gen_server:cast(Cp, {add_stats, #rep_stats{missing_found = Value}}).
-
-
-remove_missing(IdRevsSeqDict, []) ->
-    IdRevsSeqDict;
-
-remove_missing(IdRevsSeqDict, [{MissingId, MissingRevs, _} | Rest]) ->
-    {AllChangedRevs, Seq} = dict:fetch(MissingId, IdRevsSeqDict),
-    case AllChangedRevs -- MissingRevs of
-    [] ->
-        remove_missing(dict:erase(MissingId, IdRevsSeqDict), Rest);
-    NotMissingRevs ->
-        IdRevsSeqDict2 =
-                dict:store(MissingId, {NotMissingRevs, Seq}, IdRevsSeqDict),
-        remove_missing(IdRevsSeqDict2, Rest)
-    end.

@@ -33,7 +33,6 @@ spawn_doc_copiers(Cp, Source, Target, MissingRevsQueue, CopiersCount) ->
 
 -record(doc_acc, {
     docs = [],
-    seqs = [],
     read = 0,
     written = 0,
     wfail = 0
@@ -51,29 +50,40 @@ doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
                 ?LOG_DEBUG("Doc copier ~p got {doc_id, ~p}", [self(), Id]),
                 {ok, Acc2} = couch_api_wrap:open_doc_revs(
                     Source, Id, all, [],
-                    fun(R, A) -> doc_handler(R, nil, Target, A) end, Acc),
+                    fun(R, A) -> doc_handler(R, Target, A) end, Acc),
                 Acc2
             end,
             #doc_acc{}, DocIds),
-        {Source, Acc};
+        {Source, Acc, {nil, 0}};
 
-    {ok, IdRevList} ->
-        lists:foldl(
+    {ok, [{_, FirstRevs, _, FirstSeq} | RestIdRevList] = IdRevList} ->
+        {LargestSeq, TotalChanges} = lists:foldl(
+            fun({_, Revs, _, Seq}, {Largest, Total}) when Seq > Largest ->
+                {Seq, Total + length(Revs)};
+            ({_, Revs, _, _}, {Largest, Total}) ->
+                {Largest, Total + length(Revs)}
+            end,
+            {FirstSeq, length(FirstRevs)}, RestIdRevList),
+        LastSeqDone = {LargestSeq, TotalChanges},
+        ok = gen_server:cast(Cp, {seq_start, LastSeqDone}),
+        {NewSource, Acc} = lists:foldl(
             fun({Id, Revs, PossibleAncestors, Seq} = IdRev, {SrcDb, BulkAcc}) ->
                 ?LOG_DEBUG("Doc copier ~p got ~p", [self(), IdRev]),
                 SrcDb2 = couch_api_wrap:maybe_reopen_db(SrcDb, Seq),
                 {ok, BulkAcc2} = couch_api_wrap:open_doc_revs(
                     SrcDb2, Id, Revs, [{atts_since, PossibleAncestors}],
-                    fun(R, A) -> doc_handler(R, Seq, Target, A) end,
+                    fun(R, A) -> doc_handler(R, Target, A) end,
                     BulkAcc),
                 {SrcDb2, BulkAcc2}
             end,
-            {Source, #doc_acc{}}, IdRevList)
+            {Source, #doc_acc{}}, IdRevList),
+        {NewSource, Acc, LastSeqDone}
     end,
+
     case Result of
-    {Source2, DocAcc} ->
-        #doc_acc{seqs = SeqsDone} = DocAcc2 = bulk_write_docs(DocAcc, Target),
-        seqs_done(SeqsDone, Cp),
+    {Source2, DocAcc, LargestSeqDone} ->
+        DocAcc2 = bulk_write_docs(DocAcc, Target),
+        seq_done(LargestSeqDone, Cp),
         send_stats(DocAcc2, Cp),
         doc_copy_loop(Cp, Source2, Target, MissingRevsQueue);
     stop ->
@@ -81,53 +91,30 @@ doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
     end.
 
 
-doc_handler({ok, #doc{atts = []} = Doc}, Seq, _Target, Acc) ->
-    update_bulk_doc_acc(Acc, Seq, Doc);
+doc_handler({ok, #doc{atts = []} = Doc}, _Target, Acc) ->
+    update_bulk_doc_acc(Acc, Doc);
 
-doc_handler({ok, Doc}, Seq, Target, Acc) ->
-    write_doc(Doc, Seq, Target, Acc);
+doc_handler({ok, Doc}, Target, Acc) ->
+    write_doc(Doc, Target, Acc);
 
-doc_handler(_, _, _, Acc) ->
+doc_handler(_, _, Acc) ->
     Acc.
 
 
-update_bulk_doc_acc(#doc_acc{docs = Docs, read = Read} = Acc, nil, Doc) ->
-    Acc#doc_acc{
-        docs = [Doc | Docs],
-        read = Read + 1
-    };
-
-update_bulk_doc_acc(#doc_acc{seqs = [{Seq, Count} | Rest]} = Acc, Seq, Doc) ->
-    Acc#doc_acc{
-        docs = [Doc | Acc#doc_acc.docs],
-        seqs = [{Seq, Count + 1} | Rest],
-        read = Acc#doc_acc.read + 1
-    };
-
-update_bulk_doc_acc(#doc_acc{seqs = Seqs, read = Read} = Acc, Seq, Doc) ->
-    Acc#doc_acc{
-        docs = [Doc | Acc#doc_acc.docs],
-        seqs = [{Seq, 1} | Seqs],
-        read = Read + 1
-    }.
+update_bulk_doc_acc(#doc_acc{docs = DocAcc, read = Read} = Acc, Doc) ->
+    Acc#doc_acc{docs = [Doc | DocAcc], read = Read + 1}.
 
 
-write_doc(Doc, Seq, Db, #doc_acc{written = W, wfail = F, read = R} = Acc) ->
-    SeqsDone = case Acc#doc_acc.seqs of
-    [{Seq, Count} | RestSeqs] ->
-        [{Seq, Count + 1} | RestSeqs];
-    RestSeqs ->
-        [{Seq, 1} | RestSeqs]
-    end,
+write_doc(Doc, Db, #doc_acc{written = W, wfail = F, read = R} = Acc) ->
     case couch_api_wrap:update_doc(Db, Doc, [], replicated_changes) of
     {ok, _} ->
-        Acc#doc_acc{written = W + 1, read = R + 1, seqs = SeqsDone};
+        Acc#doc_acc{written = W + 1, read = R + 1};
     {error, <<"unauthorized">>} ->
         ?LOG_ERROR("Replicator: unauthorized to write document ~s to ~s",
             [Doc#doc.id, couch_api_wrap:db_uri(Db)]),
-        Acc#doc_acc{wfail = F + 1, read = R + 1, seqs = SeqsDone};
+        Acc#doc_acc{wfail = F + 1, read = R + 1};
     _ ->
-        Acc#doc_acc{wfail = F + 1, read = R + 1, seqs = SeqsDone}
+        Acc#doc_acc{wfail = F + 1, read = R + 1}
     end.
 
 
@@ -150,12 +137,10 @@ bulk_write_docs(#doc_acc{docs = Docs, written = W, wfail = Wf} = Acc, Db) ->
     }.
 
 
-seqs_done([], _) ->
+seq_done({nil, _}, _Cp) ->
     ok;
-seqs_done([{nil, _} | _], _) ->
-    ok;
-seqs_done(SeqCounts, Cp) ->
-    ok = gen_server:cast(Cp, {seq_changes_done, SeqCounts}).
+seq_done(SeqDone, Cp) ->
+    ok = gen_server:cast(Cp, {seq_changes_done, SeqDone}).
 
 
 send_stats(#doc_acc{read = R, written = W, wfail = Wf}, Cp) ->

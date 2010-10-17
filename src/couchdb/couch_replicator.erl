@@ -239,8 +239,8 @@ do_init(#rep{options = Options} = Rep) ->
 
         % This starts the _changes reader process. It adds the changes from
         % the source db to the ChangesQueue.
-        ChangesReader = spawn_changes_reader(self(), StartSeq, Source,
-            ChangesQueue, Options),
+        ChangesReader = spawn_changes_reader(
+            StartSeq, Source, ChangesQueue, Options),
 
         % This starts the missing rev finders. They check the target for changes
         % in the ChangesQueue to see if they exist on the target or not. If not,
@@ -351,13 +351,13 @@ handle_cast(checkpoint, State) ->
     State2 = do_checkpoint(State),
     {noreply, State2#rep_state{timer = start_timer(State)}};
 
-handle_cast({seq_start, {Seq, NumChanges}}, State) ->
+handle_cast({seq_start, {LargestSeq, NumChanges}}, State) ->
     #rep_state{
-        seqs_in_progress = SeqsInProgress,
+        seqs_in_progress = SeqsTree,
         stats = #rep_stats{missing_checked = Mc} = Stats
     } = State,
     NewState = State#rep_state{
-        seqs_in_progress = gb_trees:insert(Seq, NumChanges, SeqsInProgress),
+        seqs_in_progress = gb_trees:insert(LargestSeq, NumChanges, SeqsTree),
         stats = Stats#rep_stats{missing_checked = Mc + NumChanges}
     },
     {noreply, NewState};
@@ -496,12 +496,11 @@ init_state(Rep) ->
     State#rep_state{timer = start_timer(State)}.
 
 
-spawn_changes_reader(Cp, StartSeq, Source, ChangesQueue, Options) ->
+spawn_changes_reader(StartSeq, Source, ChangesQueue, Options) ->
     spawn_link(
         fun()->
             couch_api_wrap:changes_since(Source, all_docs, StartSeq,
-                fun(#doc_info{high_seq=Seq, revs=Revs} = DocInfo) ->
-                    ok = gen_server:cast(Cp, {seq_start, {Seq, length(Revs)}}),
+                fun(DocInfo) ->
                     ok = couch_work_queue:queue(ChangesQueue, DocInfo)
                 end, Options),
             couch_work_queue:close(ChangesQueue)
@@ -659,32 +658,22 @@ has_session_id(SessionId, [{Props} | Rest]) ->
     end.
 
 
-process_seq_changes_done(Changes, State) ->
+process_seq_changes_done({Seq, NumChangesDone}, State) ->
     #rep_state{
         seqs_in_progress = SeqsInProgress,
         next_through_seqs = DoneSeqs,
         current_through_seq = ThroughSeq
     } = State,
 
-    {SeqsInProgress2, LastSeq} = lists:foldl(
-        fun({Seq, ChangesDone}, {SeqTree, MaxSeqDone}) ->
-            Total = gb_trees:get(Seq, SeqTree),
-            case Total - ChangesDone of
-            0 ->
-                NewMaxSeqDone = case MaxSeqDone of
-                nil ->
-                    Seq;
-                _ ->
-                    lists:max([Seq, MaxSeqDone])
-                end,
-                {gb_trees:delete(Seq, SeqTree), NewMaxSeqDone};
-            NewTotal when NewTotal > 0 ->
-                {gb_trees:update(Seq, NewTotal, SeqTree), MaxSeqDone}
-            end
-        end,
-        {SeqsInProgress, nil}, Changes),
+    Total = gb_trees:get(Seq, SeqsInProgress),
+    SeqsInProgress2 = case Total - NumChangesDone of
+    0 ->
+        gb_trees:delete(Seq, SeqsInProgress);
+    NewTotal when NewTotal > 0 ->
+        gb_trees:update(Seq, NewTotal, SeqsInProgress)
+    end,
 
-    DoneSeqs2 = add_done_seq(LastSeq, DoneSeqs),
+    DoneSeqs2 = ordsets:add_element(Seq, DoneSeqs),
     {NewThroughSeq, DoneSeqs3} =
         get_next_through_seq(ThroughSeq, SeqsInProgress2, DoneSeqs2),
 
@@ -693,12 +682,6 @@ process_seq_changes_done(Changes, State) ->
         next_through_seqs = DoneSeqs3,
         current_through_seq = NewThroughSeq
     }.
-
-
-add_done_seq(nil, DoneSeqs) ->
-    DoneSeqs;
-add_done_seq(Seq, DoneSeqs) ->
-    ordsets:add_element(Seq, DoneSeqs).
 
 
 get_next_through_seq(Current, InProgress, Done) ->
