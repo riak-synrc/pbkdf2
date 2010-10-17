@@ -229,7 +229,7 @@ do_init(#rep{options = Options} = Rep) ->
             "should be at least 2", []),
         {1, 1};
     N ->
-        {lists:max([N div 3, 1]), lists:max([2 * (N div 3) + (N rem 3), 1])}
+        {N div 2, N div 2 + N rem 2}
     end,
 
     case get_value(doc_ids, Options) of
