@@ -666,21 +666,26 @@ process_seq_changes_done({Seq, NumChangesDone}, State) ->
     } = State,
 
     Total = gb_trees:get(Seq, SeqsInProgress),
-    SeqsInProgress2 = case Total - NumChangesDone of
+    {ThroughSeq2, SeqsInProgress2, DoneSeqs2} = case Total - NumChangesDone of
     0 ->
-        gb_trees:delete(Seq, SeqsInProgress);
+        {NewDoneSeqs, NewThroughSeq} = case gb_trees:smallest(SeqsInProgress) of
+        {Seq, Total} ->
+            {DoneSeqs, Seq};
+        _ ->
+            {ordsets:add_element(Seq, DoneSeqs), ThroughSeq}
+        end,
+        {NewThroughSeq, gb_trees:delete(Seq, SeqsInProgress), NewDoneSeqs};
     NewTotal when NewTotal > 0 ->
-        gb_trees:update(Seq, NewTotal, SeqsInProgress)
+        {ThroughSeq, gb_trees:update(Seq, NewTotal, SeqsInProgress), DoneSeqs}
     end,
 
-    DoneSeqs2 = ordsets:add_element(Seq, DoneSeqs),
-    {NewThroughSeq, DoneSeqs3} =
-        get_next_through_seq(ThroughSeq, SeqsInProgress2, DoneSeqs2),
+    {ThroughSeq3, DoneSeqs3} =
+        get_next_through_seq(ThroughSeq2, SeqsInProgress2, DoneSeqs2),
 
     State#rep_state{
         seqs_in_progress = SeqsInProgress2,
         next_through_seqs = DoneSeqs3,
-        current_through_seq = NewThroughSeq
+        current_through_seq = ThroughSeq3
     }.
 
 
