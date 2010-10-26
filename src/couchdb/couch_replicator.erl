@@ -32,6 +32,10 @@
 % in couch_rep_sup.erl.
 -define(MAX_RESTARTS, 3).
 
+% maximum number of elements (per iteration) that each missing
+% revs finder process fetches from the missing revs queue
+-define(REV_BATCH_SIZE, 1000).
+
 
 -record(rep_state, {
     rep_details,
@@ -56,7 +60,7 @@
     changes_reader,
     missing_rev_finders,
     doc_copiers,
-    seqs_in_progress = gb_trees:empty(),
+    seqs_in_progress = gb_sets:empty(),
     stats = #rep_stats{}
     }).
 
@@ -217,11 +221,6 @@ do_init(#rep{options = Options} = Rep) ->
         start_seq = StartSeq
     } = State = init_state(Rep),
 
-    QueueSize = round(
-        (?l2i(couch_config:get("replicator", "buffer_size", "1048576"))) / 2),
-    {ok, MissingRevsQueue} = couch_work_queue:new(
-        [{max_size, QueueSize}, {multi_workers, true}]),
-
     {RevFindersCount, CopiersCount} = case ?l2i(
         couch_config:get("replicator", "worker_processes", "10")) of
     Small when Small < 2 ->
@@ -231,11 +230,16 @@ do_init(#rep{options = Options} = Rep) ->
     N ->
         {N div 2, N div 2 + N rem 2}
     end,
+    {ok, MissingRevsQueue} = couch_work_queue:new([
+        {multi_workers, true}, {max_items, trunc(CopiersCount * 1.5)}
+    ]),
 
     case get_value(doc_ids, Options) of
     undefined ->
-        {ok, ChangesQueue} = couch_work_queue:new(
-            [{max_size, QueueSize}, {multi_workers, true}]),
+        {ok, ChangesQueue} = couch_work_queue:new([
+            {multi_workers, true},
+            {max_items, trunc(RevFindersCount * 1.5) * ?REV_BATCH_SIZE}
+        ]),
 
         % This starts the _changes reader process. It adds the changes from
         % the source db to the ChangesQueue.
@@ -246,8 +250,9 @@ do_init(#rep{options = Options} = Rep) ->
         % in the ChangesQueue to see if they exist on the target or not. If not,
         % adds them to MissingRevsQueue.
         MissingRevFinders =
-            couch_replicator_rev_finders:spawn_missing_rev_finders(self(),
-                Target, ChangesQueue, MissingRevsQueue, RevFindersCount);
+            couch_replicator_rev_finders:spawn_missing_rev_finders(
+                self(), Target, ChangesQueue, MissingRevsQueue,
+                RevFindersCount, ?REV_BATCH_SIZE);
     DocIds ->
         ChangesQueue = nil,
         ChangesReader = nil,
@@ -353,17 +358,20 @@ handle_cast(checkpoint, State) ->
 
 handle_cast({seq_start, {LargestSeq, NumChanges}}, State) ->
     #rep_state{
-        seqs_in_progress = SeqsTree,
-        stats = #rep_stats{missing_checked = Mc} = Stats
+        seqs_in_progress = SeqsInProgress,
+        stats = #rep_stats{missing_checked = Mc, missing_found = Mf} = Stats
     } = State,
     NewState = State#rep_state{
-        seqs_in_progress = gb_trees:insert(LargestSeq, NumChanges, SeqsTree),
-        stats = Stats#rep_stats{missing_checked = Mc + NumChanges}
+        seqs_in_progress = gb_sets:insert(LargestSeq, SeqsInProgress),
+        stats = Stats#rep_stats{
+            missing_checked = Mc + NumChanges,
+            missing_found = Mf + NumChanges
+        }
     },
     {noreply, NewState};
 
-handle_cast({seq_changes_done, Changes}, State) ->
-    {noreply, process_seq_changes_done(Changes, State)};
+handle_cast({seq_done, SeqDone}, State) ->
+    {noreply, process_seq_done(SeqDone, State)};
 
 handle_cast({add_stats, StatsInc}, #rep_state{stats = Stats} = State) ->
     {noreply, State#rep_state{stats = sum_stats([Stats, StatsInc])}};
@@ -401,7 +409,7 @@ do_last_checkpoint(State) ->
         current_through_seq = Seq,
         seqs_in_progress = InProgress
     } = State,
-    0 = gb_trees:size(InProgress),
+    0 = gb_sets:size(InProgress),
     LastSeq = case DoneSeqs of
     [] ->
         Seq;
@@ -658,26 +666,20 @@ has_session_id(SessionId, [{Props} | Rest]) ->
     end.
 
 
-process_seq_changes_done({Seq, NumChangesDone}, State) ->
+process_seq_done(Seq, State) ->
     #rep_state{
         seqs_in_progress = SeqsInProgress,
         next_through_seqs = DoneSeqs,
         current_through_seq = ThroughSeq
     } = State,
 
-    Total = gb_trees:get(Seq, SeqsInProgress),
-    {ThroughSeq2, SeqsInProgress2, DoneSeqs2} = case Total - NumChangesDone of
-    0 ->
-        {NewDoneSeqs, NewThroughSeq} = case gb_trees:smallest(SeqsInProgress) of
-        {Seq, Total} ->
-            {DoneSeqs, Seq};
-        _ ->
-            {ordsets:add_element(Seq, DoneSeqs), ThroughSeq}
-        end,
-        {NewThroughSeq, gb_trees:delete(Seq, SeqsInProgress), NewDoneSeqs};
-    NewTotal when NewTotal > 0 ->
-        {ThroughSeq, gb_trees:update(Seq, NewTotal, SeqsInProgress), DoneSeqs}
+    {DoneSeqs2, ThroughSeq2} = case gb_sets:smallest(SeqsInProgress) of
+    Seq ->
+        {DoneSeqs, Seq};
+    _ ->
+        {ordsets:add_element(Seq, DoneSeqs), ThroughSeq}
     end,
+    SeqsInProgress2 = gb_sets:delete(Seq, SeqsInProgress),
 
     {ThroughSeq3, DoneSeqs3} =
         get_next_through_seq(ThroughSeq2, SeqsInProgress2, DoneSeqs2),
@@ -690,7 +692,7 @@ process_seq_changes_done({Seq, NumChangesDone}, State) ->
 
 
 get_next_through_seq(Current, InProgress, Done) ->
-    case gb_trees:is_empty(InProgress) of
+    case gb_sets:is_empty(InProgress) of
     true ->
         case Done of
         [] ->
@@ -699,7 +701,7 @@ get_next_through_seq(Current, InProgress, Done) ->
             {lists:last(Done), []}
         end;
     false ->
-        {SmallestInProgress, _} = gb_trees:smallest(InProgress),
+        SmallestInProgress = gb_sets:smallest(InProgress),
         get_next_through_seq(Current, SmallestInProgress, Done, [])
     end.
 

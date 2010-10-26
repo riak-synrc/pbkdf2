@@ -17,9 +17,6 @@
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
 
--define(DOC_BATCH_SIZE, 1000).
-
-
 
 spawn_doc_copiers(Cp, Source, Target, MissingRevsQueue, CopiersCount) ->
     lists:map(
@@ -39,9 +36,8 @@ spawn_doc_copiers(Cp, Source, Target, MissingRevsQueue, CopiersCount) ->
 }).
 
 doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
-    Result = case couch_work_queue:dequeue(MissingRevsQueue, ?DOC_BATCH_SIZE) of
+    Result = case couch_work_queue:dequeue(MissingRevsQueue, 1) of
     closed ->
-        ?LOG_DEBUG("Doc copier ~p got missing revs queue closed", [self()]),
         stop;
 
     {ok, [{doc_id, _} | _] = DocIds} ->
@@ -54,18 +50,9 @@ doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
                 Acc2
             end,
             #doc_acc{}, DocIds),
-        {Source, Acc, {nil, 0}};
+        {Source, Acc, nil};
 
-    {ok, [{_, FirstRevs, _, FirstSeq} | RestIdRevList] = IdRevList} ->
-        {LargestSeq, TotalChanges} = lists:foldl(
-            fun({_, Revs, _, Seq}, {Largest, Total}) when Seq > Largest ->
-                {Seq, Total + length(Revs)};
-            ({_, Revs, _, _}, {Largest, Total}) ->
-                {Largest, Total + length(Revs)}
-            end,
-            {FirstSeq, length(FirstRevs)}, RestIdRevList),
-        LastSeqDone = {LargestSeq, TotalChanges},
-        ok = gen_server:cast(Cp, {seq_start, LastSeqDone}),
+    {ok, [{ReportSeq, IdRevList}]} ->
         {NewSource, Acc} = lists:foldl(
             fun({Id, Revs, PossibleAncestors, Seq} = IdRev, {SrcDb, BulkAcc}) ->
                 ?LOG_DEBUG("Doc copier ~p got ~p", [self(), IdRev]),
@@ -77,14 +64,20 @@ doc_copy_loop(Cp, Source, Target, MissingRevsQueue) ->
                 {SrcDb2, BulkAcc2}
             end,
             {Source, #doc_acc{}}, IdRevList),
-        {NewSource, Acc, LastSeqDone}
+        {NewSource, Acc, ReportSeq}
     end,
 
     case Result of
-    {Source2, DocAcc, LargestSeqDone} ->
+    {Source2, DocAcc, SeqDone} ->
+        #doc_acc{
+            written = W,
+            read = R
+        } = DocAcc2 = bulk_write_docs(DocAcc, Target),
         DocAcc2 = bulk_write_docs(DocAcc, Target),
-        seq_done(LargestSeqDone, Cp),
+        seq_done(SeqDone, Cp),
         send_stats(DocAcc2, Cp),
+        ?LOG_DEBUG("Replicator copy process: "
+            "read ~p documents, wrote ~p documents", [R, W]),
         doc_copy_loop(Cp, Source2, Target, MissingRevsQueue);
     stop ->
         ok
@@ -137,10 +130,10 @@ bulk_write_docs(#doc_acc{docs = Docs, written = W, wfail = Wf} = Acc, Db) ->
     }.
 
 
-seq_done({nil, _}, _Cp) ->
+seq_done(nil, _Cp) ->
     ok;
 seq_done(SeqDone, Cp) ->
-    ok = gen_server:cast(Cp, {seq_changes_done, SeqDone}).
+    ok = gen_server:cast(Cp, {seq_done, SeqDone}).
 
 
 send_stats(#doc_acc{read = R, written = W, wfail = Wf}, Cp) ->

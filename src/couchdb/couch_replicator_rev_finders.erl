@@ -12,15 +12,13 @@
 
 -module(couch_replicator_rev_finders).
 
--export([spawn_missing_rev_finders/5]).
+-export([spawn_missing_rev_finders/6]).
 
 -include("couch_db.hrl").
 
--define(REV_BATCH_SIZE, 1000).
 
 
-
-spawn_missing_rev_finders(_, _, DocIds, MissingRevsQueue, _)
+spawn_missing_rev_finders(_, _, DocIds, MissingRevsQueue, _, _)
     when is_list(DocIds) ->
     lists:foreach(
         fun(DocId) ->
@@ -33,18 +31,18 @@ spawn_missing_rev_finders(_, _, DocIds, MissingRevsQueue, _)
     [];
 
 spawn_missing_rev_finders(StatsProcess,
-        Target, ChangesQueue, MissingRevsQueue, RevFindersCount) ->
+        Target, ChangesQueue, MissingRevsQueue, RevFindersCount, BatchSize) ->
     lists:map(
         fun(_) ->
             spawn_link(fun() ->
                 missing_revs_finder_loop(StatsProcess,
-                    Target, ChangesQueue, MissingRevsQueue)
+                    Target, ChangesQueue, MissingRevsQueue, BatchSize)
             end)
         end, lists:seq(1, RevFindersCount)).
 
 
-missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue) ->
-    case couch_work_queue:dequeue(ChangesQueue, ?REV_BATCH_SIZE) of
+missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue, BatchSize) ->
+    case couch_work_queue:dequeue(ChangesQueue, BatchSize) of
     closed ->
         ok;
     {ok, DocInfos} ->
@@ -60,24 +58,25 @@ missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue) ->
         % ancestors that already exist on the target. This enables
         % incremental attachment replication, so the source only needs to send
         % attachments modified since the common ancestor on target.
-
-        IdRevsSeqDict = dict:from_list(
-            [{Id, {[Rev || #rev_info{rev=Rev} <- RevsInfo], Seq}} ||
-                    #doc_info{id=Id, revs=RevsInfo, high_seq=Seq} <- DocInfos]),
-        % Expand out each docs and seq into it's own work item
-        MissingCount = lists:foldl(
-            fun({Id, Revs, PAs}, Count) ->
-                % PA means "possible ancestor"
-                {_, Seq} = dict:fetch(Id, IdRevsSeqDict),
-                ok = couch_work_queue:queue(RevsQueue, {Id, Revs, PAs, Seq}),
-                Count + length(Revs)
-            end, 0, Missing),
-        send_missing_found(MissingCount, Cp),
-        missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue)
+        queue_missing_revs(Missing, DocInfos, RevsQueue, Cp),
+        missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue, BatchSize)
     end.
 
 
-send_missing_found(0, _Cp) ->
+queue_missing_revs([], _, _, _) ->
     ok;
-send_missing_found(Value, Cp) ->
-    ok = gen_server:cast(Cp, {add_stats, #rep_stats{missing_found = Value}}).
+queue_missing_revs(Missing, DocInfos, Queue, Cp) ->
+    IdRevsSeqDict = dict:from_list(
+        [{Id, {[Rev || #rev_info{rev = Rev} <- RevsInfo], Seq}} ||
+            #doc_info{id = Id, revs = RevsInfo, high_seq = Seq} <- DocInfos]),
+    {MissingCount, QueueItemList} = lists:foldl(
+        fun({Id, Revs, PAs}, {Count, Q}) ->
+            {_, Seq} = dict:fetch(Id, IdRevsSeqDict),
+            {Count + length(Revs), [{Id, Revs, PAs, Seq} | Q]}
+        end,
+        {0, []},
+        Missing),
+    [{_, _, _, LargestSeq} | _] = QueueItemList,
+    ok = gen_server:cast(Cp, {seq_start, {LargestSeq, MissingCount}}),
+    ok = couch_work_queue:queue(
+           Queue, {LargestSeq, QueueItemList}).
