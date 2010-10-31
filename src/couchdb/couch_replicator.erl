@@ -258,7 +258,7 @@ do_init(#rep{options = Options} = Rep) ->
         ChangesReader = nil,
         MissingRevFinders =
             couch_replicator_rev_finders:spawn_missing_rev_finders(self(),
-                Target, DocIds, MissingRevsQueue, RevFindersCount)
+                Target, DocIds, MissingRevsQueue, RevFindersCount, ?REV_BATCH_SIZE)
     end,
 
     % This starts the doc copy processes. They fetch documents from the
