@@ -34,16 +34,24 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     Else ->
         {Else, Headers1}
     end,
+    Headers2 = case {Method, Body} of
+    {put, []} ->
+        lists:keystore("Content-Length", 1, Headers, {"Content-Length", 0});
+    {post, []} ->
+        lists:keystore("Content-Length", 1, Headers, {"Content-Length", 0});
+    _ ->
+        Headers
+    end,
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout},
         {socket_options, [{reuseaddr, true}, {keepalive, true}]}
         | get_value(ibrowse_options, Params, []) ++ HttpDb#httpdb.proxy_options
     ],
-    Headers2 = oauth_header(HttpDb, Params) ++ BaseHeaders ++ Headers,
+    Headers3 = oauth_header(HttpDb, Params) ++ BaseHeaders ++ Headers2,
     Url = full_url(HttpDb, Params),
     {ok, Worker} = ibrowse:spawn_link_worker_process(Url),
     Response = ibrowse:send_req_direct(
-            Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity),
+            Worker, Url, Headers3, Method, Body, IbrowseOptions, infinity),
     process_response(Response, Worker, HttpDb, Params, Callback).
 
 
