@@ -278,25 +278,26 @@ update_docs(#httpdb{} = HttpDb, DocList, Options, UpdateType) ->
     FullCommit = atom_to_list(not lists:member(delay_commit, Options)),
     Part1 = case UpdateType of
     replicated_changes ->
-        <<"{\"new_edits\":false,\"docs\":[">>;
+        {prefix, <<"{\"new_edits\":false,\"docs\":[">>};
     interactive_edit ->
-        <<"{\"docs\":[">>
+        {prefix, <<"{\"docs\":[">>}
     end,
     BodyFun = fun(eof) ->
             eof;
         ([]) ->
             {ok, <<"]}">>, eof};
-        ([Part | RestParts]) when is_binary(Part) ->
-            {ok, Part, RestParts};
-        ([Doc | RestParts]) ->
+        ([{prefix, Prefix} | Rest]) ->
+            {ok, Prefix, Rest};
+        ([Doc]) when is_binary(Doc) ->
+            {ok, Doc, []};
+        ([Doc | RestDocs]) when is_binary(Doc) ->
+            {ok, [Doc, ","], RestDocs};
+        ([Doc]) when is_record(Doc, doc) ->
             DocJson = couch_doc:to_json_obj(Doc, [revs, attachments]),
-            Data = case RestParts of
-            [] ->
-                ?JSON_ENCODE(DocJson);
-            _ ->
-                [?JSON_ENCODE(DocJson), ","]
-            end,
-            {ok, Data, RestParts}
+            {ok, ?JSON_ENCODE(DocJson), []};
+        ([Doc | RestDocs]) when is_record(Doc, doc) ->
+            DocJson = couch_doc:to_json_obj(Doc, [revs, attachments]),
+            {ok, [?JSON_ENCODE(DocJson), ","], RestDocs}
     end,
     send_req(
         HttpDb,
