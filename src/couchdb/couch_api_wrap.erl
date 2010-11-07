@@ -158,21 +158,14 @@ get_missing_revs(Db, IdRevs) ->
 
 
 open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
-    RevStr = case Revs of
-    all ->
-        "all";
-    _ ->
-        ?JSON_ENCODE(couch_doc:revs_to_strs(Revs))
-    end,
-    QArgs = [
-        {"revs", "true"}, {"open_revs", RevStr} |
-        options_to_query_args(Options, [])
-    ],
+    Path = encode_doc_id(Id),
+    QArgs = options_to_query_args(
+        HttpDb, Path, [revs, {open_revs, Revs} | Options]),
     Self = self(),
     Streamer = spawn_link(fun() ->
             send_req(
                 HttpDb,
-                [{path, encode_doc_id(Id)}, {qs, QArgs},
+                [{path, Path}, {qs, QArgs},
                     {ibrowse_options, [{stream_to, {self(), once}}]},
                     {headers, [{"accept", "multipart/mixed"}]}],
                 fun(200, Headers, StreamDataFun) ->
@@ -406,19 +399,54 @@ changes_json_req(Db, FilterName, {QueryParams}) ->
         {<<"userCtx">>, couch_util:json_user_ctx(Db)}
     ]}.
 
+
+options_to_query_args(HttpDb, Path, Options) ->
+    case lists:keytake(atts_since, 1, Options) of
+    false ->
+        options_to_query_args(Options, []);
+    {value, {atts_since, []}, Options2} ->
+        options_to_query_args(Options2, []);
+    {value, {atts_since, PAs}, Options2} ->
+        QueryArgs1 = options_to_query_args(Options2, []),
+        FullUrl = couch_api_wrap_httpc:full_url(
+            HttpDb, [{path, Path}, {qs, QueryArgs1}]),
+        RevList = atts_since_arg(
+            length(FullUrl) + length("&atts_since=[]"), PAs, []),
+        [{"atts_since", ?JSON_ENCODE(RevList)} | QueryArgs1]
+    end.
+
+
 options_to_query_args([], Acc) ->
     lists:reverse(Acc);
 options_to_query_args([delay_commit | Rest], Acc) ->
     options_to_query_args(Rest, Acc);
-options_to_query_args([{atts_since, []} | Rest], Acc) ->
-    options_to_query_args(Rest, Acc);
-options_to_query_args([{atts_since, PossibleAncestors} | Rest], Acc) ->
-    % NOTE, we should limit the # of PossibleAncestors sent. Since a large
-    % # can exceed the max URL length. Limiting the # only results in
-    % attachments being fully copied from source to target, instead of
-    % incrementally.
-    AncestorsJson = ?JSON_ENCODE(couch_doc:revs_to_strs(PossibleAncestors)),
-    options_to_query_args(Rest, [{"atts_since", AncestorsJson} | Acc]).
+options_to_query_args([revs | Rest], Acc) ->
+    options_to_query_args(Rest, [{"revs", "true"} | Acc]);
+options_to_query_args([{open_revs, all} | Rest], Acc) ->
+    options_to_query_args(Rest, [{"open_revs", "all"} | Acc]);
+options_to_query_args([{open_revs, Revs} | Rest], Acc) ->
+    JsonRevs = ?JSON_ENCODE(couch_doc:revs_to_strs(Revs)),
+    options_to_query_args(Rest, [{"open_revs", JsonRevs} | Acc]).
+
+
+-define(MAX_URL_LEN, 8192).
+
+atts_since_arg(_UrlLen, [], Acc) ->
+    lists:reverse(Acc);
+atts_since_arg(UrlLen, [PA | Rest], Acc) ->
+    RevStr = couch_doc:rev_to_str(PA),
+    NewUrlLen = case Rest of
+    [] ->
+        UrlLen + size(RevStr) + 2;  % plus 2 double quotes
+    _ ->
+        UrlLen + size(RevStr) + 3   % plus 2 double quotes and a comma
+    end,
+    case NewUrlLen > ?MAX_URL_LEN of
+    true ->
+        lists:reverse(Acc);
+    false ->
+        atts_since_arg(NewUrlLen, Rest, [RevStr | Acc])
+    end.
 
 
 receive_docs(Streamer, UserFun, UserAcc) ->

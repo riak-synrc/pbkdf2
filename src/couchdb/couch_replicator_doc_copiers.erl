@@ -214,8 +214,12 @@ queue_fetch_loop(Parent, MissingRevsQueue) ->
     {ok, [{ReportSeq, IdRevList}]} ->
         lists:foreach(
             fun({Id, Revs, PAs, Seq}) ->
-                ok = gen_server:call(
-                    Parent, {fetch_doc, {Id, Revs, PAs, Seq}}, infinity)
+                lists:foreach(
+                    fun(R) ->
+                        ok = gen_server:call(
+                            Parent, {fetch_doc, {Id, [R], PAs, Seq}}, infinity)
+                    end,
+                    Revs)
             end,
             IdRevList),
         ok = gen_server:call(Parent, {flush, ReportSeq}, infinity),

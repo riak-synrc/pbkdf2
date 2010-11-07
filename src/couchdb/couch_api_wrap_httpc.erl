@@ -17,6 +17,7 @@
 -include("../ibrowse/ibrowse.hrl").
 
 -export([send_req/3]).
+-export([full_url/2]).
 
 -import(couch_util, [
     get_value/2,
@@ -160,7 +161,8 @@ query_args_to_string([], []) ->
 query_args_to_string([], Acc) ->
     "?" ++ string:join(lists:reverse(Acc), "&");
 query_args_to_string([{K, V} | Rest], Acc) ->
-    query_args_to_string(Rest, [(K ++ "=" ++ V) | Acc]).
+    Kv = K ++ "=" ++ ?b2l(iolist_to_binary(V)),
+    query_args_to_string(Rest, [Kv | Acc]).
 
 
 oauth_header(#httpdb{oauth = nil}, _ConnParams) ->
