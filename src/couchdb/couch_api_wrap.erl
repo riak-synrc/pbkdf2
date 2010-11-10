@@ -269,7 +269,7 @@ update_docs(Db, DocList, Options) ->
 
 update_docs(#httpdb{} = HttpDb, DocList, Options, UpdateType) ->
     FullCommit = atom_to_list(not lists:member(delay_commit, Options)),
-    Part1 = case UpdateType of
+    Prefix1 = case UpdateType of
     replicated_changes ->
         {prefix, <<"{\"new_edits\":false,\"docs\":[">>};
     interactive_edit ->
@@ -295,7 +295,8 @@ update_docs(#httpdb{} = HttpDb, DocList, Options, UpdateType) ->
     send_req(
         HttpDb,
         [{method, post}, {path, "_bulk_docs"},
-            {body, {chunkify, BodyFun, [Part1 | DocList]}},
+            {body, {BodyFun, [Prefix1 | DocList]}},
+            {ibrowse_options, [{transfer_encoding, chunked}]},
             {headers, [
                 {"X-Couch-Full-Commit", FullCommit},
                 {"Content-Type", "application/json"} ]}],

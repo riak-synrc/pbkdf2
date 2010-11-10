@@ -28,18 +28,13 @@
 send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     Method = get_value(method, Params, get),
     Headers = get_value(headers, Params, []) ++ BaseHeaders,
-    {Body, Headers1} = case get_value(body, Params, []) of
-    [] when Method =:= put ; Method =:= post ->
-        NewHeaders = lists:keystore(
-            "Content-Length", 1, Headers, {"Content-Length", 0}),
-        {[], NewHeaders};
-    {chunkify, BodyFun, Acc0} ->
-        NewBodyFun = chunkify_fun(BodyFun),
-        NewHeaders = lists:keystore(
-            "Transfer-Encoding", 1, Headers, {"Transfer-Encoding", "chunked"}),
-        {{NewBodyFun, Acc0}, NewHeaders};
-    Else ->
-        {Else, Headers}
+    Body = get_value(body, Params, []),
+    Headers1 = case (Body =:= [] orelse Body =:= <<>>) andalso
+        (Method =:= put orelse Method =:= post) of
+    true ->
+        lists:keystore("Content-Length", 1, Headers, {"Content-Length", 0});
+    false ->
+        Headers
     end,
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout},
@@ -219,21 +214,3 @@ redirect_url(RespHeaders, OrigUrl) ->
 after_redirect(RedirectUrl, HttpDb, Params) ->
     Params2 = lists:keydelete(path, 1, lists:keydelete(qs, 1, Params)),
     {HttpDb#httpdb{url = RedirectUrl}, Params2}.
-
-
-chunkify_fun(BodyFun) ->
-    fun(eof_body_fun) ->
-        eof;
-    (Acc) ->
-        case BodyFun(Acc) of
-        eof ->
-            {ok, <<"0\r\n\r\n">>, eof_body_fun};
-        {ok, Data, NewAcc} ->
-            DataBin = iolist_to_binary(Data),
-            Chunk = [hex_size(DataBin), "\r\n", DataBin, "\r\n"],
-            {ok, iolist_to_binary(Chunk), NewAcc}
-        end
-    end.
-
-hex_size(Bin) ->
-    hd(io_lib:format("~.16B", [size(Bin)])).
