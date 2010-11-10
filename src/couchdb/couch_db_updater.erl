@@ -175,9 +175,10 @@ handle_cast({compact_done, CompactFilepath}, #db{filepath=Filepath}=Db) ->
         file:delete(Filepath),
         ok = file:rename(CompactFilepath, Filepath),
         close_db(Db),
-        ok = gen_server:call(Db#db.main_pid, {db_updated, NewDb2}),
+        NewDb3 = refresh_validate_doc_funs(NewDb2),
+        ok = gen_server:call(Db#db.main_pid, {db_updated, NewDb3}),
         ?LOG_INFO("Compaction for db \"~s\" completed.", [Db#db.name]),
-        {noreply, NewDb2#db{compactor_pid=nil}};
+        {noreply, NewDb3#db{compactor_pid=nil}};
     false ->
         ?LOG_INFO("Compaction file still behind main file "
             "(update seq=~p. compact update seq=~p). Retrying.",
