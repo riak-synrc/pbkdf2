@@ -16,6 +16,7 @@
 -include("couch_api_wrap.hrl").
 -include("../ibrowse/ibrowse.hrl").
 
+-export([setup/1]).
 -export([send_req/3]).
 -export([full_url/2]).
 
@@ -23,6 +24,21 @@
     get_value/2,
     get_value/3
     ]).
+
+-define(RETRY_LATER_WAIT, 100).
+
+
+setup(#httpdb{url = Url} = Db) ->
+    #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
+    MaxSessions = list_to_integer(
+        couch_config:get("replicator", "max_connections_per_server", "100")),
+    ok = ibrowse:set_max_sessions(Host, Port, MaxSessions),
+    ok = ibrowse:set_max_pipeline_size(Host, Port, 1),
+    ok = couch_config:register(
+        fun("replicator", "max_connections_per_server", NewMax) ->
+            ok = ibrowse:set_max_sessions(Host, Port, list_to_integer(NewMax))
+        end),
+    {ok, Db}.
 
 
 send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
@@ -43,36 +59,52 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     ],
     Headers2 = oauth_header(HttpDb, Params) ++ Headers1,
     Url = full_url(HttpDb, Params),
-    {ok, Worker} = ibrowse:spawn_link_worker_process(Url),
-    Response = ibrowse:send_req_direct(
-            Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity),
+    case get_value(direct, Params, false) of
+    true ->
+        {ok, Worker} = ibrowse:spawn_link_worker_process(Url),
+        Response = ibrowse:send_req_direct(
+            Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity);
+    false ->
+        Worker = nil,
+        Response = ibrowse:send_req(
+            Url, Headers2, Method, Body, IbrowseOptions, infinity)
+    end,
     process_response(Response, Worker, HttpDb, Params, Callback).
 
+
+process_response({error, retry_later}, _Worker, HttpDb, Params, Callback) ->
+    % this means that the config option "max_connections_per_server" should
+    % probably be increased
+    ok = timer:sleep(?RETRY_LATER_WAIT),
+    send_req(HttpDb, Params, Callback);
+
+process_response({error, {'EXIT', {normal, _}}}, _Worker, HttpDb, Params, Cb) ->
+    % ibrowse worker terminated because remote peer closed the socket
+    % -> not an error
+    send_req(HttpDb, Params, Cb);
 
 process_response({ibrowse_req_id, ReqId}, Worker, HttpDb, Params, Callback) ->
     process_stream_response(ReqId, Worker, HttpDb, Params, Callback);
 
-process_response(Resp, Worker, HttpDb, Params, Callback) ->
+process_response({ok, Code, Headers, Body}, Worker, HttpDb, Params, Callback) ->
     stop_worker(Worker),
-    case Resp of
-    {ok, Code, Headers, Body} ->
-        case ?l2i(Code) of
-        Ok when Ok =:= 200 ; Ok =:= 201 ; (Ok >= 400 andalso Ok < 500) ->
-            EJson = case Body of
-            <<>> ->
-                null;
-            Json ->
-                ?JSON_DECODE(Json)
-            end,
-            Callback(Ok, Headers, EJson);
-        R when R =:= 301 ; R =:= 302 ->
-            do_redirect(Worker, Headers, HttpDb, Params, Callback);
-        Error ->
-            report_error(nil, HttpDb, Params, {code, Error})
-        end;
+    case list_to_integer(Code) of
+    Ok when Ok =:= 200 ; Ok =:= 201 ; (Ok >= 400 andalso Ok < 500) ->
+        EJson = case Body of
+        <<>> ->
+            null;
+        Json ->
+            ?JSON_DECODE(Json)
+        end,
+        Callback(Ok, Headers, EJson);
+    R when R =:= 301 ; R =:= 302 ->
+        do_redirect(Worker, Headers, HttpDb, Params, Callback);
     Error ->
-        report_error(nil, HttpDb, Params, {error, Error})
-    end.
+        maybe_retry({code, Error}, Worker, HttpDb, Params, Callback)
+    end;
+
+process_response(Error, Worker, HttpDb, Params, Callback) ->
+    maybe_retry(Error, Worker, HttpDb, Params, Callback).
 
 
 process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
@@ -81,7 +113,7 @@ process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
         case ?l2i(Code) of
         Ok when Ok =:= 200 ; Ok =:= 201 ; (Ok >= 400 andalso Ok < 500) ->
             StreamDataFun = fun() ->
-                stream_data_self(HttpDb, Params, Worker, ReqId)
+                stream_data_self(HttpDb, Params, Worker, ReqId, Callback)
             end,
             Ret = Callback(Ok, Headers, StreamDataFun),
             stop_worker(Worker),
@@ -92,7 +124,7 @@ process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
             report_error(Worker, HttpDb, Params, {code, Error})
         end;
     {ibrowse_async_response, ReqId, {error, _} = Error} ->
-        report_error(Worker, HttpDb, Params, Error)
+        maybe_retry(Error, Worker, HttpDb, Params, Callback)
     end.
 
 
@@ -102,6 +134,20 @@ stop_worker(Worker) when is_pid(Worker) ->
     unlink(Worker),
     receive {'EXIT', Worker, _} -> ok after 0 -> ok end,
     catch ibrowse:stop_worker_process(Worker).
+
+
+maybe_retry(Error, Worker, #httpdb{retries = 0} = HttpDb, Params, _Cb) ->
+    report_error(Worker, HttpDb, Params, {error, Error});
+
+maybe_retry(Error, Worker, #httpdb{retries = Retries, wait = Wait} = HttpDb,
+    Params, Cb) ->
+    stop_worker(Worker),
+    Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
+    Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
+    ?LOG_INFO("Retrying ~s request to ~s in ~p seconds due to error ~p",
+        [Method, Url, Wait / 1000, Error]),
+    ok = timer:sleep(Wait),
+    send_req(HttpDb#httpdb{retries = Retries - 1, wait = Wait * 2}, Params, Cb).
 
 
 report_error(Worker, #httpdb{timeout = Timeout} = HttpDb, Params, timeout) ->
@@ -131,13 +177,13 @@ do_report_error(Url, Method, {timeout, Timeout}) ->
         " (~p milliseconds).", [Method, Url, Timeout]).
 
 
-stream_data_self(HttpDb, Params, Worker, ReqId) ->
+stream_data_self(HttpDb, Params, Worker, ReqId, Cb) ->
     ibrowse:stream_next(ReqId),
     receive
     {ibrowse_async_response, ReqId, {error, _} = Error} ->
-        report_error(Worker, HttpDb, Params, {error, Error});
+        maybe_retry(Error, Worker, HttpDb, Params, Cb);
     {ibrowse_async_response, ReqId, Data} ->
-        {Data, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId) end};
+        {Data, fun() -> stream_data_self(HttpDb, Params, Worker, ReqId, Cb) end};
     {ibrowse_async_response_end, ReqId} ->
         {<<>>, fun() ->
             report_error(Worker, HttpDb, Params, {error, more_data_expected})

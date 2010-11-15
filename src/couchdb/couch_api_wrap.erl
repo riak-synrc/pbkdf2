@@ -17,16 +17,6 @@
 %
 % Notes:
 % Many options and apis aren't yet supported here, they are added as needed.
-%
-% This file neesds a lot of work to "robustify" the common failures, and
-% convert the json errors back to Erlang style errors.
-%
-% Also, we open a new connection for every HTTP call, to avoid the
-% problems when requests are pipelined over a single connection and earlier
-% requests that fail and disconnect don't cause network errors for other
-% requests. This should eventually be optimized so each process has it's own
-% connection that's kept alive between requests.
-%
 
 -include("couch_db.hrl").
 -include("couch_api_wrap.hrl").
@@ -71,7 +61,8 @@ db_uri(#db{name = Name}) ->
 db_open(Db, Options) ->
     db_open(Db, Options, false).
 
-db_open(#httpdb{} = Db, _Options, Create) ->
+db_open(#httpdb{} = Db1, _Options, Create) ->
+    {ok, Db} = couch_api_wrap_httpc:setup(Db1),
     case Create of
     false ->
         ok;
@@ -169,14 +160,18 @@ open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
                     {ibrowse_options, [{stream_to, {self(), once}}]},
                     {headers, [{"accept", "multipart/mixed"}]}],
                 fun(200, Headers, StreamDataFun) ->
+                    Self ! started,
                     couch_httpd:parse_multipart_request(
                         get_value("Content-Type", Headers),
                         StreamDataFun,
-                        fun(Ev) -> mp_parse_mixed(Ev) end)
+                        fun mp_parse_mixed/1)
                 end),
             unlink(Self)
         end),
-    receive_docs(Streamer, Fun, Acc);
+    receive
+    started ->
+        receive_docs_loop(Streamer, Fun, Acc)
+    end;
 open_doc_revs(Db, Id, Revs, Options, Fun, Acc) ->
     {ok, Results} = couch_db:open_doc_revs(Db, Id, Revs, Options),
     {ok, lists:foldl(Fun, Acc, Results)}.
@@ -227,29 +222,11 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     false ->
         []
     end ++ [{"Content-Type", ?b2l(ContentType)}, {"Content-Length", Len}],
-    Self = self(),
-    DocStreamer = spawn_link(fun() ->
-        couch_doc:doc_to_multi_part_stream(
-            Boundary, JsonBytes, Doc#doc.atts,
-            fun(Data) ->
-                receive {get_data, From} ->
-                    From ! {data, Data}
-                end
-            end, false),
-        unlink(Self)
-    end),
-    SendFun = fun(0) ->
-            eof;
-        (LenLeft) when LenLeft > 0 ->
-            DocStreamer ! {get_data, self()},
-            receive {data, Data} ->
-                {ok, Data, LenLeft - iolist_size(Data)}
-            end
-    end,
+    Body = {fun stream_doc/1, {JsonBytes, Doc#doc.atts, Boundary, Len}},
     send_req(
         HttpDb,
         [{method, put}, {path, encode_doc_id(DocId)},
-            {qs, QArgs}, {headers, Headers}, {body, {SendFun, Len}}],
+            {qs, QArgs}, {headers, Headers}, {body, Body}],
         fun(Code, _, {Props}) when Code =:= 200 orelse Code =:= 201 ->
                 {ok, couch_doc:parse_rev(get_value(<<"rev">>, Props))};
             (_, _, {Props}) ->
@@ -318,7 +295,7 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
         % Shouldn't be infinity, but somehow if it's not, issues arise
         % frequently with ibrowse.
         HttpDb#httpdb{timeout = infinity},
-        [{path, "_changes"}, {qs, QArgs},
+        [{path, "_changes"}, {qs, QArgs}, {direct, true},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
             case couch_util:get_value(continuous, Options, false) of
@@ -450,10 +427,20 @@ atts_since_arg(UrlLen, [PA | Rest], Acc) ->
     end.
 
 
+receive_docs_loop(Streamer, Fun, Acc) ->
+    try
+        receive_docs(Streamer, Fun, Acc)
+    catch
+    throw:restart ->
+        receive_docs_loop(Streamer, Fun, Acc)
+    end.
+
 receive_docs(Streamer, UserFun, UserAcc) ->
     Streamer ! {get_headers, self()},
     receive
-    {headers, Headers} ->    
+    started ->
+        throw(restart);
+    {headers, Headers} ->
         case get_value("content-type", Headers) of
         {"multipart/related", _} = ContentType ->
             case couch_doc:doc_from_multi_part_stream(ContentType, 
@@ -481,16 +468,20 @@ receive_docs(Streamer, UserFun, UserAcc) ->
 receive_all(Streamer, Acc)->
     Streamer ! {next_bytes, self()},
     receive
+    started ->
+        throw(restart);
     {body_bytes, Bytes} ->
         receive_all(Streamer, [Bytes | Acc]);
     body_done ->
         lists:reverse(Acc)
-     end.
+    end.
 
 
 receive_doc_data(Streamer)->    
     Streamer ! {next_bytes, self()},
     receive
+    started ->
+        throw(restart);
     {body_bytes, Bytes} ->
         {Bytes, fun() -> receive_doc_data(Streamer) end};
     body_done ->
@@ -611,3 +602,34 @@ bulk_results_to_errors(_Docs, Results, remote) ->
             end
         end,
         [], Results)).
+
+
+stream_doc({JsonBytes, Atts, Boundary, Len}) ->
+    case erlang:erase({doc_streamer, Boundary}) of
+    Pid when is_pid(Pid) ->
+        unlink(Pid),
+        exit(Pid, kill);
+    _ ->
+        ok
+    end,
+    Self = self(),
+    DocStreamer = spawn_link(fun() ->
+        couch_doc:doc_to_multi_part_stream(
+            Boundary, JsonBytes, Atts,
+            fun(Data) ->
+                receive {get_data, From} ->
+                    From ! {data, Data}
+                end
+            end, false),
+        unlink(Self)
+    end),
+    erlang:put({doc_streamer, Boundary}, DocStreamer),
+    {ok, <<>>, {Len, Boundary}};
+stream_doc({0, Id}) ->
+    erlang:erase({doc_streamer, Id}),
+    eof;
+stream_doc({LenLeft, Id}) when LenLeft > 0 ->
+    erlang:get({doc_streamer, Id}) ! {get_data, self()},
+    receive {data, Data} ->
+        {ok, Data, {LenLeft - iolist_size(Data), Id}}
+    end.

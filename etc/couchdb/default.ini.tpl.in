@@ -118,3 +118,5 @@ compressible_types = text/*, application/javascript, application/json,  applicat
 [replicator]
 ; should be at least 2
 worker_processes = 10
+; the maximum number of TCP connections to use against a single server
+max_connections_per_server = 100

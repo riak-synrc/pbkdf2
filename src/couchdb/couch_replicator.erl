@@ -28,10 +28,6 @@
     get_value/3
 ]).
 
-% Can't be greater than the maximum number of child restarts specified
-% in couch_rep_sup.erl.
--define(MAX_RESTARTS, 3).
-
 % maximum number of elements (per iteration) that each missing
 % revs finder process fetches from the missing revs queue
 -define(REV_BATCH_SIZE, 1000).
@@ -177,19 +173,11 @@ rep_result_listener(RepId) ->
 
 
 wait_for_result(RepId) ->
-    wait_for_result(RepId, ?MAX_RESTARTS).
-
-wait_for_result(RepId, RetriesLeft) ->
     receive
     {finished, RepId, RepResult} ->
         {ok, RepResult};
     {error, RepId, Reason} ->
-        case RetriesLeft > 0 of
-        true ->
-            wait_for_result(RepId, RetriesLeft - 1);
-        false ->
-            {error, Reason}
-        end
+        {error, Reason}
     end.
 
 

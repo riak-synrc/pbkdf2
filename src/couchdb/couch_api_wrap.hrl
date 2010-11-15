@@ -16,8 +16,10 @@
     url,
     oauth = nil,
     headers = [],
-    timeout = 30000,  % milliseconds
-    proxy_options = []
+    timeout = 30000,    % milliseconds
+    proxy_options = [],
+    retries = 10,
+    wait = 250          % milliseconds
 }).
 
 -record(oauth, {
