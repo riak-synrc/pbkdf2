@@ -465,7 +465,7 @@ receive_docs(Streamer, UserFun, UserAcc) ->
         {ok, UserAcc}
     end.
 
-receive_all(Streamer, Acc)->
+receive_all(Streamer, Acc) ->
     Streamer ! {next_bytes, self()},
     receive
     started ->
@@ -477,7 +477,7 @@ receive_all(Streamer, Acc)->
     end.
 
 
-receive_doc_data(Streamer)->    
+receive_doc_data(Streamer) ->
     Streamer ! {next_bytes, self()},
     receive
     started ->
@@ -492,31 +492,24 @@ receive_doc_data(Streamer)->
 mp_parse_mixed(eof) ->
     receive {get_headers, From} ->
         From ! done
-    end,
-    ok;
+    end;
 mp_parse_mixed({headers, H}) ->
     receive {get_headers, From} ->
         From ! {headers, H}
     end,
-    fun(Next) ->
-        mp_parse_mixed(Next)
-    end;
+    fun mp_parse_mixed/1;
 mp_parse_mixed({body, Bytes}) ->
     receive {next_bytes, From} ->
         From ! {body_bytes, Bytes}
     end,
-    fun (Next) ->
-        mp_parse_mixed(Next)
-    end;
+    fun mp_parse_mixed/1;
 mp_parse_mixed(body_end) ->
     receive {next_bytes, From} ->
         From ! body_done;
     {get_headers, From} ->
         self() ! {get_headers, From}
     end,
-    fun (Next) ->
-        mp_parse_mixed(Next)
-    end.
+    fun mp_parse_mixed/1.
 
 changes_ev1(object_start, UserFun, UserAcc) ->
     fun(Ev) -> changes_ev2(Ev, UserFun, UserAcc) end.
@@ -527,7 +520,7 @@ changes_ev2(_, UserFun, UserAcc) ->
     fun(Ev) -> changes_ev2(Ev, UserFun, UserAcc) end.
 
 changes_ev3(array_start, UserFun, UserAcc) ->
-    fun(Ev)-> changes_ev_loop(Ev, UserFun, UserAcc) end.
+    fun(Ev) -> changes_ev_loop(Ev, UserFun, UserAcc) end.
 
 changes_ev_loop(object_start, UserFun, UserAcc) ->
     fun(Ev) ->
