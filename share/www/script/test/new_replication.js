@@ -49,6 +49,51 @@ couchTests.new_replication = function(debug) {
   var i, j, k;
 
 
+  function makeAttData(minSize) {
+    var data = att1_data;
+
+    while (data.length < minSize) {
+      data = data + att1_data;
+    }
+    return data;
+  }
+
+
+  function enableAttCompression(level, types) {
+    var xhr = CouchDB.request(
+      "PUT",
+      "/_config/attachments/compression_level",
+      {
+        body: JSON.stringify(level),
+        headers: {"X-Couch-Persist": "false"}
+      }
+    );
+    T(xhr.status === 200);
+    xhr = CouchDB.request(
+      "PUT",
+      "/_config/attachments/compressible_types",
+      {
+        body: JSON.stringify(types),
+        headers: {"X-Couch-Persist": "false"}
+      }
+    );
+    T(xhr.status === 200);
+  }
+
+
+  function disableAttCompression() {
+    var xhr = CouchDB.request(
+      "PUT",
+      "/_config/attachments/compression_level",
+      {
+        body: JSON.stringify("0"),
+        headers: {"X-Couch-Persist": "false"}
+      }
+    );
+    T(xhr.status === 200);
+  }
+
+
   function populateDb(db, docs, dontRecreateDb) {
     if (dontRecreateDb !== true) {
       db.deleteDb();
@@ -1087,6 +1132,67 @@ couchTests.new_replication = function(debug) {
     copy = targetDb.open(doc._id);
     T(copy === null);
   }
+
+
+  //
+  // test replication of compressed attachments
+  //
+  doc = {
+    _id: "foobar"
+  };
+  var bigTextAtt = makeAttData(128 * 1024);
+  var attName = "readme.txt";
+  var xhr = CouchDB.request("GET", "/_config/attachments/compression_level");
+  var compressionLevel = JSON.parse(xhr.responseText);
+  xhr = CouchDB.request("GET", "/_config/attachments/compressible_types");
+  var compressibleTypes = JSON.parse(xhr.responseText);
+
+  for (i = 0; i < dbPairs.length; i++) {
+    populateDb(sourceDb, [doc]);
+    populateDb(targetDb, []);
+
+    // enable compression of text types
+    enableAttCompression("8", "text/*");
+
+    // add text attachment to foobar doc
+    xhr = CouchDB.request(
+      "PUT",
+      "/" + sourceDb.name + "/" + doc._id + "/" + attName + "?rev=" + doc._rev,
+      {
+        body: bigTextAtt,
+        headers: {"Content-Type": "text/plain"}
+      }
+    );
+    T(xhr.status === 201);
+
+    // disable compression and replicate
+    disableAttCompression();
+
+    repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
+    T(repResult.ok === true);
+    T(repResult.history instanceof Array);
+    T(repResult.history.length === 1);
+    T(repResult.history[0].missing_checked === 1);
+    T(repResult.history[0].missing_found === 1);
+    T(repResult.history[0].docs_read === 1);
+    T(repResult.history[0].docs_written === 1);
+    T(repResult.history[0].doc_write_failures === 0);
+
+    copy = targetDb.open(
+      doc._id,
+      {att_encoding_info: true, bypass_cache: Math.round(Math.random() * 1000)}
+    );
+    T(copy !== null);
+    T(attName in copy._attachments);
+    TEquals("gzip", copy._attachments[attName].encoding);
+    TEquals("number", typeof copy._attachments[attName].length);
+    TEquals("number", typeof copy._attachments[attName].encoded_length);
+    T(copy._attachments[attName].encoded_length < copy._attachments[attName].length);
+  }
+
+  delete bigTextAtt;
+  // restore original settings
+  enableAttCompression(compressionLevel, compressibleTypes);
 
 
   //

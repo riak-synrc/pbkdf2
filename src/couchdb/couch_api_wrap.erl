@@ -151,7 +151,7 @@ get_missing_revs(Db, IdRevs) ->
 open_doc_revs(#httpdb{} = HttpDb, Id, Revs, Options, Fun, Acc) ->
     Path = encode_doc_id(Id),
     QArgs = options_to_query_args(
-        HttpDb, Path, [revs, {open_revs, Revs} | Options]),
+        HttpDb, Path, [revs, {open_revs, Revs}, att_encoding_info | Options]),
     Self = self(),
     Streamer = spawn_link(fun() ->
             send_req(
@@ -213,9 +213,10 @@ update_doc(#httpdb{} = HttpDb, #doc{id = DocId} = Doc, Options, Type) ->
     end ++ options_to_query_args(Options, []),
     Boundary = couch_uuids:random(),
     JsonBytes = ?JSON_ENCODE(
-        couch_doc:to_json_obj(Doc, [revs, attachments, follows | Options])),
+        couch_doc:to_json_obj(
+          Doc, [revs, attachments, follows, att_encoding_info | Options])),
     {ContentType, Len} = couch_doc:len_doc_to_multi_part_stream(Boundary,
-        JsonBytes, Doc#doc.atts, false),
+        JsonBytes, Doc#doc.atts, true),
     Headers = case lists:member(delay_commit, Options) of
     true ->
         [{"X-Couch-Full-Commit", "false"}];
@@ -400,6 +401,8 @@ options_to_query_args([delay_commit | Rest], Acc) ->
     options_to_query_args(Rest, Acc);
 options_to_query_args([revs | Rest], Acc) ->
     options_to_query_args(Rest, [{"revs", "true"} | Acc]);
+options_to_query_args([att_encoding_info | Rest], Acc) ->
+    options_to_query_args(Rest, [{"att_encoding_info", "true"} | Acc]);
 options_to_query_args([{open_revs, all} | Rest], Acc) ->
     options_to_query_args(Rest, [{"open_revs", "all"} | Acc]);
 options_to_query_args([{open_revs, Revs} | Rest], Acc) ->
@@ -613,7 +616,7 @@ stream_doc({JsonBytes, Atts, Boundary, Len}) ->
                 receive {get_data, From} ->
                     From ! {data, Data}
                 end
-            end, false),
+            end, true),
         unlink(Self)
     end),
     erlang:put({doc_streamer, Boundary}, DocStreamer),
