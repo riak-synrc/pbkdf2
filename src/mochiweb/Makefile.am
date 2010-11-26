@@ -10,7 +10,7 @@
 ## License for the specific language governing permissions and limitations under
 ## the License.
 
-mochiwebebindir = $(localerlanglibdir)/mochiweb-7c2bc2/ebin
+mochiwebebindir = $(localerlanglibdir)/mochiweb-1.4.1/ebin
 
 mochiweb_file_collection = \
 	mochifmt.erl \
