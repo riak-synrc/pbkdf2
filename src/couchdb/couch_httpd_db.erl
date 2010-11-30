@@ -114,7 +114,7 @@ handle_changes_req1(Req, Db) ->
             FeedChangesFun(MakeCallback(Resp))
         end
     end,
-    WrapperFun(ChangesFun);
+    WrapperFun(ChangesFun).
 
 handle_compact_req(#httpd{method='POST',path_parts=[DbName,_,Id|_]}=Req, _Db) ->
     ok = couch_view_compactor:start_compact(DbName, Id),
