@@ -26,6 +26,7 @@
     ]).
 
 -define(RETRY_LATER_WAIT, 100).
+-define(replace(L, K, V), lists:keystore(K, 1, L, {K, V})).
 
 
 setup(#httpdb{url = Url} = Db) ->
@@ -48,7 +49,7 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     Headers1 = case (Body =:= [] orelse Body =:= <<>>) andalso
         (Method =:= put orelse Method =:= post) of
     true ->
-        lists:keystore("Content-Length", 1, Headers, {"Content-Length", 0});
+        ?replace(Headers, "Content-Length", 0);
     false ->
         Headers
     end,
@@ -97,8 +98,8 @@ process_response({ok, Code, Headers, Body}, Worker, HttpDb, Params, Callback) ->
             ?JSON_DECODE(Json)
         end,
         Callback(Ok, Headers, EJson);
-    R when R =:= 301 ; R =:= 302 ->
-        do_redirect(Worker, Headers, HttpDb, Params, Callback);
+    R when R =:= 301 ; R =:= 302 ; R =:= 303 ->
+        do_redirect(Worker, R, Headers, HttpDb, Params, Callback);
     Error ->
         maybe_retry({code, Error}, Worker, HttpDb, Params, Callback)
     end;
@@ -118,8 +119,8 @@ process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
             Ret = Callback(Ok, Headers, StreamDataFun),
             stop_worker(Worker),
             Ret;
-        R when R =:= 301 ; R =:= 302 ->
-            do_redirect(Worker, Headers, HttpDb, Params, Callback);
+        R when R =:= 301 ; R =:= 302 ; R =:= 303 ->
+            do_redirect(Worker, R, Headers, HttpDb, Params, Callback);
         Error ->
             report_error(Worker, HttpDb, Params, {code, Error})
         end;
@@ -228,10 +229,10 @@ oauth_header(#httpdb{url = BaseUrl, oauth = OAuth}, ConnParams) ->
         "OAuth " ++ oauth_uri:params_to_header_string(OAuthParams)}].
 
 
-do_redirect(Worker, RespHeaders, #httpdb{url = Url} = HttpDb, Params, Cb) ->
+do_redirect(Worker, Code, Headers, #httpdb{url = Url} = HttpDb, Params, Cb) ->
     stop_worker(Worker),
-    RedirectUrl = redirect_url(RespHeaders, Url),
-    {HttpDb2, Params2} = after_redirect(RedirectUrl, HttpDb, Params),
+    RedirectUrl = redirect_url(Headers, Url),
+    {HttpDb2, Params2} = after_redirect(RedirectUrl, Code, HttpDb, Params),
     send_req(HttpDb2, Params2, Cb).
 
 
@@ -256,6 +257,11 @@ redirect_url(RespHeaders, OrigUrl) ->
     end,
     atom_to_list(Proto) ++ "://" ++ Creds ++ Base ++ ":" ++
         integer_to_list(Port) ++ Path.
+
+after_redirect(RedirectUrl, 303, HttpDb, Params) ->
+    after_redirect(RedirectUrl, HttpDb, ?replace(Params, method, get));
+after_redirect(RedirectUrl, _Code, HttpDb, Params) ->
+    after_redirect(RedirectUrl, HttpDb, Params).
 
 after_redirect(RedirectUrl, HttpDb, Params) ->
     Params2 = lists:keydelete(path, 1, lists:keydelete(qs, 1, Params)),
