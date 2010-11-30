@@ -288,6 +288,15 @@
     include_docs = false
 }).
 
+-record(rep, {
+    id,
+    source,
+    target,
+    options,
+    user_ctx,
+    doc
+}).
+
 -record(rep_stats, {
     missing_checked = 0,
     missing_found = 0,

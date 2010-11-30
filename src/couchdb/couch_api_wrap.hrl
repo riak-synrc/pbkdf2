@@ -30,12 +30,3 @@
     consumer_secret,
     signature_method
 }).
-
--record(rep, {
-    id,
-    source,
-    target,
-    options,
-    user_ctx,
-    doc
-}).
