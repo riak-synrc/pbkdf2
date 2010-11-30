@@ -57,7 +57,8 @@
     missing_rev_finders,
     doc_copiers,
     seqs_in_progress = gb_sets:empty(),
-    stats = #rep_stats{}
+    stats = #rep_stats{},
+    session_id
     }).
 
 
@@ -453,7 +454,8 @@ init_state(Rep) ->
         target_log = TargetLog,
         rep_starttime = httpd_util:rfc1123_date(),
         src_starttime = get_value(<<"instance_start_time">>, SourceInfo),
-        tgt_starttime = get_value(<<"instance_start_time">>, TargetInfo)
+        tgt_starttime = get_value(<<"instance_start_time">>, TargetInfo),
+        session_id = couch_uuids:random()
     },
     State#rep_state{timer = start_timer(State)}.
 
@@ -489,13 +491,13 @@ do_checkpoint(State) ->
         src_starttime = SrcInstanceStartTime,
         tgt_starttime = TgtInstanceStartTime,
         stats = Stats,
-        rep_details = #rep{options = Options}
+        rep_details = #rep{options = Options},
+        session_id = SessionId
     } = State,
     case commit_to_both(Source, Target) of
     {SrcInstanceStartTime, TgtInstanceStartTime} ->
         ?LOG_INFO("recording a checkpoint for ~p -> ~p at source update_seq ~p",
             [SourceName, TargetName, NewSeq]),
-        SessionId = couch_uuids:random(),
         StartTime = ?l2b(ReplicationStartTime),
         EndTime = ?l2b(httpd_util:rfc1123_date()),
         NewHistoryEntry = {[
