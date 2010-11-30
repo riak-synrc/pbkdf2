@@ -128,7 +128,8 @@ parse_rep_db({Props}, ProxyParams) ->
         url = Url,
         oauth = OAuth,
         headers = Headers,
-        proxy_options = ProxyParams
+        proxy_options = ProxyParams,
+        ssl_options = ssl_params(Url)
     };
 parse_rep_db(<<"http://", _/binary>> = Url, ProxyParams) ->
     parse_rep_db({[{<<"url">>, Url}]}, ProxyParams);
@@ -189,3 +190,30 @@ parse_proxy_params(ProxyUrl) ->
             [{proxy_user, User}, {proxy_password, Passwd}]
         end.
 
+
+ssl_params(Url) ->
+    case ibrowse_lib:parse_url(Url) of
+    #url{protocol = https} ->
+        Depth = list_to_integer(
+            couch_config:get("replicator", "ssl_certificate_max_depth", "3")
+        ),
+        VerifyCerts = couch_config:get("replicator", "verify_ssl_certificates"),
+        SslOpts = [{depth, Depth} | ssl_verify_options(VerifyCerts =:= "true")],
+        [{is_ssl, true}, {ssl_options, SslOpts}];
+    #url{protocol = http} ->
+        []
+    end.
+
+ssl_verify_options(Value) ->
+    ssl_verify_options(Value, erlang:system_info(otp_release)).
+
+ssl_verify_options(true, OTPVersion) when OTPVersion >= "R14" ->
+    CAFile = couch_config:get("replicator", "ssl_trusted_certificates_file"),
+    [{verify, verify_peer}, {cacertfile, CAFile}];
+ssl_verify_options(false, OTPVersion) when OTPVersion >= "R14" ->
+    [{verify, verify_none}];
+ssl_verify_options(true, _OTPVersion) ->
+    CAFile = couch_config:get("replicator", "ssl_trusted_certificates_file"),
+    [{verify, 2}, {cacertfile, CAFile}];
+ssl_verify_options(false, _OTPVersion) ->
+    [{verify, 0}].

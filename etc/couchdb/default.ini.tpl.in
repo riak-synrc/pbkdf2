@@ -120,3 +120,9 @@ compressible_types = text/*, application/javascript, application/json,  applicat
 worker_processes = 10
 ; the maximum number of TCP connections to use against a single server
 max_connections_per_server = 100
+; set to true to validate peer certificates
+verify_ssl_certificates = false
+; file containing a list of peer trusted certificates (PEM format)
+; ssl_trusted_certificates_file = /etc/ssl/certs/ca-certificates.crt
+; maximum peer certificate depth (must be set even if certificate validation is off)
+ssl_certificate_max_depth = 3

@@ -18,6 +18,7 @@
     headers = [],
     timeout = 30000,    % milliseconds
     proxy_options = [],
+    ssl_options = [],
     retries = 10,
     wait = 250          % milliseconds
 }).

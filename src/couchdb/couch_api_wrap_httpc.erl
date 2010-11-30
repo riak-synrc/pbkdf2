@@ -56,7 +56,8 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     IbrowseOptions = [
         {response_format, binary}, {inactivity_timeout, HttpDb#httpdb.timeout},
         {socket_options, [{reuseaddr, true}, {keepalive, true}]}
-        | get_value(ibrowse_options, Params, []) ++ HttpDb#httpdb.proxy_options
+        | HttpDb#httpdb.proxy_options ++ HttpDb#httpdb.ssl_options ++
+            get_value(ibrowse_options, Params, [])
     ],
     Headers2 = oauth_header(HttpDb, Params) ++ Headers1,
     Url = full_url(HttpDb, Params),
