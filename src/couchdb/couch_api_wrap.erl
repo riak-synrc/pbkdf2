@@ -288,15 +288,26 @@ update_docs(Db, DocList, Options, UpdateType) ->
     {ok, bulk_results_to_errors(DocList, Result, UpdateType)}.
 
 
-changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
-    QArgs = changes_q_args(
-        [{"style", atom_to_list(Style)}, {"since", integer_to_list(StartSeq)}],
-        Options),
+changes_since(#httpdb{headers = Headers1} = HttpDb, Style, StartSeq,
+    UserFun, Options) ->
+    BaseQArgs = [
+        {"style", atom_to_list(Style)}, {"since", couch_util:to_list(StartSeq)}
+    ],
+    {QArgs, Method, Body, Headers} = case get_value(doc_ids, Options) of
+    undefined ->
+        QArgs1 = maybe_add_changes_filter_q_args(BaseQArgs, Options),
+        {QArgs1, get, [], Headers1};
+    DocIds ->
+        Headers2 = [{"Content-Type", "application/json"} | Headers1],
+        JsonDocIds = ?JSON_ENCODE({[{<<"doc_ids">>, DocIds}]}),
+        {[{"filter", "_doc_ids"} | BaseQArgs], post, JsonDocIds, Headers2}
+    end,
     send_req(
         % Shouldn't be infinity, but somehow if it's not, issues arise
         % frequently with ibrowse.
         HttpDb#httpdb{timeout = infinity},
-        [{path, "_changes"}, {qs, QArgs}, {direct, true},
+        [{method, Method}, {path, "_changes"}, {qs, QArgs}, {direct, true},
+            {headers, Headers}, {body, Body},
             {ibrowse_options, [{stream_to, {self(), once}}]}],
         fun(200, _, DataStreamFun) ->
             case couch_util:get_value(continuous, Options, false) of
@@ -310,10 +321,16 @@ changes_since(#httpdb{} = HttpDb, Style, StartSeq, UserFun, Options) ->
             end
         end);
 changes_since(Db, Style, StartSeq, UserFun, Options) ->
+    Filter = case get_value(doc_ids, Options) of
+    undefined ->
+        ?b2l(get_value(filter, Options, <<>>));
+    _DocIds ->
+        "_doc_ids"
+    end,
     Args = #changes_args{
         style = Style,
         since = StartSeq,
-        filter = ?b2l(get_value(filter, Options, <<>>)),
+        filter = Filter,
         feed = case get_value(continuous, Options, false) of
             true ->
                 "continuous";
@@ -323,7 +340,7 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
         timeout = infinity
     },
     QueryParams = get_value(query_params, Options, {[]}),
-    Req = changes_json_req(Db, Args#changes_args.filter, QueryParams),
+    Req = changes_json_req(Db, Filter, QueryParams, Options),
     ChangesFeedFun = couch_changes:handle_changes(Args, {json_req, Req}, Db),
     ChangesFeedFun(fun({change, Change, _}, _) ->
             UserFun(json_to_doc_info(Change));
@@ -334,7 +351,7 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
 
 % internal functions
 
-changes_q_args(BaseQS, Options) ->
+maybe_add_changes_filter_q_args(BaseQS, Options) ->
     case get_value(filter, Options) of
     undefined ->
         BaseQS;
@@ -359,9 +376,11 @@ changes_q_args(BaseQS, Options) ->
         [{"feed", "continuous"}, {"heartbeat", "10000"}]
     end.
 
-changes_json_req(_Db, "", _QueryParams) ->
+changes_json_req(_Db, "", _QueryParams, _Options) ->
     {[]};
-changes_json_req(Db, FilterName, {QueryParams}) ->
+changes_json_req(_Db, "_doc_ids", _QueryParams, Options) ->
+    {[{<<"doc_ids">>, get_value(doc_ids, Options)}]};
+changes_json_req(Db, FilterName, {QueryParams}, _Options) ->
     {ok, Info} = couch_db:get_db_info(Db),
     % simulate a request to db_name/_changes
     {[

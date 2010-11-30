@@ -133,10 +133,10 @@ handle_info({'EXIT', Pid, normal}, #state{loop = Pid} = State) ->
     } = State,
     {stop, normal, State};
 
-handle_info({'EXIT', Pid, normal}, #state{writer = Pid, cp = Cp} = State) ->
-    Stats = State#state.stats,
+handle_info({'EXIT', Pid, normal}, #state{writer = Pid, cp = Cp,
+    stats = Stats, report_seq = ReportSeq} = State) ->
     ok = gen_server:cast(Cp, {add_stats, Stats}),
-    seq_done(Cp, State#state.report_seq),
+    ok = gen_server:cast(Cp, {seq_done, ReportSeq}),
     gen_server:reply(State#state.pending_flush, ok),
     NewState = State#state{
         report_seq = nil,
@@ -200,17 +200,6 @@ queue_fetch_loop(Parent, MissingRevsQueue) ->
     case couch_work_queue:dequeue(MissingRevsQueue, 1) of
     closed ->
         ok;
-
-    {ok, [{doc_id, _} | _] = DocIdList} ->
-        lists:foreach(
-            fun({doc_id, Id}) ->
-                ok = gen_server:call(
-                    Parent, {fetch_doc, {Id, all, [], 0}}, infinity)
-            end,
-            DocIdList),
-        ok = gen_server:call(Parent, {flush, nil}, infinity),
-        queue_fetch_loop(Parent, MissingRevsQueue);
-
     {ok, [{ReportSeq, IdRevList}]} ->
         lists:foreach(
             fun({Id, Revs, PAs, Seq}) ->
@@ -315,9 +304,3 @@ flush_docs(Target, Doc) ->
     _ ->
         {0, 1}
     end.
-
-
-seq_done(_Cp, nil) ->
-    ok;
-seq_done(Cp, SeqDone) ->
-    ok = gen_server:cast(Cp, {seq_done, SeqDone}).

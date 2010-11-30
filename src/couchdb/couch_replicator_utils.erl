@@ -162,7 +162,10 @@ convert_options([{<<"filter">>, V} | R]) ->
 convert_options([{<<"query_params">>, V} | R]) ->
     [{query_params, V} | convert_options(R)];
 convert_options([{<<"doc_ids">>, V} | R]) ->
-    [{doc_ids, V} | convert_options(R)];
+    % Ensure same behaviour as old replicator: accept a list of percent
+    % encoded doc IDs.
+    DocIds = [?l2b(couch_httpd:unquote(Id)) || Id <- V],
+    [{doc_ids, DocIds} | convert_options(R)];
 convert_options([_ | R]) -> % skip unknown option
     convert_options(R).
 

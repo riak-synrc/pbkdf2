@@ -732,12 +732,16 @@ couchTests.new_replication = function(debug) {
       );
 
       total = doc_ids.length - num_inexistent_docs;
-      T(repResult.ok === true);
-      T(typeof repResult.start_time === "string");
-      T(typeof repResult.end_time === "string");
-      T(repResult.docs_read === total);
-      T(repResult.docs_written === total);
-      T(repResult.doc_write_failures === 0);
+      T(true, repResult.ok);
+      if (total === 0) {
+        TEquals(true, repResult.no_changes);
+      } else {
+        TEquals('string', typeof repResult.start_time);
+        TEquals('string', typeof repResult.end_time);
+        TEquals(total, repResult.docs_read);
+        TEquals(total, repResult.docs_written);
+        TEquals(0, repResult.doc_write_failures);
+      }
 
       for (k = 0; k < doc_ids.length; k++) {
         id = decodeURIComponent(doc_ids[k]);
@@ -793,12 +797,16 @@ couchTests.new_replication = function(debug) {
       );
 
       after_total = after_doc_ids.length - after_num_inexistent_docs;
-      T(repResult.ok === true);
-      T(typeof repResult.start_time === "string");
-      T(typeof repResult.end_time === "string");
-      T(repResult.docs_read === after_total);
-      T(repResult.docs_written === after_total);
-      T(repResult.doc_write_failures === 0);
+      TEquals(true, repResult.ok);
+      if (after_total === 0) {
+        TEquals(true, repResult.no_changes);
+      } else {
+        TEquals('string', typeof repResult.start_time);
+        TEquals('string', typeof repResult.end_time);
+        TEquals(after_total, repResult.docs_read);
+        TEquals(after_total, repResult.docs_written);
+        TEquals(0, repResult.doc_write_failures);
+      }
 
       for (k = 0; k < after_doc_ids.length; k++) {
         id = after_doc_ids[k];

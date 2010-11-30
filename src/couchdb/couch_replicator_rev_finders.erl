@@ -18,18 +18,6 @@
 
 
 
-spawn_missing_rev_finders(_, _, DocIds, MissingRevsQueue, _, _)
-    when is_list(DocIds) ->
-    lists:foreach(
-        fun(DocId) ->
-            % Ensure same behaviour as old replicator: accept a list of percent
-            % encoded doc IDs.
-            Id = ?l2b(couch_httpd:unquote(DocId)),
-            ok = couch_work_queue:queue(MissingRevsQueue, {doc_id, Id})
-        end, DocIds),
-    couch_work_queue:close(MissingRevsQueue),
-    [];
-
 spawn_missing_rev_finders(StatsProcess,
         Target, ChangesQueue, MissingRevsQueue, RevFindersCount, BatchSize) ->
     lists:map(

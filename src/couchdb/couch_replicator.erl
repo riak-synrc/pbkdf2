@@ -74,12 +74,11 @@ replicate(#rep{id = RepId, options = Options} = Rep) ->
 
 
 do_replication_loop(#rep{options = Options, source = Src} = Rep) ->
-    DocIds = get_value(doc_ids, Options),
     Continuous = get_value(continuous, Options, false),
-    Seq = case {DocIds, Continuous} of
-    {undefined, false} ->
+    Seq = case Continuous of
+    false ->
         last_seq(Src, Rep#rep.user_ctx);
-    _ ->
+    true ->
         undefined
     end,
     do_replication_loop(Rep, Seq).
@@ -209,7 +208,7 @@ do_init(#rep{options = Options} = Rep) ->
         start_seq = StartSeq
     } = State = init_state(Rep),
 
-    {RevFindersCount, CopiersCount} = case ?l2i(
+    {RevFindersCount, CopiersCount} = case list_to_integer(
         couch_config:get("replicator", "worker_processes", "10")) of
     Small when Small < 2 ->
         ?LOG_ERROR("The number of worker processes for the replicator "
@@ -221,34 +220,20 @@ do_init(#rep{options = Options} = Rep) ->
     {ok, MissingRevsQueue} = couch_work_queue:new([
         {multi_workers, true}, {max_items, trunc(CopiersCount * 1.5)}
     ]),
-
-    case get_value(doc_ids, Options) of
-    undefined ->
-        {ok, ChangesQueue} = couch_work_queue:new([
-            {multi_workers, true},
-            {max_items, trunc(RevFindersCount * 1.5) * ?REV_BATCH_SIZE}
-        ]),
-
-        % This starts the _changes reader process. It adds the changes from
-        % the source db to the ChangesQueue.
-        ChangesReader = spawn_changes_reader(
-            StartSeq, Source, ChangesQueue, Options),
-
-        % This starts the missing rev finders. They check the target for changes
-        % in the ChangesQueue to see if they exist on the target or not. If not,
-        % adds them to MissingRevsQueue.
-        MissingRevFinders =
-            couch_replicator_rev_finders:spawn_missing_rev_finders(
-                self(), Target, ChangesQueue, MissingRevsQueue,
-                RevFindersCount, ?REV_BATCH_SIZE);
-    DocIds ->
-        ChangesQueue = nil,
-        ChangesReader = nil,
-        MissingRevFinders =
-            couch_replicator_rev_finders:spawn_missing_rev_finders(self(),
-                Target, DocIds, MissingRevsQueue, RevFindersCount, ?REV_BATCH_SIZE)
-    end,
-
+    {ok, ChangesQueue} = couch_work_queue:new([
+        {multi_workers, true},
+        {max_items, trunc(RevFindersCount * 1.5) * ?REV_BATCH_SIZE}
+    ]),
+    % This starts the _changes reader process. It adds the changes from
+    % the source db to the ChangesQueue.
+    ChangesReader = spawn_changes_reader(
+        StartSeq, Source, ChangesQueue, Options),
+    % This starts the missing rev finders. They check the target for changes
+    % in the ChangesQueue to see if they exist on the target or not. If not,
+    % adds them to MissingRevsQueue.
+    MissingRevFinders = couch_replicator_rev_finders:spawn_missing_rev_finders(
+        self(), Target, ChangesQueue, MissingRevsQueue,
+        RevFindersCount, ?REV_BATCH_SIZE),
     % This starts the doc copy processes. They fetch documents from the
     % MissingRevsQueue and copy them from the source to the target database.
     DocCopiers = couch_replicator_doc_copiers:spawn_doc_copiers(
@@ -373,9 +358,10 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-terminate(normal, #rep_state{rep_details = #rep{id = RepId}} = State) ->
+terminate(normal, #rep_state{rep_details = #rep{id = RepId},
+    checkpoint_history = CheckpointHistory} = State) ->
     terminate_cleanup(State),
-    couch_replication_notifier:notify({finished, RepId, get_result(State)});
+    couch_replication_notifier:notify({finished, RepId, CheckpointHistory});
 
 terminate(shutdown, State) ->
     % cancelled replication throught ?MODULE:end_replication/1
@@ -410,18 +396,13 @@ do_last_checkpoint(State) ->
     cancel_timer(State2).
 
 
-start_timer(#rep_state{rep_details = #rep{options = Options}} = State) ->
-    case get_value(doc_ids, Options) of
-    undefined ->
-        After = checkpoint_interval(State),
-        case timer:apply_after(After, gen_server, cast, [self(), checkpoint]) of
-        {ok, Ref} ->
-            Ref;
-        Error ->
-            ?LOG_ERROR("Replicator, error scheduling checkpoint:  ~p", [Error]),
-            nil
-        end;
-    _DocIdList ->
+start_timer(State) ->
+    After = checkpoint_interval(State),
+    case timer:apply_after(After, gen_server, cast, [self(), checkpoint]) of
+    {ok, Ref} ->
+        Ref;
+    Error ->
+        ?LOG_ERROR("Replicator, error scheduling checkpoint:  ~p", [Error]),
         nil
     end.
 
@@ -431,21 +412,6 @@ cancel_timer(#rep_state{timer = nil} = State) ->
 cancel_timer(#rep_state{timer = Timer} = State) ->
     {ok, cancel} = timer:cancel(Timer),
     State#rep_state{timer = nil}.
-
-
-get_result(#rep_state{stats = Stats, rep_details = Rep} = State) ->
-    case get_value(doc_ids, Rep#rep.options) of
-    undefined ->
-        State#rep_state.checkpoint_history;
-    _DocIdList ->
-        {[
-            {<<"start_time">>, ?l2b(State#rep_state.rep_starttime)},
-            {<<"end_time">>, ?l2b(httpd_util:rfc1123_date())},
-            {<<"docs_read">>, Stats#rep_stats.docs_read},
-            {<<"docs_written">>, Stats#rep_stats.docs_written},
-            {<<"doc_write_failures">>, Stats#rep_stats.doc_write_failures}
-        ]}
-    end.
 
 
 init_state(Rep) ->
@@ -522,17 +488,20 @@ do_checkpoint(State) ->
         rep_starttime = ReplicationStartTime,
         src_starttime = SrcInstanceStartTime,
         tgt_starttime = TgtInstanceStartTime,
-        stats = Stats
+        stats = Stats,
+        rep_details = #rep{options = Options}
     } = State,
     case commit_to_both(Source, Target) of
     {SrcInstanceStartTime, TgtInstanceStartTime} ->
         ?LOG_INFO("recording a checkpoint for ~p -> ~p at source update_seq ~p",
             [SourceName, TargetName, NewSeq]),
         SessionId = couch_uuids:random(),
+        StartTime = ?l2b(ReplicationStartTime),
+        EndTime = ?l2b(httpd_util:rfc1123_date()),
         NewHistoryEntry = {[
             {<<"session_id">>, SessionId},
-            {<<"start_time">>, list_to_binary(ReplicationStartTime)},
-            {<<"end_time">>, list_to_binary(httpd_util:rfc1123_date())},
+            {<<"start_time">>, StartTime},
+            {<<"end_time">>, EndTime},
             {<<"start_last_seq">>, StartSeq},
             {<<"end_last_seq">>, NewSeq},
             {<<"recorded_seq">>, NewSeq},
@@ -542,12 +511,29 @@ do_checkpoint(State) ->
             {<<"docs_written">>, Stats#rep_stats.docs_written},
             {<<"doc_write_failures">>, Stats#rep_stats.doc_write_failures}
         ]},
-        % limit history to 50 entries
-        NewRepHistory = {[
+        BaseHistory = [
             {<<"session_id">>, SessionId},
-            {<<"source_last_seq">>, NewSeq},
-            {<<"history">>, lists:sublist([NewHistoryEntry | OldHistory], 50)}
-        ]},
+            {<<"source_last_seq">>, NewSeq}
+        ] ++ case get_value(doc_ids, Options) of
+        undefined ->
+            [];
+        _DocIds ->
+            % backwards compatibility with the result of a replication by
+            % doc IDs in versions 0.11.x and 1.0.x
+            % TODO: deprecate (use same history format, simplify code)
+            [
+                {<<"start_time">>, StartTime},
+                {<<"end_time">>, EndTime},
+                {<<"docs_read">>, Stats#rep_stats.docs_read},
+                {<<"docs_written">>, Stats#rep_stats.docs_written},
+                {<<"doc_write_failures">>, Stats#rep_stats.doc_write_failures}
+            ]
+        end,
+        % limit history to 50 entries
+        NewRepHistory = {
+            BaseHistory ++
+            [{<<"history">>, lists:sublist([NewHistoryEntry | OldHistory], 50)}]
+        },
 
         try
             {ok, {SrcRevPos,SrcRevId}} = couch_api_wrap:update_doc(Source,
