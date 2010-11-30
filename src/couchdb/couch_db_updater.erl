@@ -175,6 +175,7 @@ handle_cast({compact_done, CompactFilepath}, #db{filepath=Filepath}=Db) ->
         ok = file:rename(CompactFilepath, Filepath),
         close_db(Db),
         ok = gen_server:call(Db#db.main_pid, {db_updated, NewDb2}),
+        couch_db_update_notifier:notify({compacted, NewDb2#db.name}),
         ?LOG_INFO("Compaction for db \"~s\" completed.", [Db#db.name]),
         {noreply, NewDb2#db{compactor_pid=nil}};
     false ->

@@ -38,7 +38,8 @@ missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue, BatchSize) ->
                 #doc_info{id=Id, revs=RevsInfo} <- DocInfos],
         ?LOG_DEBUG("Revs finder ~p got ~p IdRev pairs from queue",
             [self(), length(IdRevs)]),
-        {ok, Missing} = couch_api_wrap:get_missing_revs(Target, IdRevs),
+        Target2 = reopen_db(Target),
+        {ok, Missing} = couch_api_wrap:get_missing_revs(Target2, IdRevs),
         ?LOG_DEBUG("Revs finder ~p found ~p missing IdRev pairs",
             [self(), length(Missing)]),
         % Figured out which on the target are missing.
@@ -47,7 +48,7 @@ missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue, BatchSize) ->
         % incremental attachment replication, so the source only needs to send
         % attachments modified since the common ancestor on target.
         queue_missing_revs(Missing, DocInfos, RevsQueue, Cp),
-        missing_revs_finder_loop(Cp, Target, ChangesQueue, RevsQueue, BatchSize)
+        missing_revs_finder_loop(Cp, Target2, ChangesQueue, RevsQueue, BatchSize)
     end.
 
 
@@ -68,3 +69,10 @@ queue_missing_revs(Missing, DocInfos, Queue, Cp) ->
     ok = gen_server:cast(Cp, {seq_start, {LargestSeq, MissingCount}}),
     ok = couch_work_queue:queue(
            Queue, {LargestSeq, QueueItemList}).
+
+
+reopen_db(#db{main_pid = Pid, user_ctx = UserCtx}) ->
+    {ok, NewDb} = gen_server:call(Pid, get_db, infinity),
+    NewDb#db{user_ctx = UserCtx};
+reopen_db(HttpDb) ->
+    HttpDb.

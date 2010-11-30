@@ -27,6 +27,7 @@
 -export([init/1,terminate/2,handle_call/3,handle_cast/2,code_change/3,handle_info/2]).
 -export([changes_since/5,changes_since/6,read_doc/2,new_revid/1]).
 -export([check_is_admin/1, check_is_reader/1]).
+-export([reopen/1]).
 
 -include("couch_db.hrl").
 
@@ -85,6 +86,18 @@ open(DbName, Options) ->
             end;
         Else -> Else
     end.
+
+reopen(#db{main_pid = Pid, fd_ref_counter = OldRefCntr, user_ctx = UserCtx}) ->
+    {ok, #db{fd_ref_counter = NewRefCntr} = NewDb} =
+        gen_server:call(Pid, get_db, infinity),
+    case NewRefCntr =:= OldRefCntr of
+    true ->
+        ok;
+    false ->
+        couch_ref_counter:add(NewRefCntr),
+        couch_ref_counter:drop(OldRefCntr)
+    end,
+    {ok, NewDb#db{user_ctx = UserCtx}}.
 
 ensure_full_commit(#db{update_pid=UpdatePid,instance_start_time=StartTime}) ->
     ok = gen_server:call(UpdatePid, full_commit, infinity),

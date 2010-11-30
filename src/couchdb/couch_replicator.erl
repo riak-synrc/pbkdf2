@@ -58,7 +58,9 @@
     doc_copiers,
     seqs_in_progress = gb_sets:empty(),
     stats = #rep_stats{},
-    session_id
+    session_id,
+    source_db_update_notifier = nil,
+    target_db_update_notifier = nil
     }).
 
 
@@ -326,6 +328,14 @@ handle_call(Msg, _From, State) ->
     {stop, unexpected_sync_message, State}.
 
 
+handle_cast(reopen_source_db, #rep_state{source = Source} = State) ->
+    {ok, NewSource} = couch_db:reopen(Source),
+    {noreply, State#rep_state{source = NewSource}};
+
+handle_cast(reopen_target_db, #rep_state{target = Target} = State) ->
+    {ok, NewTarget} = couch_db:reopen(Target),
+    {noreply, State#rep_state{target = NewTarget}};
+
 handle_cast(checkpoint, State) ->
     State2 = do_checkpoint(State),
     {noreply, State2#rep_state{timer = start_timer(State)}};
@@ -373,9 +383,11 @@ terminate(Reason, #rep_state{rep_details = #rep{id = RepId}} = State) ->
     couch_replication_notifier:notify({error, RepId, Reason}).
 
 
-terminate_cleanup(#rep_state{source = Source, target = Target}) ->
-    couch_api_wrap:db_close(Source),
-    couch_api_wrap:db_close(Target).
+terminate_cleanup(State) ->
+    stop_db_update_notifier(State#rep_state.source_db_update_notifier),
+    stop_db_update_notifier(State#rep_state.target_db_update_notifier),
+    couch_api_wrap:db_close(State#rep_state.source),
+    couch_api_wrap:db_close(State#rep_state.target).
 
 
 do_last_checkpoint(State) ->
@@ -455,7 +467,9 @@ init_state(Rep) ->
         rep_starttime = httpd_util:rfc1123_date(),
         src_starttime = get_value(<<"instance_start_time">>, SourceInfo),
         tgt_starttime = get_value(<<"instance_start_time">>, TargetInfo),
-        session_id = couch_uuids:random()
+        session_id = couch_uuids:random(),
+        source_db_update_notifier = source_db_update_notifier(Source),
+        target_db_update_notifier = target_db_update_notifier(Target)
     },
     State#rep_state{timer = start_timer(State)}.
 
@@ -711,3 +725,34 @@ sum_stats([Stats1 | RestStats]) ->
             }
         end,
         Stats1, RestStats).
+
+
+source_db_update_notifier(#db{name = DbName}) ->
+    Server = self(),
+    {ok, Notifier} = couch_db_update_notifier:start_link(
+        fun({compacted, DbName1}) when DbName1 =:= DbName ->
+                ok = gen_server:cast(Server, reopen_source_db);
+            (_) ->
+                ok
+        end),
+    Notifier;
+source_db_update_notifier(_) ->
+    nil.
+
+target_db_update_notifier(#db{name = DbName}) ->
+    Server = self(),
+    {ok, Notifier} = couch_db_update_notifier:start_link(
+        fun({compacted, DbName1}) when DbName1 =:= DbName ->
+                ok = gen_server:cast(Server, reopen_target_db);
+            (_) ->
+                ok
+        end),
+    Notifier;
+target_db_update_notifier(_) ->
+    nil.
+
+
+stop_db_update_notifier(nil) ->
+    ok;
+stop_db_update_notifier(Notifier) ->
+    couch_db_update_notifier:stop(Notifier).

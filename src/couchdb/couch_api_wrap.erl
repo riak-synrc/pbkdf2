@@ -24,7 +24,6 @@
 -export([
     db_open/2,
     db_open/3,
-    maybe_reopen_db/2,
     db_close/1,
     get_db_info/1,
     update_doc/3,
@@ -189,17 +188,6 @@ open_doc(#httpdb{} = Db, Id, Options) ->
 open_doc(Db, Id, Options) ->
     couch_db:open_doc(Db, Id, Options).
 
-
-maybe_reopen_db(#httpdb{} = Db, _TargetSeq) ->
-    Db;
-maybe_reopen_db(#db{update_seq = UpSeq, main_pid = Pid} = Db, TargetSeq) ->
-    case TargetSeq > UpSeq of
-    true ->
-        {ok, Db2} = gen_server:call(Pid, get_db, infinity),
-        Db2;
-    false ->
-        Db
-    end.
 
 update_doc(Db, Doc, Options) ->
     update_doc(Db, Doc, Options, interactive_edit).

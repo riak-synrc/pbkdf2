@@ -88,14 +88,15 @@ handle_call({fetch_doc, Params}, {Pid, _} = From,
 
 handle_call({add_doc, Doc}, _From, #state{target = Target} = State) ->
     #state{docs = DocAcc, size_docs = SizeAcc, stats = S} = State,
-    {DocAcc2, SizeAcc2, W, F} = maybe_flush_docs(Target, DocAcc, SizeAcc, Doc),
+    Target2 = reopen_db(Target),
+    {DocAcc2, SizeAcc2, W, F} = maybe_flush_docs(Target2, DocAcc, SizeAcc, Doc),
     NewStats = S#rep_stats{
         docs_read = S#rep_stats.docs_read + 1,
         docs_written = S#rep_stats.docs_written + W,
         doc_write_failures = S#rep_stats.doc_write_failures + F
     },
     NewState = State#state{
-        docs = DocAcc2, size_docs = SizeAcc2, stats = NewStats
+        docs = DocAcc2, size_docs = SizeAcc2, stats = NewStats, target = Target2
     },
     {reply, ok, NewState};
 
@@ -111,11 +112,11 @@ handle_call({add_write_stats, Stats}, _From, State) ->
 
 handle_call({flush, ReportSeq}, {Pid, _} = From,
     #state{loop = Pid, writer = nil, report_seq = nil,
-        pending_flush = nil} = State) ->
+        pending_flush = nil, target = Target, docs = DocAcc} = State) ->
     State2 = case State#state.readers of
     [] ->
-        Writer = spawn_writer(State#state.target, State#state.docs),
-        State#state{writer = Writer};
+        {Target2, Writer} = spawn_writer(Target, DocAcc),
+        State#state{writer = Writer, target = Target2};
     _ ->
         State
     end,
@@ -165,9 +166,11 @@ handle_info({'EXIT', Pid, normal}, #state{writer = nil} = State) ->
             case (Flush =/= nil) andalso (Writer =:= nil) andalso
                 (Readers2 =:= [])  of
             true ->
+                {Target2, Writer2} = spawn_writer(Target, Docs),
                 State#state{
                     readers = Readers2,
-                    writer = spawn_writer(Target, Docs)
+                    writer = Writer2,
+                    target = Target2
                 };
             false ->
                 State#state{readers = Readers2}
@@ -216,8 +219,8 @@ queue_fetch_loop(Parent, MissingRevsQueue) ->
     end.
 
 
-spawn_doc_reader(Source, {_, _, _, Seq} = FetchParams) ->
-    Source2 = couch_api_wrap:maybe_reopen_db(Source, Seq),
+spawn_doc_reader(Source, FetchParams) ->
+    Source2 = reopen_db(Source),
     Parent = self(),
     Pid = spawn_link(fun() -> fetch_doc(Parent, Source2, FetchParams) end),
     {Pid, Source2}.
@@ -236,16 +239,18 @@ doc_handler(_, Parent) ->
 
 
 spawn_writer(Target, DocList) ->
+    Target2 = reopen_db(Target),
     Parent = self(),
-    spawn_link(
+    Pid = spawn_link(
         fun() ->
-            {Written, Failed} = flush_docs(Target, DocList),
+            {Written, Failed} = flush_docs(Target2, DocList),
             Stats = #rep_stats{
                 docs_written = Written,
                 doc_write_failures = Failed
             },
             ok = gen_server:call(Parent, {add_write_stats, Stats}, infinity)
-        end).
+        end),
+    {Target2, Pid}.
 
 
 maybe_flush_docs(#httpdb{} = Target, DocAcc, SizeAcc, Doc) ->
@@ -304,3 +309,10 @@ flush_docs(Target, Doc) ->
     _ ->
         {0, 1}
     end.
+
+
+reopen_db(#db{main_pid = Pid, user_ctx = UserCtx}) ->
+    {ok, NewDb} = gen_server:call(Pid, get_db, infinity),
+    NewDb#db{user_ctx = UserCtx};
+reopen_db(HttpDb) ->
+    HttpDb.
