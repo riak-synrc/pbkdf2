@@ -191,49 +191,49 @@ couchTests.new_replication = function(debug) {
     }
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
-    T(typeof repResult.session_id === "string");
-    T(repResult.source_last_seq === sourceInfo.update_seq);
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 1);
-    T(repResult.history[0].session_id === repResult.session_id);
-    T(typeof repResult.history[0].start_time === "string");
-    T(typeof repResult.history[0].end_time === "string");
-    T(repResult.history[0].start_last_seq === 0);
-    T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
-    T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === sourceInfo.doc_count);
-    T(repResult.history[0].missing_found === sourceInfo.doc_count);
-    T(repResult.history[0].docs_read === sourceInfo.doc_count);
-    T(repResult.history[0].docs_written === sourceInfo.doc_count);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals('string', typeof repResult.session_id);
+    TEquals(repResult.source_last_seq, sourceInfo.update_seq);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(1, repResult.history.length);
+    TEquals(repResult.history[0].session_id, repResult.session_id);
+    TEquals('string', typeof repResult.history[0].start_time);
+    TEquals('string', typeof repResult.history[0].end_time);
+    TEquals(0, repResult.history[0].start_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].end_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].recorded_seq);
+    TEquals(sourceInfo.doc_count, repResult.history[0].missing_checked);
+    TEquals(sourceInfo.doc_count, repResult.history[0].missing_found);
+    TEquals(sourceInfo.doc_count, repResult.history[0].docs_read);
+    TEquals(sourceInfo.doc_count, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     for (j = 0; j < docs.length; j++) {
       doc = docs[j];
       copy = targetDb.open(doc._id);
 
       T(copy !== null);
-      T(compareObjects(doc, copy) === true);
+      TEquals(true, compareObjects(doc, copy));
 
       if (j >= 10 && j < 15) {
         var atts = copy._attachments;
-        T(typeof atts === "object");
-        T(typeof atts["readme.txt"] === "object");
-        T(atts["readme.txt"].revpos === 2);
-        T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
-        T(atts["readme.txt"].stub === true);
+        TEquals('object', typeof atts);
+        TEquals('object', typeof atts["readme.txt"]);
+        TEquals(2, atts["readme.txt"].revpos);
+        TEquals(0, atts["readme.txt"].content_type.indexOf("text/plain"));
+        TEquals(true, atts["readme.txt"].stub);
 
         var att_copy = CouchDB.request(
           "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
         ).responseText;
-        T(att_copy.length === att1_data.length);
-        T(att_copy === att1_data);
+        TEquals(att1_data.length, att_copy.length);
+        TEquals(att1_data, att_copy);
       }
     }
 
@@ -244,7 +244,7 @@ couchTests.new_replication = function(debug) {
       _id: "foo666",
       value: "d"
     };
-    T(sourceDb.save(newDoc).ok);
+    TEquals(true, sourceDb.save(newDoc).ok);
 
     // add some more attachments
     for (j = 10; j < 15; j++) {
@@ -252,194 +252,194 @@ couchTests.new_replication = function(debug) {
     }
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(targetInfo.doc_count, sourceInfo.doc_count);
 
-    T(typeof repResult.session_id === "string");
-    T(repResult.source_last_seq === sourceInfo.update_seq);
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 2);
-    T(repResult.history[0].session_id === repResult.session_id);
-    T(typeof repResult.history[0].start_time === "string");
-    T(typeof repResult.history[0].end_time === "string");
-    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 6));
-    T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
-    T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === 6);
-    T(repResult.history[0].missing_found === 6);
-    T(repResult.history[0].docs_read === 6);
-    T(repResult.history[0].docs_written === 6);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals('string', typeof repResult.session_id);
+    TEquals(sourceInfo.update_seq, repResult.source_last_seq);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(2, repResult.history.length);
+    TEquals(repResult.history[0].session_id, repResult.session_id);
+    TEquals('string', typeof repResult.history[0].start_time);
+    TEquals('string', typeof repResult.history[0].end_time);
+    TEquals((sourceInfo.update_seq - 6), repResult.history[0].start_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].end_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].recorded_seq);
+    TEquals(6, repResult.history[0].missing_checked);
+    TEquals(6, repResult.history[0].missing_found);
+    TEquals(6, repResult.history[0].docs_read);
+    TEquals(6, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     copy = targetDb.open(newDoc._id);
     T(copy !== null);
-    T(copy._id === newDoc._id);
-    T(copy.value === newDoc.value);
+    TEquals(newDoc._id, copy._id);
+    TEquals(newDoc.value, copy.value);
 
     for (j = 10; j < 15; j++) {
       doc = docs[j];
       copy = targetDb.open(doc._id);
 
       T(copy !== null);
-      T(compareObjects(doc, copy) === true);
+      TEquals(true, compareObjects(doc, copy));
 
       var atts = copy._attachments;
-      T(typeof atts === "object");
-      T(typeof atts["readme.txt"] === "object");
-      T(atts["readme.txt"].revpos === 2);
-      T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
-      T(atts["readme.txt"].stub === true);
+      TEquals('object', typeof atts);
+      TEquals('object', typeof atts["readme.txt"]);
+      TEquals(2, atts["readme.txt"].revpos);
+      TEquals(0, atts["readme.txt"].content_type.indexOf("text/plain"));
+      TEquals(true, atts["readme.txt"].stub);
 
       var att1_copy = CouchDB.request(
         "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
       ).responseText;
-      T(att1_copy.length === att1_data.length);
-      T(att1_copy === att1_data);
+      TEquals(att1_data.length, att1_copy.length);
+      TEquals(att1_data, att1_copy);
 
-      T(typeof atts["data.dat"] === "object");
-      T(atts["data.dat"].revpos === 3);
-      T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
-      T(atts["data.dat"].stub === true);
+      TEquals('object', typeof atts["data.dat"]);
+      TEquals(3, atts["data.dat"].revpos);
+      TEquals(0, atts["data.dat"].content_type.indexOf("application/binary"));
+      TEquals(true, atts["data.dat"].stub);
 
       var att2_copy = CouchDB.request(
         "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
       ).responseText;
-      T(att2_copy.length === att2_data.length);
-      T(att2_copy === att2_data);
+      TEquals(att2_data.length, att2_copy.length);
+      TEquals(att2_data, att2_copy);
     }
 
     // test deletion is replicated
     doc = sourceDb.open(docs[1]._id);
-    T(sourceDb.deleteDoc(doc).ok);
+    TEquals(true, sourceDb.deleteDoc(doc).ok);
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.doc_del_count === targetInfo.doc_del_count);
-    T(targetInfo.doc_del_count === 1);
+    TEquals(targetInfo.doc_count, sourceInfo.doc_count);
+    TEquals(targetInfo.doc_del_count, sourceInfo.doc_del_count);
+    TEquals(1, targetInfo.doc_del_count);
 
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 3);
-    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 1));
-    T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
-    T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === 1);
-    T(repResult.history[0].missing_found === 1);
-    T(repResult.history[0].docs_read === 1);
-    T(repResult.history[0].docs_written === 1);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(3, repResult.history.length);
+    TEquals((sourceInfo.update_seq - 1), repResult.history[0].start_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].end_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].recorded_seq);
+    TEquals(1, repResult.history[0].missing_checked);
+    TEquals(1, repResult.history[0].missing_found);
+    TEquals(1, repResult.history[0].docs_read);
+    TEquals(1, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     copy = targetDb.open(docs[1]._id);
-    T(copy === null);
+    TEquals(null, copy);
 
     var changes = targetDb.changes({since: 0});
     var idx = changes.results.length - 1;
-    T(changes.results[idx].id === docs[1]._id);
-    T(changes.results[idx].deleted === true);
+    TEquals(docs[1]._id, changes.results[idx].id);
+    TEquals(true, changes.results[idx].deleted);
 
     // test conflict
     doc = sourceDb.open(docs[0]._id);
     doc.value = "white";
-    T(sourceDb.save(doc).ok);
+    TEquals(true, sourceDb.save(doc).ok);
 
     copy = targetDb.open(docs[0]._id);
     copy.value = "black";
-    T(targetDb.save(copy).ok);
+    TEquals(true, targetDb.save(copy).ok);
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 4);
-    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 1));
-    T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
-    T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === 1);
-    T(repResult.history[0].missing_found === 1);
-    T(repResult.history[0].docs_read === 1);
-    T(repResult.history[0].docs_written === 1);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(4, repResult.history.length);
+    TEquals((sourceInfo.update_seq - 1), repResult.history[0].start_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].end_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].recorded_seq);
+    TEquals(1, repResult.history[0].missing_checked);
+    TEquals(1, repResult.history[0].missing_found);
+    TEquals(1, repResult.history[0].docs_read);
+    TEquals(1, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     copy = targetDb.open(docs[0]._id, {conflicts: true});
 
-    T(copy._rev.indexOf("2-") === 0);
-    T(copy._conflicts instanceof Array);
-    T(copy._conflicts.length === 1);
-    T(copy._conflicts[0].indexOf("2-") === 0);
+    TEquals(0, copy._rev.indexOf("2-"));
+    TEquals(true, copy._conflicts instanceof Array);
+    TEquals(1, copy._conflicts.length);
+    TEquals(0, copy._conflicts[0].indexOf("2-"));
 
     // replicate again with conflict
     doc.value = "yellow";
-    T(sourceDb.save(doc).ok);
+    TEquals(true, sourceDb.save(doc).ok);
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 5);
-    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 1));
-    T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
-    T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === 1);
-    T(repResult.history[0].missing_found === 1);
-    T(repResult.history[0].docs_read === 1);
-    T(repResult.history[0].docs_written === 1);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(5, repResult.history.length);
+    TEquals((sourceInfo.update_seq - 1), repResult.history[0].start_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].end_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].recorded_seq);
+    TEquals(1, repResult.history[0].missing_checked);
+    TEquals(1, repResult.history[0].missing_found);
+    TEquals(1, repResult.history[0].docs_read);
+    TEquals(1, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     copy = targetDb.open(docs[0]._id, {conflicts: true});
 
-    T(copy._rev.indexOf("3-") === 0);
-    T(copy._conflicts instanceof Array);
-    T(copy._conflicts.length === 1);
-    T(copy._conflicts[0].indexOf("2-") === 0);
+    TEquals(0, copy._rev.indexOf("3-"));
+    TEquals(true, copy._conflicts instanceof Array);
+    TEquals(1, copy._conflicts.length);
+    TEquals(0, copy._conflicts[0].indexOf("2-"));
 
     // resolve the conflict
-    T(targetDb.deleteDoc({_id: copy._id, _rev: copy._conflicts[0]}).ok);
+    TEquals(true, targetDb.deleteDoc({_id: copy._id, _rev: copy._conflicts[0]}).ok);
 
     // replicate again, check there are no more conflicts
     doc.value = "rainbow";
-    T(sourceDb.save(doc).ok);
+    TEquals(true, sourceDb.save(doc).ok);
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 6);
-    T(repResult.history[0].start_last_seq === (sourceInfo.update_seq - 1));
-    T(repResult.history[0].end_last_seq === sourceInfo.update_seq);
-    T(repResult.history[0].recorded_seq === sourceInfo.update_seq);
-    T(repResult.history[0].missing_checked === 1);
-    T(repResult.history[0].missing_found === 1);
-    T(repResult.history[0].docs_read === 1);
-    T(repResult.history[0].docs_written === 1);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(6, repResult.history.length);
+    TEquals((sourceInfo.update_seq - 1), repResult.history[0].start_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].end_last_seq);
+    TEquals(sourceInfo.update_seq, repResult.history[0].recorded_seq);
+    TEquals(1, repResult.history[0].missing_checked);
+    TEquals(1, repResult.history[0].missing_found);
+    TEquals(1, repResult.history[0].docs_read);
+    TEquals(1, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     copy = targetDb.open(docs[0]._id, {conflicts: true});
 
-    T(copy._rev.indexOf("4-") === 0);
-    T(typeof copy._conflicts === "undefined");
+    TEquals(0, copy._rev.indexOf("4-"));
+    TEquals('undefined', typeof copy._conflicts);
   }
 
 
@@ -453,13 +453,13 @@ couchTests.new_replication = function(debug) {
       dbPairs[i].target,
       {body: {create_target: true}}
     );
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
-    T(sourceInfo.update_seq === targetInfo.update_seq);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
+    TEquals(sourceInfo.update_seq, targetInfo.update_seq);
   }
 
 
@@ -495,7 +495,7 @@ couchTests.new_replication = function(debug) {
       }
     );
 
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     for (j = 0; j < docs.length; j++) {
       doc = docs[j];
@@ -504,25 +504,25 @@ couchTests.new_replication = function(debug) {
       if ((doc.integer && (doc.integer % 2 === 0)) || (doc.string === "7")) {
 
         T(copy !== null);
-        T(compareObjects(doc, copy) === true);
+        TEquals(true, compareObjects(doc, copy));
       } else {
-        T(copy === null);
+        TEquals(null, copy);
       }
     }
 
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 1);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(1, repResult.history.length);
     // NOT 31 (31 is db seq for last doc - the ddoc, which was not replicated)
-    T(repResult.source_last_seq === 30);
-    T(repResult.history[0].start_last_seq === 0);
-    T(repResult.history[0].end_last_seq === 30);
-    T(repResult.history[0].recorded_seq === 30);
+    TEquals(30, repResult.source_last_seq);
+    TEquals(0, repResult.history[0].start_last_seq);
+    TEquals(30, repResult.history[0].end_last_seq);
+    TEquals(30, repResult.history[0].recorded_seq);
     // 16 => 15 docs with even integer field  + 1 doc with string field "7"
-    T(repResult.history[0].missing_checked === 16);
-    T(repResult.history[0].missing_found === 16);
-    T(repResult.history[0].docs_read === 16);
-    T(repResult.history[0].docs_written === 16);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(16, repResult.history[0].missing_checked);
+    TEquals(16, repResult.history[0].missing_found);
+    TEquals(16, repResult.history[0].docs_read);
+    TEquals(16, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
 
     // add new docs to source and resume the same replication
@@ -543,7 +543,7 @@ couchTests.new_replication = function(debug) {
       }
     );
 
-    T(repResult.ok === true);
+    TEquals(true, repResult.ok);
 
     for (j = 0; j < newDocs.length; j++) {
       doc = newDocs[j];
@@ -552,24 +552,24 @@ couchTests.new_replication = function(debug) {
       if (doc.integer && (doc.integer % 2 === 0)) {
 
         T(copy !== null);
-        T(compareObjects(doc, copy) === true);
+        TEquals(true, compareObjects(doc, copy));
       } else {
-        T(copy === null);
+        TEquals(null, copy);
       }
     }
 
     // last doc has even integer field, so last replicated seq is 36
-    T(repResult.source_last_seq === 36);
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 2);
-    T(repResult.history[0].start_last_seq === 30);
-    T(repResult.history[0].end_last_seq === 36);
-    T(repResult.history[0].recorded_seq === 36);
-    T(repResult.history[0].missing_checked === 3);
-    T(repResult.history[0].missing_found === 3);
-    T(repResult.history[0].docs_read === 3);
-    T(repResult.history[0].docs_written === 3);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(36, repResult.source_last_seq);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(2, repResult.history.length);
+    TEquals(30, repResult.history[0].start_last_seq);
+    TEquals(36, repResult.history[0].end_last_seq);
+    TEquals(36, repResult.history[0].recorded_seq);
+    TEquals(3, repResult.history[0].missing_checked);
+    TEquals(3, repResult.history[0].missing_found);
+    TEquals(3, repResult.history[0].docs_read);
+    TEquals(3, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
   }
 
 
@@ -591,10 +591,10 @@ couchTests.new_replication = function(debug) {
     populateDb(targetDb, []);
     populateDb(sourceDb, []);
 
-    T(sourceDb.save({_id: "foo1", value: 1}).ok);
-    T(sourceDb.save({_id: "foo2", value: 2}).ok);
-    T(sourceDb.save({_id: "foo3", value: 3}).ok);
-    T(sourceDb.save({_id: "foo4", value: 4}).ok);
+    TEquals(true, sourceDb.save({_id: "foo1", value: 1}).ok);
+    TEquals(true, sourceDb.save({_id: "foo2", value: 2}).ok);
+    TEquals(true, sourceDb.save({_id: "foo3", value: 3}).ok);
+    TEquals(true, sourceDb.save({_id: "foo4", value: 4}).ok);
 
     var ddoc = {
       "_id": "_design/mydesign",
@@ -604,7 +604,7 @@ couchTests.new_replication = function(debug) {
       }
     };
 
-    T(sourceDb.save(ddoc).ok);
+    TEquals(true, sourceDb.save(ddoc).ok);
 
     repResult = CouchDB.new_replicate(
       dbPairs[i].source,
@@ -619,31 +619,31 @@ couchTests.new_replication = function(debug) {
       }
     );
 
-    T(repResult.ok === true);
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 1);
-    T(repResult.history[0].docs_written === 2);
-    T(repResult.history[0].docs_read === 2);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.ok);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(1, repResult.history.length);
+    TEquals(2, repResult.history[0].docs_written);
+    TEquals(2, repResult.history[0].docs_read);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     var docFoo1 = targetDb.open("foo1");
     T(docFoo1 !== null);
-    T(docFoo1.value === 1);
+    TEquals(1, docFoo1.value);
 
     var docFoo2 = targetDb.open("foo2");
     T(docFoo2 !== null);
-    T(docFoo2.value === 2);
+    TEquals(2, docFoo2.value);
 
     var docFoo3 = targetDb.open("foo3");
-    T(docFoo3 === null);
+    TEquals(null, docFoo3);
 
     var docFoo4 = targetDb.open("foo4");
-    T(docFoo4 === null);
+    TEquals(null, docFoo4);
 
     // replication should start from scratch after the filter's code changed
 
     ddoc.filters.myfilter = filterFun2;
-    T(sourceDb.save(ddoc).ok);
+    TEquals(true, sourceDb.save(ddoc).ok);
 
     repResult = CouchDB.new_replicate(
       dbPairs[i].source,
@@ -658,28 +658,28 @@ couchTests.new_replication = function(debug) {
       }
     );
 
-    T(repResult.ok === true);
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 1);
-    T(repResult.history[0].docs_written === 3);
-    T(repResult.history[0].docs_read === 3);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.ok);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(1, repResult.history.length);
+    TEquals(3, repResult.history[0].docs_written);
+    TEquals(3, repResult.history[0].docs_read);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     docFoo1 = targetDb.open("foo1");
     T(docFoo1 !== null);
-    T(docFoo1.value === 1);
+    TEquals(1, docFoo1.value);
 
     docFoo2 = targetDb.open("foo2");
     T(docFoo2 !== null);
-    T(docFoo2.value === 2);
+    TEquals(2, docFoo2.value);
 
     docFoo3 = targetDb.open("foo3");
     T(docFoo3 !== null);
-    T(docFoo3.value === 3);
+    TEquals(3, docFoo3.value);
 
     docFoo4 = targetDb.open("foo4");
     T(docFoo4 !== null);
-    T(docFoo4.value === 4);
+    TEquals(4, docFoo4.value);
 
     T(targetDb.open("_design/mydesign") !== null);
   }
@@ -732,7 +732,7 @@ couchTests.new_replication = function(debug) {
       );
 
       total = doc_ids.length - num_inexistent_docs;
-      T(true, repResult.ok);
+      TEquals(true, repResult.ok);
       if (total === 0) {
         TEquals(true, repResult.no_changes);
       } else {
@@ -749,12 +749,12 @@ couchTests.new_replication = function(debug) {
         copy = targetDb.open(id);
 
         if (id.indexOf("foo_") === 0) {
-          T(doc === null);
-          T(copy === null);
+          TEquals(null, doc);
+          TEquals(null, copy);
         } else {
           T(doc !== null);
           T(copy !== null);
-          T(compareObjects(doc, copy) === true);
+          TEquals(true, compareObjects(doc, copy));
         }
       }
 
@@ -767,12 +767,12 @@ couchTests.new_replication = function(debug) {
         if ((doc_ids.indexOf(id) >= 0) || (doc_ids.indexOf(base_id) >= 0)) {
             T(doc !== null);
         } else {
-            T(doc === null);
+            TEquals(null, doc);
         }
       }
 
       targetInfo = targetDb.info();
-      T(targetInfo.doc_count === total);
+      TEquals(total, targetInfo.doc_count);
 
 
       // add more docs throught replication by doc IDs
@@ -814,12 +814,12 @@ couchTests.new_replication = function(debug) {
         copy = targetDb.open(id);
 
         if (id.indexOf("foo_") === 0) {
-          T(doc === null);
-          T(copy === null);
+          TEquals(null, doc);
+          TEquals(null, copy);
         } else {
           T(doc !== null);
           T(copy !== null);
-          T(compareObjects(doc, copy) === true);
+          TEquals(true, compareObjects(doc, copy));
         }
       }
 
@@ -834,12 +834,12 @@ couchTests.new_replication = function(debug) {
             (after_doc_ids.indexOf(base_id) >= 0)) {
             T(doc !== null);
         } else {
-            T(doc === null);
+            TEquals(null, doc);
         }
       }
 
       targetInfo = targetDb.info();
-      T(targetInfo.doc_count === (total + after_total));
+      TEquals((total + after_total), targetInfo.doc_count);
 
 
       // replicate again the same doc after updated on source (no conflict)
@@ -847,7 +847,7 @@ couchTests.new_replication = function(debug) {
       doc = sourceDb.open(id);
       T(doc !== null);
       doc.integer = 666;
-      T(sourceDb.save(doc).ok);
+      TEquals(true, sourceDb.save(doc).ok);
       addAtt(sourceDb, doc, "readme.txt", att1_data, "text/plain");
       addAtt(sourceDb, doc, "data.dat", att2_data, "application/binary");
 
@@ -861,40 +861,40 @@ couchTests.new_replication = function(debug) {
         }
       );
 
-      T(repResult.ok === true);
-      T(repResult.docs_read === 1);
-      T(repResult.docs_written === 1);
-      T(repResult.doc_write_failures === 0);
+      TEquals(true, repResult.ok);
+      TEquals(1, repResult.docs_read);
+      TEquals(1, repResult.docs_written);
+      TEquals(0, repResult.doc_write_failures);
 
       copy = targetDb.open(id, {conflicts: true});
 
-      T(copy.integer === 666);
-      T(copy._rev.indexOf("4-") === 0);
-      T(typeof copy._conflicts === "undefined");
+      TEquals(666, copy.integer);
+      TEquals(0, copy._rev.indexOf("4-"));
+      TEquals('undefined', typeof copy._conflicts);
 
       var atts = copy._attachments;
-      T(typeof atts === "object");
-      T(typeof atts["readme.txt"] === "object");
-      T(atts["readme.txt"].revpos === 3);
-      T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
-      T(atts["readme.txt"].stub === true);
+      TEquals('object', typeof atts);
+      TEquals('object', typeof atts["readme.txt"]);
+      TEquals(3, atts["readme.txt"].revpos);
+      TEquals(0, atts["readme.txt"].content_type.indexOf("text/plain"));
+      TEquals(true, atts["readme.txt"].stub);
 
       var att1_copy = CouchDB.request(
         "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
       ).responseText;
-      T(att1_copy.length === att1_data.length);
-      T(att1_copy === att1_data);
+      TEquals(att1_data.length, att1_copy.length);
+      TEquals(att1_data, att1_copy);
 
-      T(typeof atts["data.dat"] === "object");
-      T(atts["data.dat"].revpos === 4);
-      T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
-      T(atts["data.dat"].stub === true);
+      TEquals('object', typeof atts["data.dat"]);
+      TEquals(4, atts["data.dat"].revpos);
+      TEquals(0, atts["data.dat"].content_type.indexOf("application/binary"));
+      TEquals(true, atts["data.dat"].stub);
 
       var att2_copy = CouchDB.request(
         "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
       ).responseText;
-      T(att2_copy.length === att2_data.length);
-      T(att2_copy === att2_data);
+      TEquals(att2_data.length, att2_copy.length);
+      TEquals(att2_data, att2_copy);
 
 
       // generate a conflict throught replication by doc IDs
@@ -905,8 +905,8 @@ couchTests.new_replication = function(debug) {
       T(copy !== null);
       doc.integer += 100;
       copy.integer += 1;
-      T(sourceDb.save(doc).ok);
-      T(targetDb.save(copy).ok);
+      TEquals(true, sourceDb.save(doc).ok);
+      TEquals(true, targetDb.save(copy).ok);
 
       repResult = CouchDB.new_replicate(
         dbPairs[i].source,
@@ -918,17 +918,17 @@ couchTests.new_replication = function(debug) {
         }
       );
 
-      T(repResult.ok === true);
-      T(repResult.docs_read === 1);
-      T(repResult.docs_written === 1);
-      T(repResult.doc_write_failures === 0);
+      TEquals(true, repResult.ok);
+      TEquals(1, repResult.docs_read);
+      TEquals(1, repResult.docs_written);
+      TEquals(0, repResult.doc_write_failures);
 
       copy = targetDb.open(id, {conflicts: true});
 
-      T(copy._rev.indexOf("5-") === 0);
-      T(copy._conflicts instanceof Array);
-      T(copy._conflicts.length === 1);
-      T(copy._conflicts[0].indexOf("5-") === 0);
+      TEquals(0, copy._rev.indexOf("5-"));
+      TEquals(true, copy._conflicts instanceof Array);
+      TEquals(1, copy._conflicts.length);
+      TEquals(0, copy._conflicts[0].indexOf("5-"));
     }
   }
 
@@ -957,8 +957,8 @@ couchTests.new_replication = function(debug) {
         }
       }
     );
-    T(repResult.ok === true);
-    T(typeof repResult._local_id === "string");
+    TEquals(true, repResult.ok);
+    TEquals('string', typeof repResult._local_id);
 
     var rep_id = repResult._local_id;
 
@@ -969,28 +969,28 @@ couchTests.new_replication = function(debug) {
       copy = targetDb.open(doc._id);
 
       T(copy !== null);
-      T(compareObjects(doc, copy) === true);
+      TEquals(true, compareObjects(doc, copy));
 
       if (j >= 10 && j < 15) {
         var atts = copy._attachments;
-        T(typeof atts === "object");
-        T(typeof atts["readme.txt"] === "object");
-        T(atts["readme.txt"].revpos === 2);
-        T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
-        T(atts["readme.txt"].stub === true);
+        TEquals('object', typeof atts);
+        TEquals('object', typeof atts["readme.txt"]);
+        TEquals(2, atts["readme.txt"].revpos);
+        TEquals(0, atts["readme.txt"].content_type.indexOf("text/plain"));
+        TEquals(true, atts["readme.txt"].stub);
 
         var att_copy = CouchDB.request(
           "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
         ).responseText;
-        T(att_copy.length === att1_data.length);
-        T(att_copy === att1_data);
+        TEquals(att1_data.length, att_copy.length);
+        TEquals(att1_data, att_copy);
       }
     }
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
     // add attachments to docs in source
     for (j = 10; j < 15; j++) {
@@ -1008,39 +1008,39 @@ couchTests.new_replication = function(debug) {
       copy = targetDb.open(doc._id);
 
       T(copy !== null);
-      T(compareObjects(doc, copy) === true);
+      TEquals(true, compareObjects(doc, copy));
 
       var atts = copy._attachments;
-      T(typeof atts === "object");
-      T(typeof atts["readme.txt"] === "object");
-      T(atts["readme.txt"].revpos === 2);
-      T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
-      T(atts["readme.txt"].stub === true);
+      TEquals('object', typeof atts);
+      TEquals('object', typeof atts["readme.txt"]);
+      TEquals(2, atts["readme.txt"].revpos);
+      TEquals(0, atts["readme.txt"].content_type.indexOf("text/plain"));
+      TEquals(true, atts["readme.txt"].stub);
 
       var att1_copy = CouchDB.request(
         "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
       ).responseText;
-      T(att1_copy.length === att1_data.length);
-      T(att1_copy === att1_data);
+      TEquals(att1_data.length, att1_copy.length);
+      TEquals(att1_data, att1_copy);
 
       if (doc._id.indexOf("_design/") === -1) {
-        T(typeof atts["data.dat"] === "object");
-        T(atts["data.dat"].revpos === 3);
-        T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
-        T(atts["data.dat"].stub === true);
+        TEquals('object', typeof atts["data.dat"]);
+        TEquals(3, atts["data.dat"].revpos);
+        TEquals(0, atts["data.dat"].content_type.indexOf("application/binary"));
+        TEquals(true, atts["data.dat"].stub);
 
         var att2_copy = CouchDB.request(
           "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
         ).responseText;
-        T(att2_copy.length === att2_data.length);
-        T(att2_copy === att2_data);
+        TEquals(att2_data.length, att2_copy.length);
+        TEquals(att2_data, att2_copy);
       }
     }
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
     // add another attachment to the ddoc on source
     addAtt(sourceDb, ddoc, "data.dat", att2_data, "application/binary");
@@ -1049,33 +1049,33 @@ couchTests.new_replication = function(debug) {
 
     copy = targetDb.open(ddoc._id);
     var atts = copy._attachments;
-    T(typeof atts === "object");
-    T(typeof atts["readme.txt"] === "object");
-    T(atts["readme.txt"].revpos === 2);
-    T(atts["readme.txt"].content_type.indexOf("text/plain") === 0);
-    T(atts["readme.txt"].stub === true);
+    TEquals('object', typeof atts);
+    TEquals('object', typeof atts["readme.txt"]);
+    TEquals(2, atts["readme.txt"].revpos);
+    TEquals(0, atts["readme.txt"].content_type.indexOf("text/plain"));
+    TEquals(true, atts["readme.txt"].stub);
 
     var att1_copy = CouchDB.request(
       "GET", "/" + targetDb.name + "/" + copy._id + "/readme.txt"
     ).responseText;
-    T(att1_copy.length === att1_data.length);
-    T(att1_copy === att1_data);
+    TEquals(att1_data.length, att1_copy.length);
+    TEquals(att1_data, att1_copy);
 
-    T(typeof atts["data.dat"] === "object");
-    T(atts["data.dat"].revpos === 3);
-    T(atts["data.dat"].content_type.indexOf("application/binary") === 0);
-    T(atts["data.dat"].stub === true);
+    TEquals('object', typeof atts["data.dat"]);
+    TEquals(3, atts["data.dat"].revpos);
+    TEquals(0, atts["data.dat"].content_type.indexOf("application/binary"));
+    TEquals(true, atts["data.dat"].stub);
 
     var att2_copy = CouchDB.request(
       "GET", "/" + targetDb.name + "/" + copy._id + "/data.dat"
     ).responseText;
-    T(att2_copy.length === att2_data.length);
-    T(att2_copy === att2_data);
+    TEquals(att2_data.length, att2_copy.length);
+    TEquals(att2_data, att2_copy);
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
 
     // add more docs to source
@@ -1089,32 +1089,32 @@ couchTests.new_replication = function(debug) {
       copy = targetDb.open(doc._id);
 
       T(copy !== null);
-      T(compareObjects(doc, copy) === true);
+      TEquals(true, compareObjects(doc, copy));
     }
 
     sourceInfo = sourceDb.info();
     targetInfo = targetDb.info();
 
-    T(sourceInfo.doc_count === targetInfo.doc_count);
+    TEquals(sourceInfo.doc_count, targetInfo.doc_count);
 
     // delete docs from source
-    T(sourceDb.deleteDoc(newDocs[0]).ok);
-    T(sourceDb.deleteDoc(newDocs[6]).ok);
+    TEquals(true, sourceDb.deleteDoc(newDocs[0]).ok);
+    TEquals(true, sourceDb.deleteDoc(newDocs[6]).ok);
 
     waitForSeq(sourceDb, targetDb);
 
     copy = targetDb.open(newDocs[0]._id);
-    T(copy === null);
+    TEquals(null, copy);
     copy = targetDb.open(newDocs[6]._id);
-    T(copy === null);
+    TEquals(null, copy);
 
     var changes = targetDb.changes({since: targetInfo.update_seq});
     var line1 = changes.results[changes.results.length - 2];
     var line2 = changes.results[changes.results.length - 1];
-    T(line1.id === newDocs[0]._id);
-    T(line1.deleted === true);
-    T(line2.id === newDocs[6]._id);
-    T(line2.deleted === true);
+    TEquals(newDocs[0]._id, line1.id);
+    TEquals(true, line1.deleted);
+    TEquals(newDocs[6]._id, line2.id);
+    TEquals(true, line2.deleted);
 
     // cancel the replication
     repResult = CouchDB.new_replicate(
@@ -1127,18 +1127,18 @@ couchTests.new_replication = function(debug) {
         }
       }
     );
-    T(repResult.ok === true);
-    T(repResult._local_id === rep_id);
+    TEquals(true, repResult.ok);
+    TEquals(rep_id, repResult._local_id);
 
     doc = {
       _id: 'foobar',
       value: 666
     };
-    T(sourceDb.save(doc).ok);
+    TEquals(true, sourceDb.save(doc).ok);
 
     wait(2000);
     copy = targetDb.open(doc._id);
-    T(copy === null);
+    TEquals(null, copy);
   }
 
 
@@ -1171,20 +1171,20 @@ couchTests.new_replication = function(debug) {
         headers: {"Content-Type": "text/plain"}
       }
     );
-    T(xhr.status === 201);
+    TEquals(201, xhr.status);
 
     // disable compression and replicate
     disableAttCompression();
 
     repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
-    T(repResult.ok === true);
-    T(repResult.history instanceof Array);
-    T(repResult.history.length === 1);
-    T(repResult.history[0].missing_checked === 1);
-    T(repResult.history[0].missing_found === 1);
-    T(repResult.history[0].docs_read === 1);
-    T(repResult.history[0].docs_written === 1);
-    T(repResult.history[0].doc_write_failures === 0);
+    TEquals(true, repResult.ok);
+    TEquals(true, repResult.history instanceof Array);
+    TEquals(1, repResult.history.length);
+    TEquals(1, repResult.history[0].missing_checked);
+    TEquals(1, repResult.history[0].missing_found);
+    TEquals(1, repResult.history[0].docs_read);
+    TEquals(1, repResult.history[0].docs_written);
+    TEquals(0, repResult.history[0].doc_write_failures);
 
     copy = targetDb.open(
       doc._id,
@@ -1251,7 +1251,7 @@ couchTests.new_replication = function(debug) {
     populateDb(sourceDb, docs);
     populateDb(targetDb, []);
 
-    T(targetDb.setSecObj({
+    TEquals(true, targetDb.setSecObj({
       admins: {
         names: ["superman"],
         roles: ["god"]
@@ -1260,19 +1260,19 @@ couchTests.new_replication = function(debug) {
 
     run_on_modified_server(server_config, function() {
       delete joeUserDoc._rev;
-      T(usersDb.save(joeUserDoc).ok);
+      TEquals(true, usersDb.save(joeUserDoc).ok);
 
-      T(CouchDB.login("joe", "erly").ok);
-      T(CouchDB.session().userCtx.name === "joe");
+      TEquals(true, CouchDB.login("joe", "erly").ok);
+      TEquals('joe', CouchDB.session().userCtx.name);
 
       repResult = CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
 
-      T(CouchDB.logout().ok);
+      TEquals(true, CouchDB.logout().ok);
 
-      T(repResult.ok === true);
-      T(repResult.history[0].docs_read === docs.length);
-      T(repResult.history[0].docs_written === (docs.length - 1)); // 1 ddoc
-      T(repResult.history[0].doc_write_failures === 1);
+      TEquals(true, repResult.ok);
+      TEquals(docs.length, repResult.history[0].docs_read);
+      TEquals((docs.length - 1), repResult.history[0].docs_written); // 1 ddoc
+      TEquals(1, repResult.history[0].doc_write_failures);
     });
 
     for (j = 0; j < docs.length; j++) {
@@ -1280,10 +1280,10 @@ couchTests.new_replication = function(debug) {
       copy = targetDb.open(doc._id);
 
       if (doc._id.indexOf("_design/") === 0) {
-        T(copy === null);
+        TEquals(null, copy);
       } else {
         T(copy !== null);
-        T(compareObjects(doc, copy) === true);
+        TEquals(true, compareObjects(doc, copy));
       }
     }
   }
@@ -1314,7 +1314,7 @@ couchTests.new_replication = function(debug) {
     populateDb(sourceDb, docs);
     populateDb(targetDb, []);
 
-    T(sourceDb.setSecObj({
+    TEquals(true, sourceDb.setSecObj({
       admins: {
         names: ["superman"],
         roles: ["god"]
@@ -1327,10 +1327,10 @@ couchTests.new_replication = function(debug) {
 
     run_on_modified_server(server_config, function() {
       delete joeUserDoc._rev;
-      T(usersDb.save(joeUserDoc).ok);
+      TEquals(true, usersDb.save(joeUserDoc).ok);
 
-      T(CouchDB.login("joe", "erly").ok);
-      T(CouchDB.session().userCtx.name === "joe");
+      TEquals(true, CouchDB.login("joe", "erly").ok);
+      TEquals('joe', CouchDB.session().userCtx.name);
 
       try {
         CouchDB.new_replicate(dbPairs[i].source, dbPairs[i].target);
@@ -1338,13 +1338,13 @@ couchTests.new_replication = function(debug) {
       } catch (x) {
       }
 
-      T(CouchDB.logout().ok);
+      TEquals(true, CouchDB.logout().ok);
     });
 
     for (j = 0; j < docs.length; j++) {
       doc = docs[j];
       copy = targetDb.open(doc._id);
-      T(copy === null);
+      TEquals(null, copy);
     }
   }
 
