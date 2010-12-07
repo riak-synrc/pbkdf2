@@ -29,20 +29,14 @@
 -define(replace(L, K, V), lists:keystore(K, 1, L, {K, V})).
 
 
-setup(#httpdb{url = Url} = Db) ->
+setup(#httpdb{url = Url, httpc_pool = nil} = Db) ->
     #url{host = Host, port = Port} = ibrowse_lib:parse_url(Url),
-    MaxSessions = list_to_integer(
-        couch_config:get("replicator", "max_connections_per_server", "100")),
-    ok = ibrowse:set_max_sessions(Host, Port, MaxSessions),
-    ok = ibrowse:set_max_pipeline_size(Host, Port, 1),
-    ok = couch_config:register(
-        fun("replicator", "max_connections_per_server", NewMax) ->
-            ok = ibrowse:set_max_sessions(Host, Port, list_to_integer(NewMax))
-        end),
-    {ok, Db}.
+    {ok, Pid} = couch_httpc_pool:start_link(Host, Port),
+    {ok, Db#httpdb{httpc_pool = Pid}}.
 
 
-send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
+send_req(#httpdb{headers = BaseHeaders, httpc_pool = Pool} = HttpDb,
+         Params, Callback) ->
     Method = get_value(method, Params, get),
     Headers = get_value(headers, Params, []) ++ BaseHeaders,
     Body = get_value(body, Params, []),
@@ -63,20 +57,19 @@ send_req(#httpdb{headers = BaseHeaders} = HttpDb, Params, Callback) ->
     Url = full_url(HttpDb, Params),
     case get_value(direct, Params, false) of
     true ->
-        {ok, Worker} = ibrowse:spawn_link_worker_process(Url),
+        {ok, Pid} = ibrowse:spawn_link_worker_process(Url),
+        Worker = {direct, Pid},
         Response = ibrowse:send_req_direct(
-            Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity);
+            Pid, Url, Headers2, Method, Body, IbrowseOptions, infinity);
     false ->
-        Worker = nil,
-        Response = ibrowse:send_req(
-            Url, Headers2, Method, Body, IbrowseOptions, infinity)
+        {ok, Worker} = couch_httpc_pool:get_worker(Pool),
+        Response = ibrowse:send_req_direct(
+            Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity)
     end,
     process_response(Response, Worker, HttpDb, Params, Callback).
 
 
-process_response({error, retry_later}, _Worker, HttpDb, Params, Callback) ->
-    % this means that the config option "max_connections_per_server" should
-    % probably be increased
+process_response({error, sel_conn_closed}, _Worker, HttpDb, Params, Callback) ->
     ok = timer:sleep(?RETRY_LATER_WAIT),
     send_req(HttpDb, Params, Callback);
 
@@ -89,7 +82,7 @@ process_response({ibrowse_req_id, ReqId}, Worker, HttpDb, Params, Callback) ->
     process_stream_response(ReqId, Worker, HttpDb, Params, Callback);
 
 process_response({ok, Code, Headers, Body}, Worker, HttpDb, Params, Callback) ->
-    stop_worker(Worker),
+    stop_worker(Worker, HttpDb),
     case list_to_integer(Code) of
     Ok when Ok =:= 200 ; Ok =:= 201 ; (Ok >= 400 andalso Ok < 500) ->
         EJson = case Body of
@@ -118,7 +111,7 @@ process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
                 stream_data_self(HttpDb, Params, Worker, ReqId, Callback)
             end,
             Ret = Callback(Ok, Headers, StreamDataFun),
-            stop_worker(Worker),
+            stop_worker(Worker, HttpDb),
             Ret;
         R when R =:= 301 ; R =:= 302 ; R =:= 303 ->
             do_redirect(Worker, R, Headers, HttpDb, Params, Callback);
@@ -130,12 +123,12 @@ process_stream_response(ReqId, Worker, HttpDb, Params, Callback) ->
     end.
 
 
-stop_worker(nil) ->
-    ok;
-stop_worker(Worker) when is_pid(Worker) ->
+stop_worker({direct, Worker}, _HttpDb) ->
     unlink(Worker),
     receive {'EXIT', Worker, _} -> ok after 0 -> ok end,
-    catch ibrowse:stop_worker_process(Worker).
+    catch ibrowse:stop_worker_process(Worker);
+stop_worker(Worker, #httpdb{httpc_pool = Pool}) ->
+    ok = couch_httpc_pool:release_worker(Pool, Worker).
 
 
 maybe_retry(Error, Worker, #httpdb{retries = 0} = HttpDb, Params, _Cb) ->
@@ -143,7 +136,7 @@ maybe_retry(Error, Worker, #httpdb{retries = 0} = HttpDb, Params, _Cb) ->
 
 maybe_retry(Error, Worker, #httpdb{retries = Retries, wait = Wait} = HttpDb,
     Params, Cb) ->
-    stop_worker(Worker),
+    stop_worker(Worker, HttpDb),
     Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
     Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
     ?LOG_INFO("Retrying ~s request to ~s in ~p seconds due to error ~p",
@@ -162,7 +155,7 @@ report_error(Worker, HttpDb, Params, Error) ->
     Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
     Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
     do_report_error(Url, Method, Error),
-    stop_worker(Worker),
+    stop_worker(Worker, HttpDb),
     exit({http_request_failed, Method, Url, Error}).
 
 
@@ -231,7 +224,7 @@ oauth_header(#httpdb{url = BaseUrl, oauth = OAuth}, ConnParams) ->
 
 
 do_redirect(Worker, Code, Headers, #httpdb{url = Url} = HttpDb, Params, Cb) ->
-    stop_worker(Worker),
+    stop_worker(Worker, HttpDb),
     RedirectUrl = redirect_url(Headers, Url),
     {HttpDb2, Params2} = after_redirect(RedirectUrl, Code, HttpDb, Params),
     send_req(HttpDb2, Params2, Cb).

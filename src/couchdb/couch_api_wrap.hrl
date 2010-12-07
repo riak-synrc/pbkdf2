@@ -20,7 +20,8 @@
     proxy_options = [],
     ssl_options = [],
     retries = 10,
-    wait = 250          % milliseconds
+    wait = 250,         % milliseconds
+    httpc_pool = nil
 }).
 
 -record(oauth, {
