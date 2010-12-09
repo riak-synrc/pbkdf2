@@ -74,26 +74,26 @@ db_open(#httpdb{} = Db1, _Options, Create) ->
         (401, _, _) ->
             throw({unauthorized, ?l2b(db_uri(Db))});
         (_, _, _) ->
-            throw({db_not_found, ?l2b(Db#httpdb.url)})
+            throw({db_not_found, ?l2b(db_uri(Db))})
         end);
 db_open(DbName, Options, Create) ->
-    case Create of
-    false ->
-        ok;
-    true ->
-        case couch_db:create(DbName, Options) of
-        {ok, _Db} ->
+    try
+        case Create of
+        false ->
             ok;
-        file_exists ->
-            ok
+        true ->
+            ok = couch_httpd:verify_is_server_admin(
+                get_value(user_ctx, Options)),
+            couch_db:create(DbName, Options)
+        end,
+        case couch_db:open(DbName, Options) of
+        {not_found, _Reason} ->
+            throw({db_not_found, DbName});
+        {ok, _Db} = Success ->
+            Success
         end
-    end,
-    case (catch couch_db:open(DbName, Options)) of
-    {not_found, _Reason} ->
-        throw({db_not_found, DbName});
-    {ok, _Db2} = Success ->
-        Success;
-    {unauthorized, _} ->
+    catch
+    throw:{unauthorized, _} ->
         throw({unauthorized, DbName})
     end.
 

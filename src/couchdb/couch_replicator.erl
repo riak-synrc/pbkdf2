@@ -153,8 +153,8 @@ start_replication(#rep{id = {BaseId, Extension}} = Rep) ->
             ?LOG_DEBUG("replication ~p already running at ~p",
                 [RepChildId, Pid]),
             {ok, Pid};
-        {error, _} = Err ->
-            Err
+        {error, _} = Error ->
+            Error
         end;
     {error, {already_started, Pid}} ->
         ?LOG_DEBUG("replication ~p already running at ~p", [RepChildId, Pid]),
@@ -198,6 +198,11 @@ init(InitArgs) ->
     try
         do_init(InitArgs)
     catch
+    throw:{unauthorized, DbUri} ->
+        {stop, {unauthorized,
+            <<"unauthorized to access database ", DbUri/binary>>}};
+    throw:{db_not_found, DbUri} ->
+        {stop, {db_not_found, <<"could not open ", DbUri/binary>>}};
     throw:Error ->
         {stop, Error}
     end.

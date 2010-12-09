@@ -19,6 +19,10 @@
     send_json/3,
     send_method_not_allowed/2
 ]).
+
+-import(couch_util, [
+    to_binary/1
+]).
     
 -export([handle_req/1]).
 
@@ -27,13 +31,12 @@ handle_req(#httpd{method = 'POST', user_ctx = UserCtx} = Req) ->
     RepDoc = couch_httpd:json_body_obj(Req),
     {ok, Rep} = couch_replicator_utils:parse_rep_doc(RepDoc, UserCtx),
     case couch_replicator:replicate(Rep) of
+    {error, {Error, Reason}} ->
+        send_json(
+            Req, 404,
+            {[{error, to_binary(Error)}, {reason, to_binary(Reason)}]});
     {error, Reason} ->
-        try
-            send_json(Req, 500, {[{error, Reason}]})
-        catch
-        exit:{json_encode, _} ->
-            send_json(Req, 500, {[{error, couch_util:to_binary(Reason)}]})
-        end;
+        send_json(Req, 500, {[{error, to_binary(Reason)}]});
     {ok, {cancelled, RepId}} ->
         send_json(Req, 200, {[{ok, true}, {<<"_local_id">>, RepId}]});
     {ok, {continuous, RepId}} ->
