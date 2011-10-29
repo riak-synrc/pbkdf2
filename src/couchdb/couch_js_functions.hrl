@@ -80,12 +80,15 @@
         }
 
         // no system roles in users db
-        for (var i = 0; i < newDoc.roles.length; i++) {
-            if (newDoc.roles[i][0] === '_') {
-                throw({
-                    forbidden:
-                    'No system roles (starting with underscore) in users db.'
-                });
+        if (newDoc.roles) {
+            for (var i = 0; i < newDoc.roles.length; i++) {
+                if (newDoc.roles[i][0] === '_') {
+                    throw({
+                        forbidden:
+                        'No system roles (starting with underscore) in users'
+                        + ' db.'
+                    });
+                }
             }
         }
 

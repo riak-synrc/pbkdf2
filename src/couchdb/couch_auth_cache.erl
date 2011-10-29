@@ -52,7 +52,7 @@ get_user_creds(UserName) ->
                 {<<"salt">>, ?l2b(Salt)},
                 {<<"password_sha">>, ?l2b(HashedPwd)}];
         UserProps when is_list(UserProps) ->
-            DocRoles = couch_util:get_value(<<"roles">>, UserProps),
+            DocRoles = couch_util:get_value(<<"roles">>, UserProps, []),
             [{<<"roles">>, [<<"_admin">> | DocRoles]},
                 {<<"salt">>, ?l2b(Salt)},
                 {<<"password_sha">>, ?l2b(HashedPwd)}]
