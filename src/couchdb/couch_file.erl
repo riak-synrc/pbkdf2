@@ -42,6 +42,9 @@
 -export([init/1, terminate/2, code_change/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 
+% for code upgrades
+-export([spawn_reader/1, spawn_writer/2]).
+
 %%----------------------------------------------------------------------
 %% Args:   Valid Options are [create] and [create,overwrite].
 %%  Files are opened in read/write mode.
@@ -290,15 +293,16 @@ init_status_error(ReturnPid, Ref, Error) ->
 
 init({Filepath, Options, ReturnPid, Ref}) ->
    try
-       maybe_create_file(Filepath, Options),
+       ok = maybe_create_file(Filepath, Options),
        process_flag(trap_exit, true),
-       Reader = spawn_reader(Filepath),
-       {Writer, Eof} = spawn_writer(Filepath),
+       {ok, Reader} = proc_lib:start_link(?MODULE, spawn_reader, [Filepath]),
+       {ok, Writer, Eof} = proc_lib:start_link(
+           ?MODULE, spawn_writer, [Filepath, self()]),
        maybe_track_open_os_files(Options),
        {ok, #file{reader = Reader, writer = Writer, eof = Eof}}
    catch
-   throw:{error, Err} ->
-       init_status_error(ReturnPid, Ref, Err)
+   error:{badmatch, Error} ->
+       init_status_error(ReturnPid, Ref, Error)
    end.
 
 maybe_create_file(Filepath, Options) ->
@@ -320,13 +324,13 @@ maybe_create_file(Filepath, Options) ->
                     ok = file:sync(Fd);
                 false ->
                     ok = file:close(Fd),
-                    throw({error, file_exists})
+                    file_exists
                 end;
             false ->
                 ok
             end;
         Error ->
-            throw({error, Error})
+            Error
         end;
     false ->
         ok
@@ -565,42 +569,24 @@ split_iolist([Byte | Rest], SplitAt, BeginAcc) when is_integer(Byte) ->
     split_iolist(Rest, SplitAt - 1, [Byte | BeginAcc]).
 
 
-spawn_writer(Filepath) ->
-    Parent = self(),
-    Pid = spawn_link(fun() ->
-        case file:open(Filepath, [binary, append, raw]) of
-        {ok, Fd} ->
-            {ok, Eof} = file:position(Fd, eof),
-            Parent ! {self(), {ok, Eof}},
-            writer_loop(Parent, Fd, Eof);
-        Error ->
-            Parent ! {self(), Error}
-        end
-    end),
-    receive
-    {Pid, {ok, Eof}} ->
-         {Pid, Eof};
-    {Pid, Error} ->
-         throw({error, Error})
+spawn_writer(Filepath, Parent) ->
+    case file:open(Filepath, [binary, append, raw]) of
+    {ok, Fd} ->
+        {ok, Eof} = file:position(Fd, eof),
+        proc_lib:init_ack({ok, self(), Eof}),
+        writer_loop(Parent, Fd, Eof);
+    Error ->
+        proc_lib:init_ack(Error)
     end.
 
 
 spawn_reader(Filepath) ->
-    Parent = self(),
-    Pid = spawn_link(fun() ->
-        case file:open(Filepath, [binary, read, raw]) of
-        {ok, Fd} ->
-            Parent ! {self(), ok},
-            reader_loop(Fd);
-        Error ->
-            Parent ! {self(), Error}
-        end
-    end),
-    receive
-    {Pid, ok} ->
-         Pid;
-    {Pid, Error} ->
-         throw({error, Error})
+    case file:open(Filepath, [binary, read, raw]) of
+    {ok, Fd} ->
+        proc_lib:init_ack({ok, self()}),
+        reader_loop(Fd);
+    Error ->
+        proc_lib:init_ack(Error)
     end.
 
 
