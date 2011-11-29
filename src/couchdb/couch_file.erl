@@ -132,6 +132,16 @@ pread_binary(Fd, Pos) ->
 
 
 pread_iolist(Fd, Pos) ->
+    case do_read_iolist(Fd, Pos) of
+    eof ->
+        flush(Fd),
+        do_read_iolist(Fd, Pos);
+    Else ->
+        Else
+    end.
+
+
+do_read_iolist(Fd, Pos) ->
     case gen_server:call(Fd, {pread_iolist, Pos}, infinity) of
     {ok, _IoList} = Ok ->
         Ok;
@@ -260,7 +270,8 @@ write_header(Fd, Data) ->
     Md5 = couch_util:md5(Bin),
     % now we assemble the final header binary and write to disk
     FinalBin = <<Md5/binary, Bin/binary>>,
-    ok = gen_server:call(Fd, {write_header, FinalBin}, infinity).
+    ok = gen_server:call(Fd, {write_header, FinalBin}, infinity),
+    ok = flush(Fd).
 
 
 % server functions
@@ -472,8 +483,12 @@ read_raw_iolist_int(ReadFd, {Pos, _Size}, Len) -> % 0110 UPGRADE CODE
 read_raw_iolist_int(ReadFd, Pos, Len) ->
     BlockOffset = Pos rem ?SIZE_BLOCK,
     TotalBytes = calculate_total_read_len(BlockOffset, Len),
-    {ok, <<RawBin:TotalBytes/binary>>} = file:pread(ReadFd, Pos, TotalBytes),
-    {remove_block_prefixes(BlockOffset, RawBin), Pos + TotalBytes}.
+    case file:pread(ReadFd, Pos, TotalBytes) of
+    {ok, <<RawBin:TotalBytes/binary>>} ->
+        {remove_block_prefixes(BlockOffset, RawBin), Pos + TotalBytes};
+    eof ->
+        throw(eof)
+    end.
 
 -spec extract_md5(iolist()) -> {binary(), iolist()}.
 extract_md5(FullIoList) ->
@@ -649,7 +664,13 @@ write_header_blocks(Fd, Eof, Header) ->
 reader_loop(Fd) ->
     receive
     {read, Pos, From} ->
-        read_iolist(Fd, Pos, From),
+        Result = try
+            read_iolist(Fd, Pos)
+        catch
+        throw:eof ->
+            eof
+        end,
+        gen_server:reply(From, Result),
         reader_loop(Fd);
     {find_header, Eof, From} ->
         gen_server:reply(From, find_header(Fd, Eof div ?SIZE_BLOCK)),
@@ -660,9 +681,9 @@ reader_loop(Fd) ->
     end.
 
 
--compile({inline, [read_iolist/3]}).
+-compile({inline, [read_iolist/2]}).
 
-read_iolist(Fd, Pos, From) ->
+read_iolist(Fd, Pos) ->
     {RawData, NextPos} = try
         % up to 8Kbs of read ahead
         read_raw_iolist_int(Fd, Pos, 2 * ?SIZE_BLOCK - (Pos rem ?SIZE_BLOCK))
@@ -676,8 +697,8 @@ read_iolist(Fd, Pos, From) ->
     1 ->
         {Md5, IoList} = extract_md5(
             maybe_read_more_iolist(RestRawData, 16 + Len, NextPos, Fd)),
-        gen_server:reply(From, {ok, IoList, Md5});
+        {ok, IoList, Md5};
     0 ->
         IoList = maybe_read_more_iolist(RestRawData, Len, NextPos, Fd),
-        gen_server:reply(From, {ok, IoList})
+        {ok, IoList}
     end.

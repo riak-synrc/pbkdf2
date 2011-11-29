@@ -128,8 +128,7 @@ finish_update(State) ->
 
 commit(State) ->
     Header = {State#mrst.sig, couch_mrview_util:make_header(State)},
-    ok = couch_file:write_header(State#mrst.fd, Header),
-    ok = couch_file:flush(State#mrst.fd).
+    ok = couch_file:write_header(State#mrst.fd, Header).
 
 
 compact(Db, State, Opts) ->

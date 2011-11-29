@@ -659,8 +659,7 @@ update_docs_int(Db, DocsList, NonRepDocs, MergeConflicts, FullCommit) ->
         fulldocinfo_by_id_btree = DocInfoByIdBTree,
         docinfo_by_seq_btree = DocInfoBySeqBTree,
         update_seq = LastSeq,
-        revs_limit = RevsLimit,
-        fd = Fd
+        revs_limit = RevsLimit
         } = Db,
     Ids = [Id || [{_Client, #doc{id=Id}}|_] <- DocsList],
     % lookup up the old documents, if they exist.
@@ -695,7 +694,6 @@ update_docs_int(Db, DocsList, NonRepDocs, MergeConflicts, FullCommit) ->
         fulldocinfo_by_id_btree = DocInfoByIdBTree2,
         docinfo_by_seq_btree = DocInfoBySeqBTree2,
         update_seq = NewSeq},
-    couch_file:flush(Fd),
 
     % Check if we just updated any design documents, and update the validation
     % funs if we did.
@@ -787,7 +785,6 @@ commit_data(Db, _) ->
         end,
 
         ok = couch_file:write_header(Fd, Header),
-        ok = couch_file:flush(Fd),
 
         case lists:member(after_header, FsyncOptions) of
         true -> ok = couch_file:sync(Fd);
@@ -838,7 +835,6 @@ copy_docs(Db, #db{fd = DestFd} = NewDb, InfoBySeq0, Retry) ->
     InfoBySeq = lists:usort(fun(#doc_info{id=A}, #doc_info{id=B}) -> A =< B end,
         InfoBySeq0),
     Ids = [Id || #doc_info{id=Id} <- InfoBySeq],
-    ok = couch_file:flush(DestFd),
     LookupResults = couch_btree:lookup(Db#db.fulldocinfo_by_id_btree, Ids),
 
     NewFullDocInfos1 = lists:map(
@@ -888,8 +884,6 @@ copy_docs(Db, #db{fd = DestFd} = NewDb, InfoBySeq0, Retry) ->
 copy_compact(Db, NewDb0, Retry) ->
     FsyncOptions = [Op || Op <- NewDb0#db.fsync_options, Op == before_header],
     NewDb = NewDb0#db{fsync_options=FsyncOptions},
-    ok = couch_file:flush(Db#db.fd),
-    ok = couch_file:flush(NewDb#db.fd),
     TotalChanges = couch_db:count_changes_since(Db, NewDb#db.update_seq),
     BufferSize = list_to_integer(
         couch_config:get("database_compaction", "doc_buffer_size", "524288")),
@@ -955,7 +949,6 @@ copy_compact(Db, NewDb0, Retry) ->
         NewDb4 = NewDb3
     end,
 
-    ok = couch_file:flush(NewDb4#db.fd),
     commit_data(NewDb4#db{update_seq=Db#db.update_seq}).
 
 start_copy_compact(#db{name=Name,filepath=Filepath,header=#db_header{purge_seq=PurgeSeq}}=Db) ->

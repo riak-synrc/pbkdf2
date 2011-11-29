@@ -55,8 +55,7 @@ start_update(Partial, State, NumChanges) ->
 purge(_Db, PurgeSeq, PurgedIdRevs, State) ->
     #mrst{
         id_btree=IdBtree,
-        views=Views,
-        fd=Fd
+        views=Views
     } = State,
 
     Ids = [Id || {Id, _Revs} <- PurgedIdRevs],
@@ -88,7 +87,6 @@ purge(_Db, PurgeSeq, PurgedIdRevs, State) ->
     end,
 
     Views2 = lists:map(RemKeysFun, Views),
-    ok = couch_file:flush(Fd),
     {ok, State#mrst{
         id_btree=IdBtree2,
         views=Views2,
@@ -231,8 +229,7 @@ insert_results(DocId, [KVs | RKVs], [{Id, VKVs} | RVKVs], VKVAcc, VIdKeys) ->
 write_kvs(State, UpdateSeq, ViewKVs, DocIdKeys) ->
     #mrst{
         id_btree=IdBtree,
-        first_build=FirstBuild,
-        fd=Fd
+        first_build=FirstBuild
     } = State,
 
     {ok, ToRemove, IdBtree2} = update_id_btree(IdBtree, DocIdKeys, FirstBuild),
@@ -248,7 +245,6 @@ write_kvs(State, UpdateSeq, ViewKVs, DocIdKeys) ->
         View#mrview{btree=VBtree2, update_seq=NewUpdateSeq}
     end,
 
-    ok = couch_file:flush(Fd),
     State#mrst{
         views=lists:zipwith(UpdateView, State#mrst.views, ViewKVs),
         update_seq=UpdateSeq,
