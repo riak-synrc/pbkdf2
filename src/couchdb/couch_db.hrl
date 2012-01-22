@@ -187,7 +187,9 @@
     revs_limit = 1000,
     fsync_options = [],
     options = [],
-    compression
+    compression,
+    before_doc_update = nil, % nil | fun(Doc, Db) -> NewDoc
+    after_doc_read = nil     % nil | fun(Doc, Db) -> NewDoc
     }).
 
 
@@ -233,32 +235,6 @@
     ctype = "application/json",
     headers = []
 }).
-
--record(group, {
-    sig=nil,
-    fd=nil,
-    name,
-    def_lang,
-    design_options=[],
-    views,
-    lib,
-    id_btree=nil,
-    current_seq=0,
-    purge_seq=0,
-    query_server=nil,
-    waiting_delayed_commit=nil
-    }).
-
--record(view,
-    {id_num,
-    update_seq=0,
-    purge_seq=0,
-    map_names=[],
-    def,
-    btree=nil,
-    reduce_funs=[],
-    options=[]
-    }).
 
 -record(index_header,
     {seq=0,

@@ -81,9 +81,13 @@ README.gz: $(top_srcdir)/README
 THANKS.gz: $(top_srcdir)/THANKS
 	-gzip -9 < $< > $@
 
-check: dev
+check: dev check-js
 	$(top_builddir)/test/etap/run $(top_srcdir)/test/etap
+
+check-js: dev
+if USE_CURL
 	$(top_builddir)/test/javascript/run
+endif
 
 cover: dev
 	rm -f cover/*.coverdata
@@ -113,6 +117,8 @@ distclean-local:
 	rm -fr $(top_builddir)/etc/couchdb/default.d
 	rm -fr $(top_builddir)/etc/couchdb/local.d
 	rm -fr $(top_builddir)/tmp
+	rm -f  $(top_builddir)/couchdb.stdout
+	rm -f  $(top_builddir)/couchdb.stderr
 
 .PHONY: local-clean
 local-clean: maintainer-clean
@@ -141,7 +147,7 @@ distcheck-hook:
 distsign: distcheck check
 	@# @@ unpack archive and run diff -r to double check missing files
 	@# @@ does automake have anything that does this?
-	gpg --armor --detach-sig --default-key 8FBFCFBF \
+	gpg --armor --detach-sig $(GPG_ARGS) \
 	    < $(top_srcdir)/$(distdir).tar.gz \
 	    > $(top_srcdir)/$(distdir).tar.gz.asc
 	md5sum $(top_srcdir)/$(distdir).tar.gz \

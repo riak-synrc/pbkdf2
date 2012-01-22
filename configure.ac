@@ -177,8 +177,11 @@ AS_CASE([$(uname -s)],
     [CYGWIN*], [] ,
     [*], [
     CPPFLAGS="$CPPFLAGS -I/opt/local/include"
+    CPPFLAGS="$CPPFLAGS -I/opt/local/include/js"
     CPPFLAGS="$CPPFLAGS -I/usr/local/include"
+    CPPFLAGS="$CPPFLAGS -I/usr/local/include/js"
     CPPFLAGS="$CPPFLAGS -I/usr/include"
+    CPPFLAGS="$CPPFLAGS -I/usr/include/js"
     LDFLAGS="$LDFLAGS -L/opt/local/lib"
     LDFLAGS="$LDFLAGS -L/usr/local/lib"
 ])
@@ -203,8 +206,21 @@ AS_CASE([$(uname -s)],
 
 AM_CONDITIONAL([WINDOWS], [test x$IS_WINDOWS = xTRUE])
 
+AC_CHECK_HEADER([jsapi.h], [], [
+    AC_CHECK_HEADER([js/jsapi.h],
+        [
+        CPPFLAGS="$CPPFLAGS -I$JS_INCLUDE/js"
+        ],
+        [
+            AC_MSG_ERROR([Could not find the jsapi header.
+
+Are the Mozilla SpiderMonkey headers installed?])
+        ])])
+
 OLD_LIBS="$LIBS"
 LIBS="$JS_LIBS $LIBS"
+OLD_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$JS_CFLAGS $CPPFLAGS"
 AC_CHECK_LIB([mozjs185], [JS_NewContext], [JS_LIB_BASE=mozjs185], [
     AC_CHECK_LIB([mozjs185-1.0], [JS_NewContext], [JS_LIB_BASE=mozjs185-1.0], [
         AC_CHECK_LIB([mozjs], [JS_NewContext], [JS_LIB_BASE=mozjs], [
@@ -218,6 +234,20 @@ Is the Mozilla SpiderMonkey library installed?])])])])])])])
 # Figure out what version of SpiderMonkey to use
 
 AC_CHECK_LIB([$JS_LIB_BASE], [JS_NewCompartmentAndGlobalObject],
+    # Prevent people from accidentally using SpiderMonkey's that are too new
+
+    if test "$use_js_trunk" = "no"; then
+        AC_CHECK_DECL([JSOPTION_ANONFUNFIX], [], [
+            AC_MSG_ERROR([Your SpiderMonkey library is too new.
+
+Versions of SpiderMonkey after the js185-1.0.0 release remove the optional
+enforcement of preventing anonymous functions in a statement context. This
+will most likely break your existing JavaScript code as well as render all
+example code invalid.
+
+If you wish to ignore this error pass --enable-js-trunk to ./configure.])],
+        [[#include <jsapi.h>]])
+    fi
     AC_DEFINE([SM185], [1],
         [Use SpiderMonkey 1.8.5]))
 
@@ -229,9 +259,15 @@ AC_CHECK_LIB([$JS_LIB_BASE], [JS_GetStringCharsAndLength],
     AC_DEFINE([HAVE_JS_GET_STRING_CHARS_AND_LENGTH], [1],
         [Use newer JS_GetCharsAndLength function.]))
 
-
 # Else, hope that 1.7.0 works
-LIBS="$OLD_LIBS"
+
+# Deal with JSScript -> JSObject -> JSScript switcheroo
+
+AC_CHECK_TYPE([JSScript*],
+    [AC_DEFINE([JSSCRIPT_TYPE], [JSScript*], [Use JSObject* for scripts])],
+    [AC_DEFINE([JSSCRIPT_TYPE], [JSObject*], [Use JSScript* for scripts])],
+    [[#include <jsapi.h>]]
+)
 
 AC_DEFINE([COUCHJS_NAME], ["couchjs"], ["CouchJS executable name."])
 
@@ -284,48 +320,13 @@ fi
 JS_LIBS="-l$JS_LIB_BASE -lm $JS_LIBS"
 AC_SUBST(JS_LIBS)
 
-OLD_CPPFLAGS="$CPPFLAGS"
-CPPFLAGS="$JS_CFLAGS $CPPFLAGS"
-AC_CHECK_HEADER([jsapi.h], [], [
-    AC_CHECK_HEADER([js/jsapi.h],
-        [
-        CPPFLAGS="$CPPFLAGS -I$JS_INCLUDE/js"
-        ],
-        [
-            AC_MSG_ERROR([Could not find the jsapi header.
-
-Are the Mozilla SpiderMonkey headers installed?])
-        ])])
-
-# Prevent people from accidentally using SpiderMonkey's that are too new
-
-if test "$use_js_trunk" = "no"; then
-AC_CHECK_DECL([JSOPTION_ANONFUNFIX], [], [
-    AC_MSG_ERROR([Your SpiderMonkey library is too new.
-
-Versions of SpiderMonkey after the js185-1.0.0 release remove the optional
-enforcement of preventing anonymous functions in a statement context. This
-will most likely break your existing JavaScript code as well as render all
-example code invalid.
-
-If you wish to ignore this error pass --enable-js-trunk to ./configure.])],
-    [[#include <jsapi.h>]])
-fi
-
-# Deal with JSScript -> JSObject -> JSScript switcheroo
-
-AC_CHECK_TYPE([JSScript*],
-    [AC_DEFINE([JSSCRIPT_TYPE], [JSScript*], [Use JSObject* for scripts])],
-    [AC_DEFINE([JSSCRIPT_TYPE], [JSObject*], [Use JSScript* for scripts])],
-    [[#include <jsapi.h>]]
-)
-
+LIBS="$OLD_LIBS"
 CPPFLAGS="$OLD_CPPFLAGS"
 
 
 AC_ARG_WITH([win32-icu-binaries], [AC_HELP_STRING([--with-win32-icu-binaries=PATH],
     [set PATH to the Win32 native ICU binaries directory])], [
-    ICU_CFLAGS="-I$withval/include"
+    ICU_CPPFLAGS="-I$withval/include"
     ICU_LIBS="-L$withval/lib -licuuc -licudt -licuin"
     ICU_BIN=$withval/bin
 ], [
@@ -334,6 +335,7 @@ AC_ARG_WITH([win32-icu-binaries], [AC_HELP_STRING([--with-win32-icu-binaries=PAT
 ])
 
 AC_SUBST(ICU_CFLAGS)
+AC_SUBST(ICU_CPPFLAGS)
 AC_SUBST(ICU_LIBS)
 AC_SUBST(ICU_BIN)
 
@@ -549,6 +551,7 @@ AC_CONFIG_FILES([share/Makefile])
 AC_CONFIG_FILES([src/Makefile])
 AC_CONFIG_FILES([src/couch_index/Makefile])
 AC_CONFIG_FILES([src/couch_mrview/Makefile])
+AC_CONFIG_FILES([src/couch_replicator/Makefile])
 AC_CONFIG_FILES([src/couchdb/couch.app.tpl])
 AC_CONFIG_FILES([src/couchdb/Makefile])
 AC_CONFIG_FILES([src/couchdb/priv/Makefile])

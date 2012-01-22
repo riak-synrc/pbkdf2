@@ -271,8 +271,8 @@ merge_updates([], RestB, AccOutGroups) ->
     lists:reverse(AccOutGroups, RestB);
 merge_updates(RestA, [], AccOutGroups) ->
     lists:reverse(AccOutGroups, RestA);
-merge_updates([[{_, #doc{id=IdA}}|_]=GroupA | RestA],
-        [[{_, #doc{id=IdB}}|_]=GroupB | RestB], AccOutGroups) ->
+merge_updates([[{_, {#doc{id=IdA}, _}}|_]=GroupA | RestA],
+        [[{_, {#doc{id=IdB}, _}}|_]=GroupB | RestB], AccOutGroups) ->
     if IdA == IdB ->
         merge_updates(RestA, RestB, [GroupA ++ GroupB | AccOutGroups]);
     IdA < IdB ->
@@ -477,7 +477,9 @@ init_db(DbName, Filepath, Fd, Header0, Options) ->
         revs_limit = Header#db_header.revs_limit,
         fsync_options = FsyncOptions,
         options = Options,
-        compression = Compression
+        compression = Compression,
+        before_doc_update = couch_util:get_value(before_doc_update, Options, nil),
+        after_doc_read = couch_util:get_value(after_doc_read, Options, nil)
         }.
 
 
@@ -485,7 +487,8 @@ close_db(#db{fd_ref_counter = RefCntr}) ->
     couch_ref_counter:drop(RefCntr).
 
 
-refresh_validate_doc_funs(Db) ->
+refresh_validate_doc_funs(Db0) ->
+    Db = Db0#db{user_ctx = #user_ctx{roles=[<<"_admin">>]}},
     DesignDocs = couch_db:get_design_docs(Db),
     ProcessDocFuns = lists:flatmap(
         fun(DesignDocInfo) ->
@@ -496,7 +499,7 @@ refresh_validate_doc_funs(Db) ->
             Fun -> [Fun]
             end
         end, DesignDocs),
-    Db#db{validate_doc_funs=ProcessDocFuns}.
+    Db0#db{validate_doc_funs=ProcessDocFuns}.
 
 % rev tree functions
 
@@ -552,24 +555,24 @@ flush_trees(#db{fd = Fd} = Db,
     flush_trees(Db, RestUnflushed, [InfoFlushed | AccFlushed]).
 
 
-send_result(Client, Id, OriginalRevs, NewResult) ->
+send_result(Client, Ref, NewResult) ->
     % used to send a result to the client
-    catch(Client ! {result, self(), {{Id, OriginalRevs}, NewResult}}).
+    catch(Client ! {result, self(), {Ref, NewResult}}).
 
 merge_rev_trees(_Limit, _Merge, [], [], AccNewInfos, AccRemoveSeqs, AccSeq) ->
     {ok, lists:reverse(AccNewInfos), AccRemoveSeqs, AccSeq};
 merge_rev_trees(Limit, MergeConflicts, [NewDocs|RestDocsList],
         [OldDocInfo|RestOldInfo], AccNewInfos, AccRemoveSeqs, AccSeq) ->
-    #full_doc_info{id=Id,rev_tree=OldTree,deleted=OldDeleted,update_seq=OldSeq}
+    #full_doc_info{id=Id,rev_tree=OldTree,deleted=OldDeleted0,update_seq=OldSeq}
             = OldDocInfo,
-    NewRevTree = lists:foldl(
-        fun({Client, #doc{revs={Pos,[_Rev|PrevRevs]}}=NewDoc}, AccTree) ->
+    {NewRevTree, _} = lists:foldl(
+        fun({Client, {#doc{revs={Pos,[_Rev|PrevRevs]}}=NewDoc, Ref}}, {AccTree, OldDeleted}) ->
             if not MergeConflicts ->
                 case couch_key_tree:merge(AccTree, couch_doc:to_path(NewDoc),
                     Limit) of
                 {_NewTree, conflicts} when (not OldDeleted) ->
-                    send_result(Client, Id, {Pos-1,PrevRevs}, conflict),
-                    AccTree;
+                    send_result(Client, Ref, conflict),
+                    {AccTree, OldDeleted};
                 {NewTree, conflicts} when PrevRevs /= [] ->
                     % Check to be sure if prev revision was specified, it's
                     % a leaf node in the tree
@@ -578,10 +581,10 @@ merge_rev_trees(Limit, MergeConflicts, [NewDocs|RestDocsList],
                             {LeafPos, LeafRevId} == {Pos-1, hd(PrevRevs)}
                         end, Leafs),
                     if IsPrevLeaf ->
-                        NewTree;
+                        {NewTree, OldDeleted};
                     true ->
-                        send_result(Client, Id, {Pos-1,PrevRevs}, conflict),
-                        AccTree
+                        send_result(Client, Ref, conflict),
+                        {AccTree, OldDeleted}
                     end;
                 {NewTree, no_conflicts} when  AccTree == NewTree ->
                     % the tree didn't change at all
@@ -599,23 +602,22 @@ merge_rev_trees(Limit, MergeConflicts, [NewDocs|RestDocsList],
                         {NewTree2, _} = couch_key_tree:merge(AccTree,
                                 couch_doc:to_path(NewDoc2), Limit),
                         % we changed the rev id, this tells the caller we did
-                        send_result(Client, Id, {Pos-1,PrevRevs},
-                                {ok, {OldPos + 1, NewRevId}}),
-                        NewTree2;
+                        send_result(Client, Ref, {ok, {OldPos + 1, NewRevId}}),
+                        {NewTree2, OldDeleted};
                     true ->
-                        send_result(Client, Id, {Pos-1,PrevRevs}, conflict),
-                        AccTree
+                        send_result(Client, Ref, conflict),
+                        {AccTree, OldDeleted}
                     end;
                 {NewTree, _} ->
-                    NewTree
+                    {NewTree, NewDoc#doc.deleted}
                 end;
             true ->
                 {NewTree, _} = couch_key_tree:merge(AccTree,
                             couch_doc:to_path(NewDoc), Limit),
-                NewTree
+                {NewTree, OldDeleted}
             end
         end,
-        OldTree, NewDocs),
+        {OldTree, OldDeleted0}, NewDocs),
     if NewRevTree == OldTree ->
         % nothing changed
         merge_rev_trees(Limit, MergeConflicts, RestDocsList, RestOldInfo,
@@ -661,7 +663,7 @@ update_docs_int(Db, DocsList, NonRepDocs, MergeConflicts, FullCommit) ->
         update_seq = LastSeq,
         revs_limit = RevsLimit
         } = Db,
-    Ids = [Id || [{_Client, #doc{id=Id}}|_] <- DocsList],
+    Ids = [Id || [{_Client, {#doc{id=Id}, _Ref}}|_] <- DocsList],
     % lookup up the old documents, if they exist.
     OldDocLookups = couch_btree:lookup(DocInfoByIdBTree, Ids),
     OldDocInfos = lists:zipwith(
@@ -709,10 +711,10 @@ update_docs_int(Db, DocsList, NonRepDocs, MergeConflicts, FullCommit) ->
 update_local_docs(Db, []) ->
     {ok, Db};
 update_local_docs(#db{local_docs_btree=Btree}=Db, Docs) ->
-    Ids = [Id || {_Client, #doc{id=Id}} <- Docs],
+    Ids = [Id || {_Client, {#doc{id=Id}, _Ref}} <- Docs],
     OldDocLookups = couch_btree:lookup(Btree, Ids),
     BtreeEntries = lists:zipwith(
-        fun({Client, #doc{id=Id,deleted=Delete,revs={0,PrevRevs},body=Body}}, OldDocLookup) ->
+        fun({Client, {#doc{id=Id,deleted=Delete,revs={0,PrevRevs},body=Body}, Ref}}, OldDocLookup) ->
             case PrevRevs of
             [RevStr|_] ->
                 PrevRev = list_to_integer(?b2l(RevStr));
@@ -728,16 +730,16 @@ update_local_docs(#db{local_docs_btree=Btree}=Db, Docs) ->
             true ->
                 case Delete of
                     false ->
-                        send_result(Client, Id, {0, PrevRevs}, {ok,
+                        send_result(Client, Ref, {ok,
                                 {0, ?l2b(integer_to_list(PrevRev + 1))}}),
                         {update, {Id, {PrevRev + 1, Body}}};
                     true  ->
-                        send_result(Client, Id, {0, PrevRevs},
+                        send_result(Client, Ref,
                                 {ok, {0, <<"0">>}}),
                         {remove, Id}
                 end;
             false ->
-                send_result(Client, Id, {0, PrevRevs}, conflict),
+                send_result(Client, Ref, conflict),
                 ignore
             end
         end, Docs, OldDocLookups),

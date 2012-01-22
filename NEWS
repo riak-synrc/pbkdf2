@@ -15,6 +15,8 @@ This version has not been released yet.
  * The source code repository was migrated from SVN to Git.
  * Added view request duration to Futon.
  * Speedup in the communication with external view servers.
+ * Fixed unnecessary conflict when deleting and creating a
+   document in the same batch.
 
 Version 1.2.0
 -------------
@@ -34,7 +36,7 @@ This version has not been released yet.
    by default, but it can be enabled via the .ini configuration.
  * A new replicator implementation that offers more performance
    and configuration options.
- * Added optional field `since_seq` to replication ojects/documents.
+ * Added optional field `since_seq` to replication objects/documents.
  * Simpler replication cancelation.
  * The _active_tasks API now exposes more granular fields for each
    task type.
@@ -42,6 +44,13 @@ This version has not been released yet.
    status fields: `Started on` and `Updated on`.
  * Added built-in changes feed filter `_view`.
  * Fixed old index file descriptor leaks after a view cleanup.
+ * Performance improvements for the built-in changes feed filters
+   `_doc_ids` and `_design`.
+ * Fixes to the `_changes` feed heartbeat option when combined with
+   a filter. It affected continuous pull replications with a filter.
+ * Fix use of OAuth with VHosts and URL rewriting.
+ * OAuth secrets can now be stored in the users system database.
+ * Allow persistent authentication cookies.
 
 Version 1.1.2
 -------------

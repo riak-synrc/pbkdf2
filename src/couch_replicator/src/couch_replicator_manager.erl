@@ -10,11 +10,13 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
--module(couch_replication_manager).
+-module(couch_replicator_manager).
 -behaviour(gen_server).
 
 % public API
--export([replication_started/1, replication_completed/1, replication_error/2]).
+-export([replication_started/1, replication_completed/2, replication_error/2]).
+
+-export([before_doc_update/2, after_doc_read/2]).
 
 % gen_server callbacks
 -export([start_link/0, init/1, handle_call/3, handle_info/2, handle_cast/2]).
@@ -22,12 +24,15 @@
 
 -include("couch_db.hrl").
 -include("couch_replicator.hrl").
--include("couch_js_functions.hrl").
+-include("couch_replicator_js_functions.hrl").
 
 -define(DOC_TO_REP, couch_rep_doc_id_to_rep_id).
 -define(REP_TO_STATE, couch_rep_id_to_rep_state).
 -define(INITIAL_WAIT, 2.5). % seconds
 -define(MAX_WAIT, 600).     % seconds
+-define(OWNER, <<"owner">>).
+
+-define(replace(L, K, V), lists:keystore(K, 1, L, {K, V})).
 
 -record(rep_state, {
     rep,
@@ -63,19 +68,22 @@ replication_started(#rep{id = {BaseId, _} = RepId}) ->
     #rep_state{rep = #rep{doc_id = DocId}} ->
         update_rep_doc(DocId, [
             {<<"_replication_state">>, <<"triggered">>},
-            {<<"_replication_id">>, ?l2b(BaseId)}]),
+            {<<"_replication_id">>, ?l2b(BaseId)},
+            {<<"_replication_stats">>, undefined}]),
         ok = gen_server:call(?MODULE, {rep_started, RepId}, infinity),
         ?LOG_INFO("Document `~s` triggered replication `~s`",
             [DocId, pp_rep_id(RepId)])
     end.
 
 
-replication_completed(#rep{id = RepId}) ->
+replication_completed(#rep{id = RepId}, Stats) ->
     case rep_state(RepId) of
     nil ->
         ok;
     #rep_state{rep = #rep{doc_id = DocId}} ->
-        update_rep_doc(DocId, [{<<"_replication_state">>, <<"completed">>}]),
+        update_rep_doc(DocId, [
+            {<<"_replication_state">>, <<"completed">>},
+            {<<"_replication_stats">>, {Stats}}]),
         ok = gen_server:call(?MODULE, {rep_complete, RepId}, infinity),
         ?LOG_INFO("Replication `~s` finished (triggered by document `~s`)",
             [pp_rep_id(RepId), DocId])
@@ -228,13 +236,13 @@ changes_feed_loop() ->
     Server = self(),
     Pid = spawn_link(
         fun() ->
-            {ok, Db} = couch_db:open_int(RepDbName, [sys_db]),
+            DbOpenOptions = [{user_ctx, RepDb#db.user_ctx}, sys_db],
+            {ok, Db} = couch_db:open_int(RepDbName, DbOpenOptions),
             ChangesFeedFun = couch_changes:handle_changes(
                 #changes_args{
                     include_docs = true,
                     feed = "continuous",
-                    timeout = infinity,
-                    db_open_options = [sys_db]
+                    timeout = infinity
                 },
                 {json_req, null},
                 Db
@@ -251,8 +259,7 @@ changes_feed_loop() ->
                 (_, _) ->
                     ok
                 end
-            ),
-            couch_db:close(Db)
+            )
         end
     ),
     {Pid, RepDbName}.
@@ -424,7 +431,7 @@ replication_complete(DocId) ->
             % We want to be able to start the same replication but with
             % eventually different values for parameters that don't
             % contribute to its ID calculation.
-            _ = supervisor:delete_child(couch_rep_sup, BaseId ++ Ext);
+            _ = supervisor:delete_child(couch_replicator_job_sup, BaseId ++ Ext);
         #rep_state{} ->
             ok
         end,
@@ -515,7 +522,9 @@ update_rep_doc(RepDocId, KVs) ->
 
 update_rep_doc(RepDb, #doc{body = {RepDocBody}} = RepDoc, KVs) ->
     NewRepDocBody = lists:foldl(
-        fun({<<"_replication_state">> = K, State} = KV, Body) ->
+        fun({K, undefined}, Body) ->
+                lists:keydelete(K, 1, Body);
+            ({<<"_replication_state">> = K, State} = KV, Body) ->
                 case get_value(K, Body) of
                 State ->
                     Body;
@@ -623,3 +632,63 @@ state_after_error(#rep_state{retries_left = Left, wait = Wait} = State) ->
     _ ->
         State#rep_state{retries_left = Left - 1, wait = Wait2}
     end.
+
+
+before_doc_update(#doc{id = <<?DESIGN_DOC_PREFIX, _/binary>>} = Doc, _Db) ->
+    Doc;
+before_doc_update(#doc{body = {Body}} = Doc, #db{user_ctx=UserCtx} = Db) ->
+    #user_ctx{roles = Roles, name = Name} = UserCtx,
+    case lists:member(<<"_replicator">>, Roles) of
+    true ->
+        Doc;
+    false ->
+        case couch_util:get_value(?OWNER, Body) of
+        undefined ->
+            Doc#doc{body = {?replace(Body, ?OWNER, Name)}};
+        Name ->
+            Doc;
+        Other ->
+            case (catch couch_db:check_is_admin(Db)) of
+            ok when Other =:= null ->
+                Doc#doc{body = {?replace(Body, ?OWNER, Name)}};
+            ok ->
+                Doc;
+            _ ->
+                throw({forbidden, <<"Can't update replication documents",
+                    " from other users.">>})
+            end
+        end
+    end.
+
+
+after_doc_read(#doc{id = <<?DESIGN_DOC_PREFIX, _/binary>>} = Doc, _Db) ->
+    Doc;
+after_doc_read(#doc{body = {Body}} = Doc, #db{user_ctx=UserCtx} = Db) ->
+    #user_ctx{name = Name} = UserCtx,
+    case (catch couch_db:check_is_admin(Db)) of
+    ok ->
+        Doc;
+    _ ->
+        case couch_util:get_value(?OWNER, Body) of
+        Name ->
+            Doc;
+        _Other ->
+            Source = strip_credentials(couch_util:get_value(<<"source">>, Body)),
+            Target = strip_credentials(couch_util:get_value(<<"target">>, Body)),
+            NewBody0 = ?replace(Body, <<"source">>, Source),
+            NewBody = ?replace(NewBody0, <<"target">>, Target),
+            #doc{revs = {Pos, [_ | Revs]}} = Doc,
+            NewDoc = Doc#doc{body = {NewBody}, revs = {Pos - 1, Revs}},
+            NewRevId = couch_db:new_revid(NewDoc),
+            NewDoc#doc{revs = {Pos, [NewRevId | Revs]}}
+        end
+    end.
+
+
+strip_credentials(Url) when is_binary(Url) ->
+    re:replace(Url,
+        "http(s)?://(?:[^:]+):[^@]+@(.*)$",
+        "http\\1://\\2",
+        [{return, binary}]);
+strip_credentials({Props}) ->
+    {lists:keydelete(<<"oauth">>, 1, Props)}.

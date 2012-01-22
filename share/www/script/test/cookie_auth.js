@@ -12,11 +12,46 @@
 
 couchTests.cookie_auth = function(debug) {
   // This tests cookie-based authentication.
-  
+
   var db = new CouchDB("test_suite_db", {"X-Couch-Full-Commit":"false"});
   db.deleteDb();
   db.createDb();
   if (debug) debugger;
+
+  var password = "3.141592653589";
+
+  var loginUser = function(username) {
+    var pws = {
+      jan: "apple",
+      "Jason Davies": password,
+      jchris: "funnybone"
+    };
+    var username1 = username.replace(/[0-9]$/, "");
+    var password = pws[username];
+    //console.log("Logging in '" + username1 + "' with password '" + password + "'");
+    T(CouchDB.login(username1, pws[username]).ok);
+  };
+
+  var open_as = function(db, docId, username) {
+    loginUser(username);
+    try {
+      return db.open(docId, {"anti-cache": Math.round(Math.random() * 100000)});
+    } finally {
+      CouchDB.logout();
+    }
+  };
+
+  var save_as = function(db, doc, username)
+  {
+    loginUser(username);
+    try {
+      return db.save(doc);
+    } catch (ex) {
+      return ex;
+    } finally {
+      CouchDB.logout();
+    }
+  };
 
   // Simple secret key generator
   function generateSecret(length) {
@@ -31,29 +66,22 @@ couchTests.cookie_auth = function(debug) {
   // this function will be called on the modified server
   var testFun = function () {
     try {
-      // try using an invalid cookie
-      var usersDb = new CouchDB("test_suite_users", {"X-Couch-Full-Commit":"false"});
-      usersDb.deleteDb();
-      usersDb.createDb();
-      
+
       // test that the users db is born with the auth ddoc
-      var ddoc = usersDb.open("_design/_auth");
+      var ddoc = open_as(usersDb, "_design/_auth", "jan");
       T(ddoc.validate_doc_update);
-      
+
       // TODO test that changing the config so an existing db becomes the users db installs the ddoc also
-      
-      var password = "3.141592653589";
 
       // Create a user
       var jasonUserDoc = CouchDB.prepareUserDoc({
-        name: "Jason Davies",
-        roles: ["dev"]
+        name: "Jason Davies"
       }, password);
-      T(usersDb.save(jasonUserDoc).ok);      
-      
-      var checkDoc = usersDb.open(jasonUserDoc._id);
+      T(usersDb.save(jasonUserDoc).ok);
+
+      var checkDoc = open_as(usersDb, jasonUserDoc._id, "jan");
       T(checkDoc.name == "Jason Davies");
-      
+
       var jchrisUserDoc = CouchDB.prepareUserDoc({
         name: "jchris@apache.org"
       }, "funnybone");
@@ -71,7 +99,7 @@ couchTests.cookie_auth = function(debug) {
         T(e.error == "conflict");
         T(usersDb.last_req.status == 409);
       }
-      
+
       // we can't create _names
       var underscoreUserDoc = CouchDB.prepareUserDoc({
         name: "_why"
@@ -84,12 +112,12 @@ couchTests.cookie_auth = function(debug) {
         T(e.error == "forbidden");
         T(usersDb.last_req.status == 403);
       }
-      
+
       // we can't create docs with malformed ids
       var badIdDoc = CouchDB.prepareUserDoc({
         name: "foo"
       }, "bar");
-      
+
       badIdDoc._id = "org.apache.couchdb:w00x";
 
       try {
@@ -99,11 +127,11 @@ couchTests.cookie_auth = function(debug) {
         T(e.error == "forbidden");
         T(usersDb.last_req.status == 403);
       }
-      
+
       // login works
       T(CouchDB.login('Jason Davies', password).ok);
       T(CouchDB.session().userCtx.name == 'Jason Davies');
-      
+
       // JSON login works
       var xhr = CouchDB.request("POST", "/_session", {
         headers: {"Content-Type": "application/json"},
@@ -157,12 +185,12 @@ couchTests.cookie_auth = function(debug) {
        }
 
       // test users db validations
-      // 
+      //
       // test that you can't update docs unless you are logged in as the user (or are admin)
       T(CouchDB.login("jchris@apache.org", "funnybone").ok);
       T(CouchDB.session().userCtx.name == "jchris@apache.org");
       T(CouchDB.session().userCtx.roles.length == 0);
-      
+
       jasonUserDoc.foo=3;
 
       try {
@@ -175,7 +203,7 @@ couchTests.cookie_auth = function(debug) {
 
       // test that you can't edit roles unless you are admin
       jchrisUserDoc.roles = ["foo"];
-      
+
       try {
         usersDb.save(jchrisUserDoc);
         T(false && "Can't set roles unless you are admin. Should have thrown an error.");
@@ -183,37 +211,32 @@ couchTests.cookie_auth = function(debug) {
         T(e.error == "forbidden");
         T(usersDb.last_req.status == 403);
       }
-      
+
       T(CouchDB.logout().ok);
-      T(CouchDB.session().userCtx.roles[0] == "_admin");      
 
       jchrisUserDoc.foo = ["foo"];
-      T(usersDb.save(jchrisUserDoc).ok);
+      T(save_as(usersDb, jchrisUserDoc, "jan"));
 
       // test that you can't save system (underscore) roles even if you are admin
       jchrisUserDoc.roles = ["_bar"];
-      
-      try {
-        usersDb.save(jchrisUserDoc);
-        T(false && "Can't add system roles to user's db. Should have thrown an error.");
-      } catch (e) {
-        T(e.error == "forbidden");
-        T(usersDb.last_req.status == 403);
-      }
-      
+
+      var res = save_as(usersDb, jchrisUserDoc, "jan");
+      T(res.error == "forbidden");
+      T(usersDb.last_req.status == 403);
+
       // make sure the foo role has been applied
       T(CouchDB.login("jchris@apache.org", "funnybone").ok);
       T(CouchDB.session().userCtx.name == "jchris@apache.org");
       T(CouchDB.session().userCtx.roles.indexOf("_admin") == -1);
       T(CouchDB.session().userCtx.roles.indexOf("foo") != -1);
-      
+
       // now let's make jchris a server admin
       T(CouchDB.logout().ok);
-      T(CouchDB.session().userCtx.roles[0] == "_admin");
-      T(CouchDB.session().userCtx.name == null);
-      
+
       // set the -hashed- password so the salt matches
       // todo ask on the ML about this
+
+      TEquals(true, CouchDB.login("jan", "apple").ok);
       run_on_modified_server([{section: "admins",
         key: "jchris@apache.org", value: "funnybone"}], function() {
           T(CouchDB.login("jchris@apache.org", "funnybone").ok);
@@ -237,22 +260,27 @@ couchTests.cookie_auth = function(debug) {
           T(s.info.authentication_db == "test_suite_users");
           // test that jchris still has the foo role
           T(CouchDB.session().userCtx.roles.indexOf("foo") != -1);
-        });      
+        });
 
     } finally {
       // Make sure we erase any auth cookies so we don't affect other tests
       T(CouchDB.logout().ok);
     }
+    // log in one last time so run_on_modified_server can clean up the admin account
+    TEquals(true, CouchDB.login("jan", "apple").ok);
   };
 
+  var usersDb = new CouchDB("test_suite_users", {"X-Couch-Full-Commit":"false"});
+  usersDb.deleteDb();
+  usersDb.createDb();
+
   run_on_modified_server(
-    [{section: "httpd",
-      key: "authentication_handlers",
-      value: "{couch_httpd_auth, cookie_authentication_handler}, {couch_httpd_auth, default_authentication_handler}"},
+    [
      {section: "couch_httpd_auth",
-      key: "secret", value: generateSecret(64)},
-     {section: "couch_httpd_auth",
-      key: "authentication_db", value: "test_suite_users"}],
+      key: "authentication_db", value: "test_suite_users"},
+     {section: "admins",
+       key: "jan", value: "apple"}
+    ],
     testFun
   );
 

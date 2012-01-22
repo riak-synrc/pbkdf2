@@ -32,7 +32,7 @@ couchprivlib_LTLIBRARIES = couch_icu_driver.la
 if USE_EJSON_COMPARE_NIF
 couchprivlib_LTLIBRARIES += couch_ejson_compare.la
 couch_ejson_compare_la_SOURCES = couch_ejson_compare/couch_ejson_compare.c
-couch_ejson_compare_la_CFLAGS = -D_BSD_SOURCE $(ICU_CFLAGS) $(ERLANG_FLAGS)
+couch_ejson_compare_la_CPPFLAGS = -D_BSD_SOURCE $(ICU_CPPFLAGS) $(ERLANG_FLAGS)
 couch_ejson_compare_la_LDFLAGS = -module -avoid-version
 couch_ejson_compare_la_LIBADD = $(ICU_LIBS)
 if WINDOWS
@@ -41,7 +41,7 @@ endif
 endif
 couch_icu_driver_la_SOURCES = icu_driver/couch_icu_driver.c
 couch_icu_driver_la_LDFLAGS = -module -avoid-version
-couch_icu_driver_la_CFLAGS = $(ICU_CFLAGS) $(ERLANG_FLAGS)
+couch_icu_driver_la_CPPFLAGS = $(ICU_CPPFLAGS) $(ERLANG_FLAGS)
 couch_icu_driver_la_LIBADD = $(ICU_LIBS)
 
 if WINDOWS
@@ -90,9 +90,9 @@ endif
 
 # libtool and automake have defeated markh.  For each of our executables
 # we end up with 2 copies - one directly in the 'target' folder (eg, 'priv')
-# and another - the correct one - in .libs.  The former doesn't work but is 
+# and another - the correct one - in .libs.  The former doesn't work but is
 # what gets installed for 'couchspawnkillable' - but the correct one for
-# couchjs.exe *does* get copied.  *shrug*  So just clobber it with the 
+# couchjs.exe *does* get copied.  *shrug*  So just clobber it with the
 # correct one as the last step. See bug COUCHDB-439
 install-data-hook:
 	if test -f "$(DESTDIR)$(couchprivlibdir)/couch_icu_driver"; then \
@@ -106,9 +106,9 @@ install-data-hook:
 	        $(LN_S) couch_ejson_compare_nif couch_ejson_compare_nif.so; \
 	fi
 if WINDOWS
-	$(INSTALL) $(ICU_BIN)/icuuc44.dll $(bindir)
-	$(INSTALL) $(ICU_BIN)/icudt44.dll $(bindir)
-	$(INSTALL) $(ICU_BIN)/icuin44.dll $(bindir)
+	$(INSTALL) $(ICU_BIN)/icuuc*.dll $(bindir)
+	$(INSTALL) $(ICU_BIN)/icudt*.dll $(bindir)
+	$(INSTALL) $(ICU_BIN)/icuin*.dll $(bindir)
 	$(INSTALL) $(JS_LIB_BINARY) $(bindir)
 	$(INSTALL) .libs/couchspawnkillable.exe \
 		"$(DESTDIR)$(couchprivdir)/couchspawnkillable.exe"

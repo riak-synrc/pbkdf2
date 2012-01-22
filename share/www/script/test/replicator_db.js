@@ -88,8 +88,10 @@ couchTests.replicator_db = function(debug) {
 
 
   function populate_db(db, docs) {
-    db.deleteDb();
-    db.createDb();
+    if (db.name !== usersDb.name) {
+      db.deleteDb();
+      db.createDb();
+    }
     for (var i = 0; i < docs.length; i++) {
       var d = docs[i];
       delete d._rev;
@@ -123,6 +125,17 @@ couchTests.replicator_db = function(debug) {
     T(repDoc1._replication_state === "completed", "simple");
     T(typeof repDoc1._replication_state_time === "string");
     T(typeof repDoc1._replication_id  === "string");
+    T(typeof repDoc1._replication_stats === "object", "doc has stats");
+    var stats = repDoc1._replication_stats;
+    TEquals(docs1.length, stats.revisions_checked,
+       "right # of revisions_checked");
+    TEquals(docs1.length, stats.missing_revisions_found,
+      "right # of missing_revisions_found");
+    TEquals(docs1.length, stats.docs_read, "right # of docs_read");
+    TEquals(docs1.length, stats.docs_written, "right # of docs_written");
+    TEquals(0, stats.doc_write_failures, "right # of doc_write_failures");
+    TEquals(dbA.info().update_seq, stats.checkpointed_source_seq,
+      "right checkpointed_source_seq");
   }
 
 
@@ -175,6 +188,15 @@ couchTests.replicator_db = function(debug) {
     T(repDoc1._replication_state === "completed", "filtered");
     T(typeof repDoc1._replication_state_time === "string");
     T(typeof repDoc1._replication_id  === "string");
+    T(typeof repDoc1._replication_stats === "object", "doc has stats");
+    var stats = repDoc1._replication_stats;
+    TEquals(2, stats.revisions_checked, "right # of revisions_checked");
+    TEquals(2, stats.missing_revisions_found, "right # of missing_revisions_found");
+    TEquals(2, stats.docs_read, "right # of docs_read");
+    TEquals(1, stats.docs_written, "right # of docs_written");
+    TEquals(1, stats.doc_write_failures, "right # of doc_write_failures");
+    TEquals(dbA.info().update_seq, stats.checkpointed_source_seq,
+      "right checkpointed_source_seq");
   }
 
 
@@ -201,6 +223,10 @@ couchTests.replicator_db = function(debug) {
       T(copy !== null);
       T(copy.value === doc.value);
     }
+
+    var tasks = JSON.parse(CouchDB.request("GET", "/_active_tasks").responseText);
+    TEquals(1, tasks.length, "1 active task");
+    TEquals(repDoc._id, tasks[0].doc_id, "replication doc id in active tasks");
 
     // add another doc to source, it will be replicated to target
     var docX = {
@@ -305,6 +331,17 @@ couchTests.replicator_db = function(debug) {
 
     copy = dbB.open("_design/mydesign");
     T(copy === null);
+
+    repDoc = repDb.open(repDoc._id);
+    T(typeof repDoc._replication_stats === "object", "doc has stats");
+    var stats = repDoc._replication_stats;
+    TEquals(3, stats.revisions_checked, "right # of revisions_checked");
+    TEquals(3, stats.missing_revisions_found, "right # of missing_revisions_found");
+    TEquals(3, stats.docs_read, "right # of docs_read");
+    TEquals(2, stats.docs_written, "right # of docs_written");
+    TEquals(1, stats.doc_write_failures, "right # of doc_write_failures");
+    TEquals(dbA.info().update_seq, stats.checkpointed_source_seq,
+      "right checkpointed_source_seq");
   }
 
 
@@ -334,6 +371,17 @@ couchTests.replicator_db = function(debug) {
     T(repDoc1_copy._replication_state === "completed");
     T(typeof repDoc1_copy._replication_state_time === "string");
     T(typeof repDoc1_copy._replication_id  === "string");
+    T(typeof repDoc1_copy._replication_stats === "object", "doc has stats");
+    var stats = repDoc1_copy._replication_stats;
+    TEquals(docs1.length, stats.revisions_checked,
+      "right # of revisions_checked");
+    TEquals(docs1.length, stats.missing_revisions_found,
+      "right # of missing_revisions_found");
+    TEquals(docs1.length, stats.docs_read, "right # of docs_read");
+    TEquals(docs1.length, stats.docs_written, "right # of docs_written");
+    TEquals(0, stats.doc_write_failures, "right # of doc_write_failures");
+    TEquals(dbA.info().update_seq, stats.checkpointed_source_seq,
+      "right checkpointed_source_seq");
 
     var newDoc = {
       _id: "doc666",
@@ -366,6 +414,16 @@ couchTests.replicator_db = function(debug) {
     T(typeof repDoc2_copy._replication_state_time === "string");
     T(typeof repDoc2_copy._replication_id === "string");
     T(repDoc2_copy._replication_id === repDoc1_copy._replication_id);
+    T(typeof repDoc2_copy._replication_stats === "object", "doc has stats");
+    stats = repDoc2_copy._replication_stats;
+    TEquals(1, stats.revisions_checked, "right # of revisions_checked");
+    TEquals(1, stats.missing_revisions_found,
+      "right # of missing_revisions_found");
+    TEquals(1, stats.docs_read, "right # of docs_read");
+    TEquals(1, stats.docs_written, "right # of docs_written");
+    TEquals(0, stats.doc_write_failures, "right # of doc_write_failures");
+    TEquals(dbA.info().update_seq, stats.checkpointed_source_seq,
+      "right checkpointed_source_seq");
   }
 
 
@@ -1341,6 +1399,42 @@ couchTests.replicator_db = function(debug) {
   }
 
 
+  function test_rep_db_update_security() {
+    var dbA_copy = new CouchDB("test_suite_rep_db_a_copy");
+    var dbB_copy = new CouchDB("test_suite_rep_db_b_copy");
+    var repDoc1, repDoc2;
+    var xhr, i, doc, copy, new_doc;
+    var docs = makeDocs(1, 3);
+
+    populate_db(dbA, docs);
+    populate_db(dbB, docs);
+    populate_db(dbA_copy, []);
+    populate_db(dbB_copy, []);
+
+    repDoc1 = {
+      _id: "rep1",
+      source: CouchDB.protocol + host + "/" + dbA.name,
+      target: dbA_copy.name
+    };
+    repDoc2 = {
+      _id: "rep2",
+      source: CouchDB.protocol + host + "/" + dbB.name,
+      target: dbB_copy.name
+    };
+
+    TEquals(true, repDb.save(repDoc1).ok);
+    waitForRep(repDb, repDoc1, "completed");
+
+    T(repDb.setSecObj({
+      readers: {
+        names: ["joe"]
+      }
+    }).ok);
+
+    TEquals(true, repDb.save(repDoc2).ok);
+    waitForRep(repDb, repDoc2, "completed");
+  }
+
   // run all the tests
   var server_config = [
     {
@@ -1394,10 +1488,12 @@ couchTests.replicator_db = function(debug) {
   ]);
 
   repDb.deleteDb();
+  usersDb.deleteDb();
   restartServer();
   run_on_modified_server(server_config_2, test_user_ctx_validation);
 
   repDb.deleteDb();
+  usersDb.deleteDb();
   restartServer();
   run_on_modified_server(server_config_2, test_replication_credentials_delegation);
 
@@ -1421,6 +1517,10 @@ couchTests.replicator_db = function(debug) {
   repDb.deleteDb();
   restartServer();
   run_on_modified_server(server_config, test_invalid_filter);
+
+  repDb.deleteDb();
+  restartServer();
+  run_on_modified_server(server_config, test_rep_db_update_security);
 
 /*
  * Disabled, since error state would be set on the document only after

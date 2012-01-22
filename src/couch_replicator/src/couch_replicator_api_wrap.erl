@@ -10,7 +10,7 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
--module(couch_api_wrap).
+-module(couch_replicator_api_wrap).
 
 % This module wraps the native erlang API, and allows for performing
 % operations on a remote vs. local databases via the same API.
@@ -19,7 +19,7 @@
 % Many options and apis aren't yet supported here, they are added as needed.
 
 -include("couch_db.hrl").
--include("couch_api_wrap.hrl").
+-include("couch_replicator_api_wrap.hrl").
 
 -export([
     db_open/2,
@@ -38,7 +38,7 @@
     db_uri/1
     ]).
 
--import(couch_api_wrap_httpc, [
+-import(couch_replicator_httpc, [
     send_req/3
     ]).
 
@@ -63,7 +63,7 @@ db_open(Db, Options) ->
     db_open(Db, Options, false).
 
 db_open(#httpdb{} = Db1, _Options, Create) ->
-    {ok, Db} = couch_api_wrap_httpc:setup(Db1),
+    {ok, Db} = couch_replicator_httpc:setup(Db1),
     case Create of
     false ->
         ok;
@@ -101,7 +101,7 @@ db_open(DbName, Options, Create) ->
 
 db_close(#httpdb{httpc_pool = Pool}) ->
     unlink(Pool),
-    ok = couch_httpc_pool:stop(Pool);
+    ok = couch_replicator_httpc_pool:stop(Pool);
 db_close(DbName) ->
     catch couch_db:close(DbName).
 
@@ -136,7 +136,8 @@ get_missing_revs(#httpdb{} = Db, IdRevs) ->
     JsonBody = {[{Id, couch_doc:revs_to_strs(Revs)} || {Id, Revs} <- IdRevs]},
     send_req(
         Db,
-        [{method, post}, {path, "_revs_diff"}, {body, ?JSON_ENCODE(JsonBody)}],
+        [{method, post}, {path, "_revs_diff"}, {body, ?JSON_ENCODE(JsonBody)},
+            {headers, [{"Content-Type", "application/json"}]}],
         fun(200, _, {Props}) ->
             ConvertToNativeFun = fun({Id, {Result}}) ->
                 MissingRevs = couch_doc:parse_revs(
@@ -306,13 +307,15 @@ update_docs(Db, DocList, Options, UpdateType) ->
 
 changes_since(#httpdb{headers = Headers1} = HttpDb, Style, StartSeq,
     UserFun, Options) ->
+    HeartBeat = erlang:max(1000, HttpDb#httpdb.timeout div 3),
     BaseQArgs = case get_value(continuous, Options, false) of
     false ->
         [{"feed", "normal"}];
     true ->
-        [{"feed", "continuous"}, {"heartbeat", "10000"}]
+        [{"feed", "continuous"}]
     end ++ [
-        {"style", atom_to_list(Style)}, {"since", couch_util:to_list(StartSeq)}
+        {"style", atom_to_list(Style)}, {"since", couch_util:to_list(StartSeq)},
+        {"heartbeat", integer_to_list(HeartBeat)}
     ],
     DocIds = get_value(doc_ids, Options),
     {QArgs, Method, Body, Headers} = case DocIds of
@@ -440,7 +443,7 @@ options_to_query_args(HttpDb, Path, Options) ->
         options_to_query_args(Options2, []);
     {value, {atts_since, PAs}, Options2} ->
         QueryArgs1 = options_to_query_args(Options2, []),
-        FullUrl = couch_api_wrap_httpc:full_url(
+        FullUrl = couch_replicator_httpc:full_url(
             HttpDb, [{path, Path}, {qs, QueryArgs1}]),
         RevList = atts_since_arg(
             length("GET " ++ FullUrl ++ " HTTP/1.1\r\n") +

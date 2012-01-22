@@ -56,6 +56,8 @@ EXTRA_DIST = \
     070-couch-db.t \
     072-cleanup.t \
     073-changes.t \
+    074-doc-update-conflicts.t \
+    075-auth-cache.t \
     080-config-get-set.t \
     081-config-override.1.ini \
     081-config-override.2.ini \
@@ -88,8 +90,4 @@ EXTRA_DIST = \
     200-view-group-no-db-leaks.t \
     201-view-group-shutdown.t \
     210-os-proc-pool.t \
-    220-compaction-daemon.t \
-    230-httpc-pool.t \
-    240-replication-compact.t \
-    241-replication-large-atts.t \
-    242-replication-many-leaves.t
+    220-compaction-daemon.t
