@@ -132,16 +132,19 @@ pread_binary(Fd, Pos) ->
 
 
 pread_iolist(Fd, Pos) ->
-    case do_read_iolist(Fd, Pos) of
+    case try_read_iolist(Fd, Pos) of
     eof ->
-        flush(Fd),
-        do_read_iolist(Fd, Pos);
+        ok = flush(Fd),
+        try_read_iolist(Fd, Pos);
+    {unexpected_binary, _, _, _} ->
+        ok = flush(Fd),
+        try_read_iolist(Fd, Pos);
     Else ->
         Else
     end.
 
 
-do_read_iolist(Fd, Pos) ->
+try_read_iolist(Fd, Pos) ->
     case gen_server:call(Fd, {pread_iolist, Pos}, infinity) of
     {ok, _IoList} = Ok ->
         Ok;
@@ -486,8 +489,16 @@ read_raw_iolist_int(ReadFd, Pos, Len) ->
     case file:pread(ReadFd, Pos, TotalBytes) of
     {ok, <<RawBin:TotalBytes/binary>>} ->
         {remove_block_prefixes(BlockOffset, RawBin), Pos + TotalBytes};
-    eof ->
-        throw(eof)
+    {ok, RawBin} ->
+        UnexpectedBin = {
+            unexpected_binary,
+            {at, Pos},
+            {wanted_bytes, TotalBytes},
+            {got, byte_size(RawBin), RawBin}
+        },
+        throw({read_error, UnexpectedBin});
+    Else ->
+        throw({read_error, Else})
     end.
 
 -spec extract_md5(iolist()) -> {binary(), iolist()}.
@@ -664,13 +675,7 @@ write_header_blocks(Fd, Eof, Header) ->
 reader_loop(Fd) ->
     receive
     {read, Pos, From} ->
-        Result = try
-            read_iolist(Fd, Pos)
-        catch
-        throw:eof ->
-            eof
-        end,
-        gen_server:reply(From, Result),
+        gen_server:reply(From, read_iolist(Fd, Pos)),
         reader_loop(Fd);
     {find_header, Eof, From} ->
         gen_server:reply(From, find_header(Fd, Eof div ?SIZE_BLOCK)),
@@ -681,9 +686,16 @@ reader_loop(Fd) ->
     end.
 
 
--compile({inline, [read_iolist/2]}).
-
 read_iolist(Fd, Pos) ->
+    try
+        do_read_iolist(Fd, Pos)
+    catch throw:{read_error, Error} ->
+        Error
+    end.
+
+-compile({inline, [do_read_iolist/2]}).
+
+do_read_iolist(Fd, Pos) ->
     {RawData, NextPos} = try
         % up to 8Kbs of read ahead
         read_raw_iolist_int(Fd, Pos, 2 * ?SIZE_BLOCK - (Pos rem ?SIZE_BLOCK))
