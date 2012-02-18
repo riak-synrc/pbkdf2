@@ -60,7 +60,9 @@
               return;
             }
             $.couch.db(data.name).create({
-              error: function(status, id, reason) { callback({name: reason}) },
+              error: function(status, id, reason) {
+                callback({ name: reason })
+              },
               success: function(resp) {
                 location.href = "database.html?" + encodeURIComponent(data.name);
                 callback();
@@ -569,6 +571,9 @@
                     location.href = "database.html?" + encodeURIComponent(dbName) +
                       "/" + $.couch.encodeDocId(doc._id) +
                       "/_view/" + encodeURIComponent(data.name);
+                  },
+                  error: function(status, e, reason) {
+                    alert(reason);
                   }
                 });
               }
@@ -612,6 +617,9 @@
                 page.storedViewCode = viewDef;
                 $("#viewcode button.revert, #viewcode button.save")
                   .attr("disabled", "disabled");
+              },
+              error: function(status, e, reason) {
+                alert(reason);
               }
             });
           }
