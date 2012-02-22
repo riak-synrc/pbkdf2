@@ -437,4 +437,60 @@ couchTests.rewrite = function(debug) {
   var res = CouchDB.request("GET", "/test_suite_db/_design/invalid/_rewrite/foo");
   TEquals(400, res.status, "should return 400");
 
+  // test req.requested_path with rewrites with some vhosts
+  var rw_ddoc = {
+    _id: "_design/rwtest",
+    rewrites: [
+        {"from":"testShow","to":"_show/show_requested_path"}
+    ],
+    shows : {
+        show_requested_path : stringFun(function(doc, req){
+          return '/' + req.requested_path.join('/');
+        })
+    }
+  }
+  db.save(rw_ddoc);
+
+  // try accessing directly
+  var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/testShow");
+  TEquals('/test_suite_db/_design/rwtest/_rewrite/testShow', res.responseText, "requested_path should equal requested");
+
+  var host = 'localhost:5984';
+  if (window) host = window.location.host;
+
+  // test a vhost with a path as well
+  run_on_modified_server(
+      [{section: "vhosts",
+        key: encodeURIComponent(host + '/path'),
+        value: "/test_suite_db/_design/rwtest/_rewrite/"}
+      ],
+      function(){
+          var res = CouchDB.request("GET", "/path/testShow");
+          TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
+      }
+  );
+
+  // test a vhost on the root of the host
+  rw_ddoc.rewrites.push({"from":"_config/*","to":"../../../_config/*"});
+  T(db.save(rw_ddoc).ok);
+  run_on_modified_server(
+      [{section: "httpd",
+        key: "secure_rewrites",
+        value: "false"}
+      ],
+      function(){
+          // we have to 'double wrap' with a run_on_modified_server
+          // so that vhosts gets remove first, then the secure_rewrite
+          run_on_modified_server(
+                [{section: "vhosts",
+                  key: encodeURIComponent(host),
+                  value: "/test_suite_db/_design/rwtest/_rewrite/"}
+                ],
+                function() {
+                    var res = CouchDB.request("GET", "/testShow");
+                    TEquals('/testShow', res.responseText, "requested_path should equal requested");
+                }
+          );
+      }
+  );
 }
