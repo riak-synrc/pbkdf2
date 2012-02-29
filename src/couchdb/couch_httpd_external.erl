@@ -56,7 +56,7 @@ process_external_req(HttpReq, Db, Name) ->
 json_req_obj(Req, Db) -> json_req_obj(Req, Db, null).
 json_req_obj(#httpd{mochi_req=Req,
                method=Method,
-               requested_path_parts=RequestedPath,
+               requested_path_parts=RequestedPathParts,
                path_parts=Path,
                req_body=ReqBody
             }, Db, DocId) ->
@@ -79,7 +79,18 @@ json_req_obj(#httpd{mochi_req=Req,
     Headers = Req:get(headers),
     Hlist = mochiweb_headers:to_list(Headers),
     {ok, Info} = couch_db:get_db_info(Db),
-    
+
+    % RequestedPath must match exactly the path originally received.
+    RequestedPath = case mochiweb_headers:get_value("x-couchdb-vhost-fullpath",
+            Headers) of
+        undefined ->
+            RequestedPathParts;
+        FullPath ->
+            {"/" ++ VPath, _Query, _Fragment} =
+                    mochiweb_util:urlsplit_path(FullPath),
+            [ ?l2b(Part) || Part <- string:tokens(VPath, "/") ]
+    end,
+
 % add headers...
     {[{<<"info">>, {Info}},
         {<<"id">>, DocId},
