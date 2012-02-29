@@ -443,8 +443,13 @@ couchTests.rewrite = function(debug) {
     var rw_ddoc = {
       _id: "_design/rwtest",
       rewrites: [
+          {"from":"testShow", "to":"_show/show_requested_path"},
           {"from":"path/testShow","to":"_show/show_requested_path"},
-          {"from":"_config/*","to":"../../../_config/*"}
+          {"from":"_config/*","to":"../../../_config/*"},
+
+          {"from":"one", "to":"_rewrite/two"},
+          {"from":"two", "to":"_rewrite/three"},
+          {"from":"three", "to":"_rewrite/testShow"}
       ],
       shows : {
           show_requested_path : stringFun(function(doc, req){
@@ -456,7 +461,11 @@ couchTests.rewrite = function(debug) {
     T(db.save(rw_ddoc).ok);
 
     // try accessing directly
-    var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/path/testShow");
+    var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/testShow");
+    TEquals('/test_suite_db/_design/rwtest/_rewrite/testShow',
+            res.responseText, "requested_path should equal requested");
+
+    res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/path/testShow");
     TEquals('/test_suite_db/_design/rwtest/_rewrite/path/testShow',
             res.responseText, "requested_path should equal requested");
 
@@ -468,6 +477,13 @@ couchTests.rewrite = function(debug) {
     run_on_modified_server([vhosts], function() {
       var res = CouchDB.request("GET", "/path/testShow");
       TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
+
+      res = CouchDB.request("GET", "/testShow");
+      TEquals('/testShow', res.responseText, "requested_path should equal requested");
+
+      // Test multiple rewrites.
+      res = CouchDB.request("GET", "/one");
+      TEquals("/one", res.responseText, "requested_path works through multiple rewrites");
     });
 
     // Test a vhost to a path within the rewrite namespace.
