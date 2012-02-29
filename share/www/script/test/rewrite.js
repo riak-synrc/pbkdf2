@@ -443,7 +443,7 @@ couchTests.rewrite = function(debug) {
     var rw_ddoc = {
       _id: "_design/rwtest",
       rewrites: [
-          {"from":"testShow","to":"_show/show_requested_path"},
+          {"from":"path/testShow","to":"_show/show_requested_path"},
           {"from":"_config/*","to":"../../../_config/*"}
       ],
       shows : {
@@ -456,13 +456,13 @@ couchTests.rewrite = function(debug) {
     T(db.save(rw_ddoc).ok);
 
     // try accessing directly
-    var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/testShow");
-    TEquals('/test_suite_db/_design/rwtest/_rewrite/testShow',
+    var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/path/testShow");
+    TEquals('/test_suite_db/_design/rwtest/_rewrite/path/testShow',
             res.responseText, "requested_path should equal requested");
 
-    // test a vhost with a path as well
+    // Test on a typical vhost -> _rewrite setup.
     var vhosts = {section:'vhosts',
-                  key:encodeURIComponent(CouchDB.host + '/path'),
+                  key:encodeURIComponent(CouchDB.host),
                   value:"/test_suite_db/_design/rwtest/_rewrite/"};
 
     run_on_modified_server([vhosts], function() {
@@ -470,8 +470,8 @@ couchTests.rewrite = function(debug) {
       TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
     });
 
-    // test a vhost on the root of the host
-    vhosts.key = encodeURIComponent(CouchDB.host);
+    // Test a vhost to a path within the rewrite namespace.
+    vhosts.value = "/test_suite_db/_design/rwtest/_rewrite/path";
     run_on_modified_server([vhosts], function() {
       var res = CouchDB.request("GET", "/testShow");
       TEquals('/testShow', res.responseText, "requested_path should equal requested");
