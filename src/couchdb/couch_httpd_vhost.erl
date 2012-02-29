@@ -123,7 +123,7 @@ dispatch_host(MochiReq) ->
                                       NewPath1,
                                       MochiReq:get(version),
                                       MochiReq:get(headers)),
-                    Fun(MochiReq1, VhostTarget)
+                    Fun(MochiReq1, {VPath, VhostTarget})
             end
     end,
     FinalMochiReq.
@@ -134,13 +134,18 @@ append_path(Target, Path) ->
     Target ++ Path.
 
 % default redirect vhost handler 
-redirect_to_vhost(MochiReq, VhostTarget) ->
+redirect_to_vhost(MochiReq, VhostTarget) when is_list(VhostTarget)->
+    redirect_to_vhost(MochiReq, {"", VhostTarget});
+
+redirect_to_vhost(MochiReq, {VPath, VhostTarget}) ->
     Path = MochiReq:get(raw_path),
     Target = append_path(VhostTarget, Path),
 
     ?LOG_DEBUG("Vhost Target: '~p'~n", [Target]),
 
-    Headers = mochiweb_headers:enter("x-couchdb-vhost-path", Path, 
+    Headers = mochiweb_headers:enter_from_list(
+        [{"x-couchdb-vhost-path", Path},
+         {"x-couchdb-vhost-fullpath", "/" ++ VPath}],
         MochiReq:get(headers)),
 
     % build a new mochiweb request
