@@ -445,7 +445,9 @@ couchTests.rewrite = function(debug) {
       rewrites: [
           {"from":"testShow", "to":"_show/show_requested_path"},
           {"from":"path/testShow","to":"_show/show_requested_path"},
-          {"from":"_config/*","to":"../../../_config/*"},
+
+          {"from":"_config/*"     , "to":"../../../_config/*"},
+          {"from":"path/_config/*", "to":"../../../_config/*"},
 
           {"from":"one", "to":"_rewrite/two"},
           {"from":"two", "to":"_rewrite/three"},
@@ -491,6 +493,13 @@ couchTests.rewrite = function(debug) {
     run_on_modified_server([vhosts], function() {
       var res = CouchDB.request("GET", "/testShow");
       TEquals('/testShow', res.responseText, "requested_path should equal requested");
+    });
+
+    // Test the controversial vost with a path.
+    vhosts.key = encodeURIComponent(CouchDB.host + '/path');
+    run_on_modified_server([vhosts], function() {
+      var res = CouchDB.request("GET", "/path/testShow");
+      TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
     });
   });
 }
