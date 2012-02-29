@@ -437,57 +437,69 @@ couchTests.rewrite = function(debug) {
   var res = CouchDB.request("GET", "/test_suite_db/_design/invalid/_rewrite/foo");
   TEquals(400, res.status, "should return 400");
 
-  // test req.requested_path with rewrites with some vhosts
-  var rw_ddoc = {
-    _id: "_design/rwtest",
-    rewrites: [
-        {"from":"testShow","to":"_show/show_requested_path"}
-    ],
-    shows : {
-        show_requested_path : stringFun(function(doc, req){
-          return '/' + req.requested_path.join('/');
-        })
+  // Test req.requested_path with rewrites with some vhosts
+  run_on_modified_server([{section:'httpd', key:'secure_rewrites', value:'false'}],
+  function() {
+    var rw_ddoc = {
+      _id: "_design/rwtest",
+      rewrites: [
+          {"from":"testShow", "to":"_show/show_requested_path"},
+          {"from":"path/testShow","to":"_show/show_requested_path"},
+
+          {"from":"_config/*"     , "to":"../../../_config/*"},
+          {"from":"path/_config/*", "to":"../../../_config/*"},
+
+          {"from":"one", "to":"_rewrite/two"},
+          {"from":"two", "to":"_rewrite/three"},
+          {"from":"three", "to":"_rewrite/testShow"}
+      ],
+      shows : {
+          show_requested_path : stringFun(function(doc, req){
+            return '/' + req.requested_path.join('/');
+          })
+      }
     }
-  }
-  db.save(rw_ddoc);
 
-  // try accessing directly
-  var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/testShow");
-  TEquals('/test_suite_db/_design/rwtest/_rewrite/testShow', res.responseText, "requested_path should equal requested");
+    T(db.save(rw_ddoc).ok);
 
-  // test a vhost with a path as well
-  run_on_modified_server(
-      [{section: "vhosts",
-        key: encodeURIComponent(CouchDB.host + '/path'),
-        value: "/test_suite_db/_design/rwtest/_rewrite/"}
-      ],
-      function(){
-          var res = CouchDB.request("GET", "/path/testShow");
-          TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
-      }
-  );
+    // try accessing directly
+    var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/testShow");
+    TEquals('/test_suite_db/_design/rwtest/_rewrite/testShow',
+            res.responseText, "requested_path should equal requested");
 
-  // test a vhost on the root of the host
-  rw_ddoc.rewrites.push({"from":"_config/*","to":"../../../_config/*"});
-  T(db.save(rw_ddoc).ok);
-  run_on_modified_server(
-      [{section: "httpd",
-        key: "secure_rewrites",
-        value: "false"}
-      ],
-      function(){
-          // we have to 'double wrap' with a run_on_modified_server
-          // so that vhosts gets remove first, then the secure_rewrite
-          run_on_modified_server(
-                [{section: "vhosts",
-                  key: encodeURIComponent(CouchDB.host),
-                  value: "/test_suite_db/_design/rwtest/_rewrite/"}
-                ],
-                function() {
-                    var res = CouchDB.request("GET", "/testShow");
-                    TEquals('/testShow', res.responseText, "requested_path should equal requested");
-                }
-          );
-      }
-  );
+    res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/path/testShow");
+    TEquals('/test_suite_db/_design/rwtest/_rewrite/path/testShow',
+            res.responseText, "requested_path should equal requested");
+
+    // Test on a typical vhost -> _rewrite setup.
+    var vhosts = {section:'vhosts',
+                  key:encodeURIComponent(CouchDB.host),
+                  value:"/test_suite_db/_design/rwtest/_rewrite/"};
+
+    run_on_modified_server([vhosts], function() {
+      var res = CouchDB.request("GET", "/path/testShow");
+      TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
+
+      res = CouchDB.request("GET", "/testShow");
+      TEquals('/testShow', res.responseText, "requested_path should equal requested");
+
+      // Test multiple rewrites.
+      res = CouchDB.request("GET", "/one");
+      TEquals("/one", res.responseText, "requested_path works through multiple rewrites");
+    });
+
+    // Test a vhost to a path within the rewrite namespace.
+    vhosts.value = "/test_suite_db/_design/rwtest/_rewrite/path";
+    run_on_modified_server([vhosts], function() {
+      var res = CouchDB.request("GET", "/testShow");
+      TEquals('/testShow', res.responseText, "requested_path should equal requested");
+    });
+
+    // Test the controversial vost with a path.
+    vhosts.key = encodeURIComponent(CouchDB.host + '/path');
+    run_on_modified_server([vhosts], function() {
+      var res = CouchDB.request("GET", "/path/testShow");
+      TEquals('/path/testShow', res.responseText, "requested_path should equal requested");
+    });
+  });
 }
