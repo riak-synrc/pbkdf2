@@ -455,13 +455,10 @@ couchTests.rewrite = function(debug) {
   var res = CouchDB.request("GET", "/test_suite_db/_design/rwtest/_rewrite/testShow");
   TEquals('/test_suite_db/_design/rwtest/_rewrite/testShow', res.responseText, "requested_path should equal requested");
 
-  var host = 'localhost:5984';
-  if (window) host = window.location.host;
-
   // test a vhost with a path as well
   run_on_modified_server(
       [{section: "vhosts",
-        key: encodeURIComponent(host + '/path'),
+        key: encodeURIComponent(CouchDB.host + '/path'),
         value: "/test_suite_db/_design/rwtest/_rewrite/"}
       ],
       function(){
@@ -483,7 +480,7 @@ couchTests.rewrite = function(debug) {
           // so that vhosts gets remove first, then the secure_rewrite
           run_on_modified_server(
                 [{section: "vhosts",
-                  key: encodeURIComponent(host),
+                  key: encodeURIComponent(CouchDB.host),
                   value: "/test_suite_db/_design/rwtest/_rewrite/"}
                 ],
                 function() {
