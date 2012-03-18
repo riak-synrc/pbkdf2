@@ -17,7 +17,7 @@
 -export([rand32/0, implode/2, collate/2, collate/3]).
 -export([abs_pathname/1,abs_pathname/2, trim/1]).
 -export([encodeBase64Url/1, decodeBase64Url/1]).
--export([validate_utf8/1, to_hex/1, parse_term/1, dict_find/3]).
+-export([validate_utf8/1, to_hex/1, from_hex/1, parse_term/1, dict_find/3]).
 -export([get_nested_json_value/2, json_user_ctx/1]).
 -export([proplist_apply_field/2, json_apply_field/2]).
 -export([to_binary/1, to_integer/1, to_list/1, url_encode/1]).
@@ -135,6 +135,14 @@ to_hex([H|T]) ->
 
 to_digit(N) when N < 10 -> $0 + N;
 to_digit(N)             -> $a + N-10.
+
+from_hex(Hex) when is_list(Hex) ->
+    from_hex(?l2b(Hex));
+from_hex(<<>>) ->
+    [];
+from_hex(<<Digit:2/binary,Rest/binary>>) ->
+    {ok, [N], []} = io_lib:fread("~16u", ?b2l(Digit)),
+    [N|from_hex(Rest)].
 
 
 parse_term(Bin) when is_binary(Bin) ->
