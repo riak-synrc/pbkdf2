@@ -136,13 +136,10 @@ to_hex([H|T]) ->
 to_digit(N) when N < 10 -> $0 + N;
 to_digit(N)             -> $a + N-10.
 
+from_hex(Hex) when is_binary(Hex) ->
+    mochihex:to_bin(?b2l(Hex));
 from_hex(Hex) when is_list(Hex) ->
-    from_hex(?l2b(Hex));
-from_hex(<<>>) ->
-    [];
-from_hex(<<Digit:2/binary,Rest/binary>>) ->
-    {ok, [N], []} = io_lib:fread("~16u", ?b2l(Digit)),
-    [N|from_hex(Rest)].
+    mochihex:to_bin(Hex).
 
 
 parse_term(Bin) when is_binary(Bin) ->

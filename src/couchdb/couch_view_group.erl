@@ -463,7 +463,7 @@ design_root(RootDir, DbName) ->
 
 index_file_name(RootDir, DBName, Pid) when is_pid(Pid) ->
     {ok, GroupInfo} = request_group_info(Pid),
-    GroupSig = ?l2b(couch_util:from_hex(couch_util:get_value(signature, GroupInfo))),
+    GroupSig = couch_util:from_hex(couch_util:get_value(signature, GroupInfo)),
     index_file_name(RootDir, DBName, GroupSig);
 index_file_name(RootDir, DbName, GroupSig) ->
     design_root(RootDir, DbName) ++ hex_sig(GroupSig) ++".view".
