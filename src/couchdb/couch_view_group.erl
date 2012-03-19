@@ -433,7 +433,7 @@ prepare_group({RootDir, DbName, #group{sig=Sig}=Group}, ForceReset)->
                 end
             end;
         {error, Reason} = Error ->
-            ?LOG_ERROR("failed openining view file '~s': ~s", [
+            ?LOG_ERROR("Failed to open view file '~s': ~s", [
                 index_file_name(RootDir, DbName, Sig),
                 file:format_error(Reason)
             ]),
