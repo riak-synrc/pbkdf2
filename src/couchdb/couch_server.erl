@@ -129,7 +129,7 @@ hash_admin_passwords() ->
     hash_admin_passwords(true).
 
 hash_admin_passwords(Persist) ->
-    Iterations = couch_config:get("couch_httpd_auth", "iterations", "1000"),
+    Iterations = couch_config:get("couch_httpd_auth", "iterations", "10000"),
     lists:foreach(
         fun({_User, "-hashed-" ++ _}) ->
             ok; % already hashed
