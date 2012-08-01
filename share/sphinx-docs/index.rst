@@ -13,15 +13,14 @@ Contents:
 
    intro
    features
-   replication
-   errors
-   views
+   api-basics
    configuring
-   api
+   replication
+   views
    changes
-   config
-   api/reference
    1.1/index
+   api/reference
+   json-structure
 
 Indices and tables
 ==================

@@ -1,3 +1,5 @@
+.. _api-misc:
+
 =====================
 Miscellaneous Methods
 =====================
@@ -8,33 +10,76 @@ configuration information.
 
 A list of the available methods and URL paths are provided below:
 
-Miscellaneous API Calls
++--------+-------------------------+-------------------------------------------+
+| Method | Path                    | Description                               |
++========+=========================+===========================================+
+| GET    | /                       |  Get the welcome message and version      |
+|        |                         |  information                              |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_active_tasks          |  Obtain a list of the tasks running in the|
+|        |                         |  server                                   |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_all_dbs               |  Get a list of all the DBs                |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_log                   |  Return the server log file               |
++--------+-------------------------+-------------------------------------------+
+| POST   | /_replicate             |  Set or cancel replication                |
++--------+-------------------------+-------------------------------------------+
+| POST   | /_restart               |  Restart the server                       |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_stats                 |  Return server statistics                 |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_utils                 |  CouchDB administration interface (Futon) |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_uuids                 |  Get generated UUIDs from the server      |
++--------+-------------------------+-------------------------------------------+
+| GET    | /favicon.ico            |  Get the site icon                        |
++--------+-------------------------+-------------------------------------------+
 
 ``GET /``
 =========
+
+* **Method**: ``GET /``
+* **Request**: None
+* **Response**: Welcome message and version
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
 
 Accessing the root of a CouchDB instance returns meta information about
 the instance. The response is a JSON structure containing information
 about the server, including a welcome message and the version of the
 server.
 
-::
+.. code-block:: javascript
 
     {
        "couchdb" : "Welcome",
        "version" : "1.0.1"
     }
 
+.. _active-tasks:
+
 ``GET /_active_tasks``
 ======================
+
+* **Method**: ``GET /_active_tasks``
+* **Request**: None
+* **Response**: List of running tasks, including the task type, name, status
+  and process ID
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
 
 You can obtain a list of active tasks by using the ``/_active_tasks``
 URL. The result is a JSON array of the currently running tasks, with
 each task being described with a single object. For example:
 
-::
-
-
+.. code-block:: javascript
 
     [
        {
@@ -45,10 +90,14 @@ each task being described with a single object. For example:
         }
     ]
 
-
-        
-
 The returned structure includes the following fields for each task:
+
+* **tasks** [array]: Active Task
+
+  * **pid**:Process ID
+  * **status**: Task status message
+  * **task**: Task name
+  * **type**: Operation Type
 
 For operation type, valid values include:
 
@@ -63,17 +112,26 @@ For operation type, valid values include:
 ``GET /_all_dbs``
 =================
 
+* **Method**: ``GET /_all_dbs``
+* **Request**: None
+* **Response**: JSON list of DBs
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+
 Returns a list of all the databases in the CouchDB instance. For
 example:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/_all_dbs
     Accept: application/json
 
 The return is a JSON array:
 
-::
+.. code-block:: javascript
 
     [
        "_users",
@@ -86,6 +144,31 @@ The return is a JSON array:
 ``GET /_log``
 =============
 
+* **Method**: ``GET /_log``
+* **Request**: None
+* **Response**: Log content
+* **Admin Privileges Required**: yes
+* **Query Arguments**:
+
+  * **Argument**: bytes
+
+    * **Description**:  Bytes to be returned
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 1000
+
+  * **Argument**: offset
+
+    * **Description**:  Offset in bytes where the log tail should be started
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 0
+
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+
 Gets the CouchDB log, equivalent to accessing the local log file of the
 corresponding CouchDB instance.
 
@@ -94,24 +177,19 @@ text, with an HTTP ``Content-type`` header as ``text/plain``.
 
 For example, the request:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/_log
     Accept: */*
 
 The raw text is returned:
 
-::
-
+.. code-block:: text
 
     [Wed, 27 Oct 2010 10:49:42 GMT] [info] [<0.23338.2>] 192.168.0.2 - - 'PUT' /authdb 401
-
     [Wed, 27 Oct 2010 11:02:19 GMT] [info] [<0.23428.2>] 192.168.0.116 - - 'GET' /recipes/FishStew 200
-
     [Wed, 27 Oct 2010 11:02:19 GMT] [info] [<0.23428.2>] 192.168.0.116 - - 'GET' /_session 200
-
     [Wed, 27 Oct 2010 11:02:19 GMT] [info] [<0.24199.2>] 192.168.0.116 - - 'GET' / 200
-
     [Wed, 27 Oct 2010 13:03:38 GMT] [info] [<0.24207.2>] 192.168.0.116 - - 'GET' /_log?offset=5 200
 
 If you want to pick out specific parts of the log information you can
@@ -120,15 +198,50 @@ returned, and ``offset``, which specifies where the reading of the log
 should start, counted back from the end. For example, if you use the
 following request:
 
-::
+.. code-block:: http
 
     GET /_log?bytes=500&offset=2000
 
 Reading of the log will start at 2000 bytes from the end of the log, and
 500 bytes will be shown.
 
+.. _replicate:
+
 ``POST /_replicate``
 ====================
+
+.. todo:: POST /_replicate :: what response is?
+
+* **Method**: ``POST /_replicate``
+* **Request**: Replication specification
+* **Response**: TBD
+* **Admin Privileges Required**: yes
+* **Query Arguments**:
+
+  * **Argument**: bytes
+
+    * **Description**:  Bytes to be returned
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 1000
+
+  * **Argument**: offset
+
+    * **Description**:  Offset in bytes where the log tail should be started
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 0
+
+* **Return Codes**:
+
+  * **200**:
+    Replication request successfully completed
+  * **202**:
+    Continuous replication request has been accepted
+  * **404**:
+    Either the source or target DB is not found
+  * **500**:
+    JSON specification was invalid
 
 Request, configure, or stop, a replication operation.
 
@@ -136,6 +249,15 @@ The specification of the replication request is controlled through the
 JSON content of the request. The JSON should be an object with the
 fields defining the source, target and other options. The fields of the
 JSON request are shown in the table below:
+
+* **cancel (optional)**:  Cancels the replication
+* **continuous (optional)**:  Configure the replication to be continuous
+* **create_target (optional)**:  Creates the target database
+* **doc_ids (optional)**:  Array of document IDs to be synchronized
+* **proxy (optional)**:  Address of a proxy server through which replication
+  should occur
+* **source**:  Source database name or URL
+* **target**:  Target database name or URL
 
 Replication Operation
 ---------------------
@@ -174,7 +296,7 @@ For example, to request replication between a database local to the
 CouchDB instance to which you send the request, and a remote database
 you might use the following request:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/_replicate
     Content-Type: application/json
@@ -184,24 +306,23 @@ you might use the following request:
        "source" : "recipes",
        "target" : "http://coucdb-remote:5984/recipes",
     }
-          
+
 
 In all cases, the requested databases in the ``source`` and ``target``
 specification must exist. If they do not, an error will be returned
 within the JSON object:
 
-::
+.. code-block:: javascript
 
     {
        "error" : "db_not_found"
        "reason" : "could not open http://couchdb-remote:5984/ol1ka/",
     }
-          
 
 You can create the target database (providing your user credentials
 allow it) by adding the ``create_target`` field to the request object:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/_replicate
     Content-Type: application/json
@@ -225,7 +346,7 @@ synchronizes the two databases together. For example, you can request a
 single synchronization between two databases by supplying the ``source``
 and ``target`` fields within the request JSON content.
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/_replicate
     Content-Type: application/json
@@ -242,7 +363,7 @@ where the request was made. The response will be a JSON structure
 containing the success (or failure) of the synchronization process, and
 statistics about the process:
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true,
@@ -268,6 +389,24 @@ statistics about the process:
 The structure defines the replication status, as described in the table
 below:
 
+* **history [array]**:  Replication History
+
+  * **doc_write_failures**:  Number of document write failures
+  * **docs_read**:  Number of documents read
+  * **docs_written**:  Number of documents written to target
+  * **end_last_seq**:  Last sequence number in changes stream
+  * **end_time**:  Date/Time replication operation completed
+  * **missing_checked**:  Number of missing documents checked
+  * **missing_found**:  Number of missing documents found
+  * **recorded_seq**:  Last recorded sequence number
+  * **session_id**:  Session ID for this replication operation
+  * **start_last_seq**:  First sequence number in changes stream
+  * **start_time**:  Date/Time replication operation started
+
+* **ok**:  Replication status
+* **session_id**:  Unique session ID
+* **source_last_seq**:  Last sequence number read from source database
+
 Continuous Replication
 ----------------------
 
@@ -280,7 +419,7 @@ With continuous replication changes in the source database are
 replicated to the target database in perpetuity until you specifically
 request that replication ceases.
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/_replicate
     Content-Type: application/json
@@ -295,12 +434,11 @@ request that replication ceases.
 Changes will be replicated between the two databases as long as a
 network connection is available between the two instances.
 
-    **Note**
-
-    Two keep two databases synchronized with each other, you need to set
-    replication in both directions; that is, you must replicate from
-    ``databasea`` to ``databaseb``, and separately from ``databaseb`` to
-    ``databasea``.
+.. note::
+   Two keep two databases synchronized with each other, you need to set
+   replication in both directions; that is, you must replicate from
+   ``databasea`` to ``databaseb``, and separately from ``databaseb`` to
+   ``databasea``.
 
 Canceling Continuous Replication
 --------------------------------
@@ -308,13 +446,13 @@ Canceling Continuous Replication
 You can cancel continuous replication by adding the ``cancel`` field to
 the JSON request object and setting the value to true. Note that the
 structure of the request must be identical to the original for the
-cancelation request to be honoured. For example, if you requested
+cancellation request to be honoured. For example, if you requested
 continuous replication, the cancellation request must also contain the
 ``continuous`` field.
 
 For example, the replication request:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/_replicate
     Content-Type: application/json
@@ -329,7 +467,7 @@ For example, the replication request:
 
 Must be canceled using the request:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/_replicate
     Content-Type: application/json
@@ -349,19 +487,36 @@ a 404 error.
 ``POST /_restart``
 ==================
 
+* **Method**: ``POST /_restart``
+* **Request**: None
+* **Response**: JSON status message
+* **Admin Privileges Required**: yes
+* **HTTP Headers**:
+
+  * **Header**: ``Content-Type``
+
+    * **Description**: Request content type
+    * **Optional**: no
+    * **Value**: :mimetype:`application/json`
+
+* **Return Codes**:
+
+  * **200**:
+    Replication request successfully completed
+
 Restarts the CouchDB instance. You must be authenticated as a user with
 administration privileges for this to work.
 
 For example:
 
-::
+.. code-block:: http
 
     POST http://admin:password@couchdb:5984/_restart
 
 The return value (if the server has not already restarted) is a JSON
 status object indicating that the request has been received:
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true,
@@ -373,14 +528,23 @@ actual data is contained in the response.
 ``GET /_stats``
 ===============
 
-The ``_stats`` method returns a JSON object containting the statistics
+* **Method**: ``GET /_stats``
+* **Request**: None
+* **Response**: Server statistics
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+
+The ``_stats`` method returns a JSON object containing the statistics
 for the running server. The object is structured with top-level sections
 collating the statistics for a range of entries, with each individual
 statistic being easily identified, and the content of each statistic is
 self-describing. For example, the request time statistics, within the
 ``couchdb`` section are structured as follows:
 
-::
+.. code-block:: javascript
 
     {
        "couchdb" : {
@@ -397,7 +561,7 @@ self-describing. For example, the request time statistics, within the
     ...
         }
     }
-          
+
 
 The fields provide the current, minimum and maximum, and a collection of
 statistical means and quantities. The quantity in each case is not
@@ -405,9 +569,7 @@ defined, but the descriptions below provide
 
 The statistics are divided into the following top-level sections:
 
--  ``couchdb``
-
-   Describes statistics specific to the internals of CouchDB.
+-  ``couchdb``: Describes statistics specific to the internals of CouchDB.
 
    +-------------------------+-------------------------------------------------------+----------------+
    | Statistic ID            | Description                                           | Unit           |
@@ -427,8 +589,6 @@ The statistics are divided into the following top-level sections:
    | ``request_time``        | Length of a request inside CouchDB without MochiWeb   | milliseconds   |
    +-------------------------+-------------------------------------------------------+----------------+
 
-   Table: ``couchdb`` statistics
-
 -  ``httpd_request_methods``
 
    +----------------+----------------------------------+----------+
@@ -446,8 +606,6 @@ The statistics are divided into the following top-level sections:
    +----------------+----------------------------------+----------+
    | ``PUT``        | Number of HTTP PUT requests      | number   |
    +----------------+----------------------------------+----------+
-
-   Table: ``httpd_request_methods`` statistics
 
 -  ``httpd_status_codes``
 
@@ -481,8 +639,6 @@ The statistics are divided into the following top-level sections:
    | ``500``        | Number of HTTP 500 Internal Server Error responses   | number   |
    +----------------+------------------------------------------------------+----------+
 
-   Table: ``httpd_status_codes`` statistics
-
 -  ``httpd``
 
    +----------------------------------+----------------------------------------------+----------+
@@ -490,7 +646,7 @@ The statistics are divided into the following top-level sections:
    +==================================+==============================================+==========+
    | ``bulk_requests``                | Number of bulk requests                      | number   |
    +----------------------------------+----------------------------------------------+----------+
-   | ``clients_requesting_changes``   | Number of clients for continuous \_changes   | number   |
+   | ``clients_requesting_changes``   | Number of clients for continuous _changes    | number   |
    +----------------------------------+----------------------------------------------+----------+
    | ``requests``                     | Number of HTTP requests                      | number   |
    +----------------------------------+----------------------------------------------+----------+
@@ -499,22 +655,19 @@ The statistics are divided into the following top-level sections:
    | ``view_reads``                   | Number of view reads                         | number   |
    +----------------------------------+----------------------------------------------+----------+
 
-   Table: ``httpd`` statistics
-
 You can also access individual statistics by quoting the statistics
 sections and statistic ID as part of the URL path. For example, to get
 the ``request_time`` statistics, you can use:
 
-::
+.. code-block:: http
 
     GET /_stats/couchdb/request_time
-        
 
 This returns an entire statistics object, as with the full request, but
-containining only the request individual statistic. Hence, the returned
+containing only the request individual statistic. Hence, the returned
 structure is as follows:
 
-::
+.. code-block:: javascript
 
     {
        "couchdb" : {
@@ -529,21 +682,43 @@ structure is as follows:
           }
        }
     }
-        
+
 
 ``GET /_utils``
 ===============
+
+* **Method**: ``GET /_utils``
+* **Request**: None
+* **Response**: Administration interface
+* **Admin Privileges Required**: no
 
 Accesses the built-in Futon administration interface for CouchDB.
 
 ``GET /_uuids``
 ===============
 
+* **Method**: ``GET /_uuids``
+* **Request**: None
+* **Response**: List of UUIDs
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: count
+
+    * **Description**:  Number of UUIDs to return
+    * **Optional**: yes
+    * **Type**: numeric
+
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+
 Requests one or more Universally Unique Identifiers (UUIDs) from the
 CouchDB instance. The response is a JSON object providing a list of
 UUIDs. For example:
 
-::
+.. code-block:: javascript
 
     {
        "uuids" : [
@@ -554,13 +729,13 @@ UUIDs. For example:
 You can use the ``count`` argument to specify the number of UUIDs to be
 returned. For example:
 
-::
+.. code-block:: http
 
-        GET http://couchdb:5984/_uuids?count=5
+    GET http://couchdb:5984/_uuids?count=5
 
 Returns:
 
-::
+.. code-block:: javascript
 
     {
        "uuids" : [
@@ -573,11 +748,11 @@ Returns:
     }
 
 The UUID type is determined by the UUID type setting in the CouchDB
-configuration. See ?.
+configuration. See :ref:`api-put-config`.
 
 For example, changing the UUID type to ``random``:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/_config/uuids/algorithm
     Content-Type: application/json
@@ -587,7 +762,7 @@ For example, changing the UUID type to ``random``:
 
 When obtaining a list of UUIDs:
 
-::
+.. code-block:: javascript
 
     {
        "uuids" : [
@@ -602,5 +777,17 @@ When obtaining a list of UUIDs:
 ``GET /favicon.ico``
 ====================
 
-Returns the site icon. The return ``Content-type`` header is
-``image/x-icon``, and the content stream is the image data.
+* **Method**: ``GET /favicon.ico``
+* **Request**: None
+* **Response**: Binary content for the `favicon.ico` site icon
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+  * **404**:
+    The requested content could not be found. The returned content will include
+    further information, as a JSON object, if available.
+
+Returns the site icon. The return ``Content-Type`` header is
+:mimetype:`image/x-icon`, and the content stream is the image data.

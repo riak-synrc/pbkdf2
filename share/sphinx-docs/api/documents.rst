@@ -1,3 +1,5 @@
+.. _api-doc:
+
 ================
 Document Methods
 ================
@@ -7,10 +9,54 @@ update and delete documents within a database.
 
 A list of the available methods and URL paths are provided below:
 
-Document API Calls
++--------+-------------------------+-------------------------------------------+
+| Method | Path                    | Description                               |
++========+=========================+===========================================+
+| POST   | /db                     | Create a new document                     |
++--------+-------------------------+-------------------------------------------+
+| GET    | /db/doc                 | Returns the latest revision of the        |
+|        |                         | document                                  |
++--------+-------------------------+-------------------------------------------+
+| HEAD   | /db/doc                 | Returns bare information in the HTTP      |
+|        |                         | Headers for the document                  |
++--------+-------------------------+-------------------------------------------+
+| PUT    | /db/doc                 | Inserts a new document, or new version    |
+|        |                         | of an existing document                   |
++--------+-------------------------+-------------------------------------------+
+| DELETE | /db/doc                 | Deletes the document                      |
++--------+-------------------------+-------------------------------------------+
+| COPY   | /db/doc                 | Copies the document                       |
++--------+-------------------------+-------------------------------------------+
+| GET    | /db/doc/attachment      | Gets the attachment of a document         |
++--------+-------------------------+-------------------------------------------+
+| PUT    | /db/doc/attachment      | Adds an attachment of a document          |
++--------+-------------------------+-------------------------------------------+
+| DELETE | /db/doc/attachment      | Deletes an attachment of a document       |
++--------+-------------------------+-------------------------------------------+
 
 ``POST /db``
 ============
+
+* **Method**: ``POST /db``
+* **Request**: JSON of the new document
+* **Response**: JSON with the committed document information
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: batch
+
+    * **Description**:  Allow document store request to be batched with others
+    * **Optional**: yes
+    * **Type**: string
+    * **Supported Values**: asd
+    * **ok**: Enable
+
+* **Return Codes**:
+
+  * **201**:
+    Document has been created successfully
+  * **409**:
+    Conflict - a document with the specified document ID already exists
 
 Create a new document in the specified database, using the supplied JSON
 document structure. If the JSON structure includes the ``_id`` field,
@@ -20,7 +66,7 @@ then the document will be created with the specified document ID. If the
 For example, you can generate a new document with a generated UUID using
 the following request:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/
     Content-Type: application/json
@@ -34,7 +80,7 @@ the following request:
 The return JSON will specify the automatically enerated ID and revision
 information:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "64575eef70ab90a2b8d55fc09e00440d",
@@ -49,7 +95,7 @@ The document ID can be specified by including the ``_id`` field in the
 JSON of the submitted record. The following request will create the same
 document with the ID ``FishStew``:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/
     Content-Type: application/json
@@ -66,7 +112,7 @@ The structure of the submitted document is as shown in the table below:
 In either case, the returned JSON will specify the document ID, revision
 ID, and status message:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "FishStew",
@@ -74,6 +120,8 @@ ID, and status message:
        "rev" : "1-9c65296036141e575d32ba9c034dd3ee"
     }
         
+
+.. _api-batch-writes:
 
 Batch Mode Writes
 -----------------
@@ -94,12 +142,21 @@ Including Attachments
 You can include one or more attachments with a given document by
 incorporating the attachment information within the JSON of the
 document. This provides a simpler alternative to loading documents with
-attachments than making a separate call (see ?).
+attachments than making a separate call (see :ref:`api-put-attachment`).
+
+* **_id** (optional): Document ID
+* **_rev** (optional): Revision ID (when updating an existing document)
+* **_attachments** (optional): Document Attachment
+
+  * **filename**: Attachment information
+
+    * **content_type**: MIME Content type string
+    * **data**: File attachment content, Base64 encoded
 
 The ``filename`` will be the attachment name. For example, when sending
 the JSON structure below:
 
-::
+.. code-block:: javascript
 
     {
        "_id" : "FishStew",
@@ -117,19 +174,73 @@ the JSON structure below:
 
 The attachment ``styling.css`` can be accessed using
 ``/recipes/FishStew/styling.css``. For more information on attachments,
-see ?.
+see :ref:`api-get-attachment`.
 
 The document data embedded in to the structure must be encoded using
 base64.
 
+.. _api-get-doc:
+
 ``GET /db/doc``
 ===============
+
+* **Method**: ``GET /db/doc``
+* **Request**: None
+* **Response**: Returns the JSON for the document
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: conflicts
+
+    * **Description**: Returns the conflict tree for the document.
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: false
+    * **Supported Values**:
+
+      * **true**: Includes the revisions
+
+  * **Argument**: rev
+
+    * **Description**: Specify the revision to return
+    * **Optional**: yes
+    * **Type**: string
+    * **Supported Values**:
+
+      * **true**: Includes the revisions
+
+  * **Argument**: revs
+
+    * **Description**:  Return a list of the revisions for the document
+    * **Optional**: yes
+    * **Type**: boolean
+
+  * **Argument**: revs_info
+
+    * **Description**: Return a list of detailed revision information for the
+      document
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Supported Values**:
+
+      * **true**: Includes the revisions
+
+* **Return Codes**:
+
+  * **200**:
+    Document retrieved
+  * **400**:
+    The format of the request or revision was invalid
+  * **404**:
+    The specified document or revision cannot be found, or has been deleted
+  * **409**:
+    Conflict - a document with the specified document ID already exists
 
 Returns the specified ``doc`` from the specified ``db``. For example, to
 retrieve the document with the id ``FishStew`` you would send the
 following request:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes/FishStew
     Content-Type: application/json
@@ -138,7 +249,7 @@ following request:
 The returned JSON is the JSON of the document, including the document ID
 and revision number:
 
-::
+.. code-block:: javascript
 
     {
        "_id" : "FishStew",
@@ -156,13 +267,13 @@ Attachments
 -----------
 
 If the document includes attachments, then the returned structure will
-contain a summary of the attachments associatd with the document, but
+contain a summary of the attachments associated with the document, but
 not the attachment data itself.
 
 The JSON for the returned document will include the ``_attachments``
 field, with one or more attachment definitions. For example:
 
-::
+.. code-block:: javascript
 
     {
        "_id" : "FishStew",
@@ -180,13 +291,24 @@ field, with one or more attachment definitions. For example:
 
 The format of the returned JSON is shown in the table below:
 
+* **_id** (optional): Document ID
+* **_rev** (optional): Revision ID (when updating an existing document)
+* **_attachments** (optional): Document Attachment
+
+  * **filename**: Attachment information
+
+    * **content_type**: MIME Content type string
+    * **length**: Length (bytes) of the attachment data
+    * **revpos**: Revision where this attachment exists
+    * **stub**: Indicates whether the attachment is a stub
+
 Getting a List of Revisions
 ---------------------------
 
 You can obtain a list of the revisions for a given document by adding
 the ``revs=true`` parameter to the request URL. For example:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes/FishStew?revs=true
     Accept: application/json
@@ -194,7 +316,7 @@ the ``revs=true`` parameter to the request URL. For example:
 The returned JSON structure includes the original document, including a
 ``_revisions`` structure that includes the revision information:
 
-::
+.. code-block:: javascript
 
     {
        "servings" : 4,
@@ -212,13 +334,21 @@ The returned JSON structure includes the original document, including a
        "_rev" : "3-a1a9b39ee3cc39181b796a69cb48521c"
     }
 
+* **_id** (optional): Document ID
+* **_rev** (optional): Revision ID (when updating an existing document)
+* **_revisions**: CouchDB Document Revisions
+
+  * **ids** [array]: Array of valid revision IDs, in reverse order
+    (latest first)
+  * **start**: Prefix number for the latest revision
+
 Obtaining an Extended Revision History
 --------------------------------------
 
 You can get additional information about the revisions for a given
 document by supplying the ``revs_info`` argument to the query:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes/FishStew?revs_info=true
     Accept: application/json
@@ -226,7 +356,7 @@ document by supplying the ``revs_info`` argument to the query:
 This returns extended revision information, including the availability
 and status of each revision:
 
-::
+.. code-block:: javascript
 
     {
        "servings" : 4,
@@ -250,13 +380,20 @@ and status of each revision:
        "_rev" : "3-a1a9b39ee3cc39181b796a69cb48521c"
     }
 
+* **_id** (optional): Document ID
+* **_rev** (optional): Revision ID (when updating an existing document)
+* **_revs_info** [array]: CouchDB Document Extended Revision Info
+
+  * **rev**: Full revision string
+  * **status**: Status of the revision
+
 Obtaining a Specific Revision
 -----------------------------
 
 To get a specific revision, use the ``rev`` argument to the request, and
 specify the full revision number:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes/FishStew?rev=2-7c4740b4dcf26683e941d6641c00c39d
     Accept: application/json
@@ -264,7 +401,7 @@ specify the full revision number:
 The specified revision of the document will be returned, including a
 ``_rev`` field specifying the revision that was requested:
 
-::
+.. code-block:: javascript
 
     {
        "_id" : "FishStew",
@@ -277,13 +414,43 @@ The specified revision of the document will be returned, including a
 ``HEAD /db/doc``
 ================
 
+* **Method**: ``HEAD /db/doc``
+* **Request**: None
+* **Response**: None
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: rev
+
+    * **Description**:  Specify the revision to return
+    * **Optional**: yes
+    * **Type**: string
+
+  * **Argument**: revs
+
+    * **Description**:  Return a list of the revisions for the document
+    * **Optional**: yes
+    * **Type**: boolean
+
+  * **Argument**: revs_info
+
+    * **Description**:  Return a list of detailed revision information for the
+      document
+    * **Optional**: yes
+    * **Type**: boolean
+
+* **Return Codes**:
+
+  * **404**:
+    The specified document or revision cannot be found, or has been deleted
+
 Returns the HTTP Headers containing a minimal amount of information
 about the specified document. The method supports the same query
 arguments as the ``GET`` method, but only the header information
 (including document size, and the revision as an ETag), is returned. For
 example, a simple ``HEAD`` request:
 
-::
+.. code-block:: http
 
     HEAD http://couchdb:5984/recipes/FishStew
     Content-Type: application/json
@@ -291,7 +458,7 @@ example, a simple ``HEAD`` request:
 
 Returns the following HTTP Headers:
 
-::
+.. code-block:: javascript
 
     HTTP/1.1 200 OK
     Server: CouchDB/1.0.1 (Erlang OTP/R13B)
@@ -310,7 +477,7 @@ then the resulting HTTP Headers will correspond to what would be
 returned. Note that the current revision is not returned when the
 ``refs_info`` argument is used. For example:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Server: CouchDB/1.0.1 (Erlang OTP/R13B)
@@ -319,17 +486,50 @@ returned. Note that the current revision is not returned when the
     Content-Length: 609
     Cache-Control: must-revalidate
 
+.. _api-put-doc:
+
 ``PUT /db/doc``
 ===============
 
+* **Method**: ``PUT /db/doc``
+* **Request**: JSON of the new document, or updated version of the existed
+  document
+* **Response**: JSON of the document ID and revision
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: batch
+
+    * **Description**:  Allow document store request to be batched with others
+    * **Optional**: yes
+    * **Type**: string
+    * **Supported Values**:
+
+      * **ok**: Enable
+
+* **HTTP Headers**
+
+  * **Header**: ``If-Match``
+
+    * **Description**: Current revision of the document for validation
+    * **Optional**: yes
+
+* **Return Codes**:
+
+  * **201**:
+    Document has been created successfully
+  * **202**:
+    Document accepted for writing (batch mode)
+
+
 The ``PUT`` method creates a new named document, or creates a new
-revision of the existing document. Unlike the ```POST```_ method, you
+revision of the existing document. Unlike the ``POST`` method, you
 must specify the document ID in the request URL.
 
-For example, to create the docment ``FishStew``, you would send the
+For example, to create the document ``FishStew``, you would send the
 following request:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes/FishStew
     Content-Type: application/json
@@ -342,7 +542,7 @@ following request:
 
 The return type is JSON of the status, document ID,and revision number:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "FishStew",
@@ -356,7 +556,7 @@ Updating an Existing Document
 To update an existing document you must specify the current revision
 number within the ``_rev`` parameter. For example:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes/FishStew
     Content-Type: application/json
@@ -371,7 +571,7 @@ number within the ``_rev`` parameter. For example:
 Alternatively, you can supply the current revision number in the
 ``If-Match`` HTTP header of the request. For example:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes/FishStew
     If-Match: 2-d953b18035b76f2a5b1d1d93f25d3aea
@@ -385,7 +585,7 @@ Alternatively, you can supply the current revision number in the
 
 The JSON returned will include the updated revision number:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "FishStew99",
@@ -394,23 +594,49 @@ The JSON returned will include the updated revision number:
     }
 
 For information on batched writes, which can provide improved
-performance, see ?.
+performance, see :ref:`api-batch-writes`.
+
+.. _api-del-doc:
 
 ``DELETE /db/doc``
 ==================
+
+* **Method**: ``DELETE /db/doc``
+* **Request**: None
+* **Response**: JSON of the deleted revision
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: rev
+
+    * **Description**:  Current revision of the document for validation
+    * **Optional**: yes
+    * **Type**: string
+
+* **HTTP Headers**
+
+  * **Header**: ``If-Match``
+
+    * **Description**: Current revision of the document for validation
+    * **Optional**: yes
+
+* **Return Codes**:
+
+  * **409**:
+    Revision is missing, invalid or not the latest
 
 Deletes the specified document from the database. You must supply the
 current (latest) revision, either by using the ``rev`` parameter to
 specify the revision:
 
-::
+.. code-block:: http
 
     DELETE http://couchdb:5984/recipes/FishStew?rev=3-a1a9b39ee3cc39181b796a69cb48521c
     Content-Type: application/json
 
 Alternatively, you can use ETags with the ``If-Match`` field:
 
-::
+.. code-block:: http
 
     DELETE http://couchdb:5984/recipes/FishStew
     If-Match: 3-a1a9b39ee3cc39181b796a69cb48521c
@@ -419,7 +645,7 @@ Alternatively, you can use ETags with the ``If-Match`` field:
 
 The returned JSON contains the document ID, revision and status:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "FishStew",
@@ -427,14 +653,40 @@ The returned JSON contains the document ID, revision and status:
        "rev" : "4-2719fd41187c60762ff584761b714cfb"
     }
 
-    **Note**
+.. note:: Note that deletion of a record increments the revision number. The
+   use of a revision for deletion of the record allows replication of
+   the database to correctly track the deletion in synchronized copies.
 
-    Note that deletion of a record increments the revision number. The
-    use of a revision for deletion of the record allows replication of
-    the database to correctly track the deletion in synchronized copies.
+.. _api-copy-doc:
 
 ``COPY /db/doc``
 ================
+
+* **Method**: ``COPY /db/doc``
+* **Request**: None
+* **Response**: JSON of the new document and revision
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: rev
+
+    * **Description**:  Revision to copy from
+    * **Optional**: yes
+    * **Type**: string
+
+* **HTTP Headers**
+
+  * **Header**: ``Destination``
+
+    * **Description**: Destination document (and optional revision)
+    * **Optional**: no
+
+* **Return Codes**:
+
+  * **201**:
+    Document has been copied and created successfully
+  * **409**:
+    Revision is missing, invalid or not the latest
 
 The ``COPY`` command (which is non-standard HTTP) copies an existing
 document to a new or existing document.
@@ -449,7 +701,7 @@ Copying a Document
 You can copy the latest version of a document to a new document by
 specifying the current document and target document:
 
-::
+.. code-block:: http
 
     COPY http://couchdb:5984/recipes/FishStew
     Content-Type: application/json
@@ -459,7 +711,7 @@ The above request copies the document ``FishStew`` to the new document
 ``IrishFishStew``. The response is the ID and revision of the new
 document.
 
-::
+.. code-block:: javascript
 
     {
        "id" : "IrishFishStew",
@@ -472,7 +724,7 @@ Copying from a Specific Revision
 To copy *from* a specific version, use the ``rev`` argument to the query
 string:
 
-::
+.. code-block:: http
 
     COPY http://couchdb:5984/recipes/FishStew?rev=5-acfd32d233f07cea4b4f37daaacc0082
     Content-Type: application/json
@@ -488,7 +740,7 @@ To copy to an existing document, you must specify the current revision
 string for the target document, using the ``rev`` parameter to the
 ``Destination`` HTTP Header string. For example:
 
-::
+.. code-block:: http
 
     COPY http://couchdb:5984/recipes/FishStew
     Content-Type: application/json
@@ -496,15 +748,22 @@ string for the target document, using the ``rev`` parameter to the
 
 The return value will be the new revision of the copied document:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "IrishFishStew",
        "rev" : "2-55b6a1b251902a2c249b667dab1c6692"
     }
 
+.. _api-get-attachment:
+
 ``GET /db/doc/attachment``
 ==========================
+
+* **Method**: ``GET /db/doc/attachment``
+* **Request**: None
+* **Response**: Returns the attachment data
+* **Admin Privileges Required**: no
 
 Returns the file attachment ``attachment`` associated with the document
 ``doc``. The raw data of the associated attachment is returned (just as
@@ -512,21 +771,57 @@ if you were accessing a static file. The returned HTTP ``Content-type``
 will be the same as the content type set when the document attachment
 was submitted into the database.
 
+.. _api-put-attachment:
+
 ``PUT /db/doc/attachment``
 ==========================
+
+* **Method**: ``PUT /db/doc/attachment``
+* **Request**: Raw document data
+* **Response**: JSON document status
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: rev
+
+    * **Description**:  Current document revision
+    * **Optional**: no
+    * **Type**: string
+
+* **HTTP Headers**
+
+  * **Header**: ``Content-Length``
+
+    * **Description**: Length (bytes) of the attachment being uploaded
+    * **Optional**: no
+
+  * **Header**: ``Content-Type``
+
+    * **Description**: MIME type for the uploaded attachment
+    * **Optional**: no
+
+  * **Header**: ``If-Match``
+
+    * **Description**: Current revision of the document for validation
+    * **Optional**: yes
+
+* **Return Codes**:
+
+  * **201**:
+    Attachment has been accepted
 
 Upload the supplied content as an attachment to the specified document
 (``doc``). The ``attachment`` name provided must be a URL encoded
 string. You must also supply either the ``rev`` query argument or the
 ``If-Match`` HTTP header for validation, and the HTTP headers (to set
-the attacment content type). The content type is used when the
+the attachment content type). The content type is used when the
 attachment is requested as the corresponding content-type in the
 returned document header.
 
 For example, you could upload a simple text document using the following
 request:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes/FishStew/basic?rev=8-a94cb7e50ded1e06f943be5bfbddf8ca
     Content-Length: 10
@@ -536,7 +831,7 @@ request:
 
 Or by using the ``If-Match`` HTTP header:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes/FishStew/basic
     If-Match: 8-a94cb7e50ded1e06f943be5bfbddf8ca
@@ -547,7 +842,7 @@ Or by using the ``If-Match`` HTTP header:
 
 The returned JSON contains the new document information:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "FishStew",
@@ -555,11 +850,9 @@ The returned JSON contains the new document information:
        "rev" : "9-247bb19a41bfd9bfdaf5ee6e2e05be74"
     }
 
-    **Note**
-
-    Uploading an attachment updates the corresponding document revision.
-    Revisions are tracked for the parent document, not individual
-    attachments.
+.. note:: Uploading an attachment updates the corresponding document revision.
+   Revisions are tracked for the parent document, not individual
+   attachments.
 
 Updating an Existing Attachment
 -------------------------------
@@ -572,6 +865,32 @@ as validation to update the existing attachment.
 ``DELETE /db/doc/attachment``
 =============================
 
+* **Method**: ``DELETE /db/doc/attachment``
+* **Request**: None
+* **Response**: JSON status
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: rev
+
+    * **Description**:  Current document revision
+    * **Optional**: no
+    * **Type**: string
+
+* **HTTP Headers**
+
+  * **Header**: ``If-Match``
+
+    * **Description**: Current revision of the document for validation
+    * **Optional**: yes
+
+* **Return Codes**:
+
+  * **200**:
+    Attachment deleted successfully
+  * **409**:
+    Supplied revision is incorrect or missing
+
 Deletes the attachment ``attachment`` to the specified ``doc``. You must
 supply the ``rev`` argument with the current revision to delete the
 attachment.
@@ -579,7 +898,7 @@ attachment.
 For example to delete the attachment ``basic`` from the recipe
 ``FishStew``:
 
-::
+.. code-block:: http
 
     DELETE http://couchdb:5984/recipes/FishStew/basic?rev=9-247bb19a41bfd9bfdaf5ee6e2e05be74
     Content-Type: application/json
@@ -588,7 +907,7 @@ For example to delete the attachment ``basic`` from the recipe
 
 The returned JSON contains the updated revision information:
 
-::
+.. code-block:: javascript
 
     {
        "id" : "FishStew",
@@ -597,4 +916,4 @@ The returned JSON contains the updated revision information:
     }
 
 .. _JSON object: #table-couchdb-api-db_db-json-changes
-.. _``POST``: #couchdb-api-dbdoc_db_post
+.. _POST: #couchdb-api-dbdoc_db_post

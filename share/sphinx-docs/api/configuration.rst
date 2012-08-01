@@ -1,3 +1,5 @@
+.. _api-config:
+
 =====================
 Configuration Methods
 =====================
@@ -6,8 +8,36 @@ The CouchDB API Server Configuration Methods provide an interface to
 query and update the various configuration values within a running
 CouchDB instance.
 
+A list of the available methods and URL paths are provided below:
+
++--------+-------------------------+-------------------------------------------+
+| Method | Path                    | Description                               |
++========+=========================+===========================================+
+| GET    | /_config                | Obtain a list of the entire server        |
+|        |                         | configuration                             |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_config/section        | Get all the configuration values for the  |
+|        |                         | specified section                         |
++--------+-------------------------+-------------------------------------------+
+| GET    | /_config/section/key    | Get a specific section/configuration value|
++--------+-------------------------+-------------------------------------------+
+| PUT    | /_config/section/key    | Set the specified configuration value     |
++--------+-------------------------+-------------------------------------------+
+| DELETE | /_config/section/key    | Delete the current setting                |
++--------+-------------------------+-------------------------------------------+
+
 ``GET /_config``
 ================
+
+* **Method**: ``GET /_config``
+* **Request**: None
+* **Response**: Returns a structure configuration name and value pairs,
+  organized by section
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
 
 Returns the entire CouchDB server configuration as a JSON structure. The
 structure is organized by different configuration sections, with
@@ -15,14 +45,14 @@ individual values.
 
 For example, to get the configuration for a server:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/_config
     Accept: application/json
 
 The response is the JSON structure:
 
-::
+.. code-block:: javascript
 
     {
        "query_server_config" : {
@@ -128,10 +158,19 @@ The response is the JSON structure:
 ``GET /_config/section``
 ========================
 
+* **Method**: ``GET /_config/section``
+* **Request**: None
+* **Response**: All the configuration values within a specified section
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+
 Gets the configuration structure for a single section. For example, to
 retrieve the CouchDB configuration section values:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/_config/couchdb
     Accept: application/json
@@ -139,7 +178,7 @@ retrieve the CouchDB configuration section values:
 The returned JSON contains just the configuration values for this
 section:
 
-::
+.. code-block:: javascript
 
     {
        "os_process_timeout" : "5000",
@@ -156,29 +195,50 @@ section:
 ``GET /_config/section/key``
 ============================
 
+* **Method**: ``GET /_config/section/key``
+* **Request**: None
+* **Response**: Value of the specified key/section
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **200**:
+    Request completed successfully.
+
 Gets a single configuration value from within a specific configuration
 section. For example, to obtain the current log level:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/_config/log/level
     Accept: application/json
 
 Returns the string of the log level:
 
-::
+.. code-block:: javascript
 
     "info"
 
-    **Note**
+.. note::
+   The returned value will be the JSON of the value, which may be a
+   string or numeric value, or an array or object. Some client
+   environments may not parse simple strings or numeric values as valid JSON.
 
-    The returned value will be the JSON of the value, which may be a
-    string or numeric value, or an array or object. Some client
-    environments may not parse simple strings or numeric values as valid
-    JSON.
+.. _api-put-config:
 
 ``PUT /_config/section/key``
 ============================
+
+* **Method**: ``PUT /_config/section/key``
+* **Request**: Value structure
+* **Response**: Previous value
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **200**:
+    Configuration option updated successfully
+
+  * **500**:
+    Error setting configuration
 
 Updates a configuration value. The new value should be supplied in the
 request body in the corresponding JSON format. For example, if you are
@@ -187,7 +247,7 @@ setting a string value, you must supply a valid JSON string.
 For example, to set the function used to generate UUIDs by the
 ``GET /_uuids`` API call to use the ``utc_random`` generator:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/_config/uuids/algorithm
     Content-Type: application/json
@@ -200,17 +260,26 @@ success or failure of the configuration setting.
 ``DELETE /_config/section/key``
 ===============================
 
+* **Method**: ``DELETE /_config/section/key``
+* **Request**: None
+* **Response**: Previous value
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **409**:
+    Supplied revision is incorrect or missing
+
 Deletes a configuration value. The returned JSON will be the value of
 the configuration parameter before it was deleted. For example, to
 delete the UUID parameter:
 
-::
+.. code-block:: http
 
     DELETE http://couchdb:5984/_config/uuids/algorithm
     Content-Type: application/json
 
 The returned value is the last configured UUID function:
 
-::
+.. code-block:: javascript
 
     "random"

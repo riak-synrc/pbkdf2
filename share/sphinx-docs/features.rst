@@ -12,48 +12,51 @@ implementation of resumable downloads and skippable audio and video
 streams alike. The following example uses a text file to make the range
 request process easier.
 
-::
+.. code-block:: bash
 
-    shell> 
+    shell> cat file.txt
     My hovercraft is full of eels!
 
 Uploading this as an attachment to a ``text`` database using ``curl``:
 
-::
+.. code-block:: bash
 
-    shell> 
+    shell> curl -X PUT http://127.0.0.1:5984/test/doc/file.txt \
+                -H "Content-Type: application/octet-stream" -d@file.txt
     {"ok":true,"id":"doc","rev":"1-287a28fa680ae0c7fb4729bf0c6e0cf2"}
 
 Requesting the whole file works as normal:
 
-::
+.. code-block:: bash
 
-    shell> 
+    shell> curl -X GET http://127.0.0.1:5984/test/doc/file.txt
     My hovercraft is full of eels!
 
 But to retrieve only the first 13 bytes using ``curl``:
 
-::
+.. code-block:: bash
 
-    shell> 
+    shell> curl -X GET http://127.0.0.1:5984/test/doc/file.txt \
+                -H "Range: bytes=0-12"
     My hovercraft
 
 HTTP supports many ways to specify single and even multiple byte
 rangers. See `RFC 2616`_.
 
-    **Note**
+.. note::
+   Databases that have been created with CouchDB 1.0.2 or earlier will
+   support range requests in 1.1.0, but they are using a less-optimal
+   algorithm. If you plan to make heavy use of this feature, make sure
+   to compact your database with CouchDB 1.1.0 to take advantage of a
+   better algorithm to find byte ranges.
 
-    Databases that have been created with CouchDB 1.0.2 or earlier will
-    support range requests in 1.1.0, but they are using a less-optimal
-    algorithm. If you plan to make heavy use of this feature, make sure
-    to compact your database with CouchDB 1.1.0 to take advantage of a
-    better algorithm to find byte ranges.
+.. _proxying:
 
 HTTP Proxying
 =============
 
 The HTTP proxy feature makes it easy to map and redirect different
-content through your CouchDB URL. The proxy works by mapping a pathname
+content through your CouchDB URL. The proxy works by mapping a path name
 and passing all content after that prefix through to the configured
 proxy address.
 
@@ -61,11 +64,10 @@ Configuration of the proxy redirect is handled through the
 ``[httpd_global_handlers]`` section of the CouchDB configuration file
 (typically ``local.ini``). The format is:
 
-::
+.. code-block:: ini
 
     [httpd_global_handlers]
     PREFIX = {couch_httpd_proxy, handle_proxy_req, <<"DESTINATION">>}
-      
 
 Where:
 
@@ -85,29 +87,27 @@ Where:
 
 The proxy process then translates requests of the form:
 
-::
+.. code-block:: text
 
     http://couchdb:5984/PREFIX/path
 
 To:
 
-::
+.. code-block:: text
 
     DESTINATION/path
 
-    **Note**
-
-    Everything after ``PREFIX`` including the required forward slash
-    will be appended to the ``DESTINATION``.
+.. note::
+   Everything after ``PREFIX`` including the required forward slash
+   will be appended to the ``DESTINATION``.
 
 The response is then communicated back to the original client.
 
 For example, the following configuration:
 
-::
+.. code-block:: ini
 
-
-    _google = {couch_httpd_proxy, handle_proxy_req, <<"http://www.google.com">>}
+  _google = {couch_httpd_proxy, handle_proxy_req, <<"http://www.google.com">>}
 
 Would forward all requests for ``http://couchdb:5984/_google`` to the
 Google website.
@@ -115,24 +115,22 @@ Google website.
 The service can also be used to forward to related CouchDB services,
 such as Lucene:
 
-::
+.. code-block:: ini
 
-      
     [httpd_global_handlers]
     _fti = {couch_httpd_proxy, handle_proxy_req, <<"http://127.0.0.1:5985">>}
 
-    **Note**
+.. note::
+   The proxy service is basic. If the request is not identified by the
+   ``DESTINATION``, or the remainder of the ``PATH`` specification is
+   incomplete, the original request URL is interpreted as if the
+   ``PREFIX`` component of that URL does not exist.
 
-    The proxy service is basic. If the request is not identified by the
-    ``DESTINATION``, or the remainder of the ``PATH`` specification is
-    incomplete, the original request URL is interpreted as if the
-    ``PREFIX`` component of that URL does not exist.
-
-    For example, requesting ``http://couchdb:5984/_intranet/media`` when
-    ``/media`` on the proxy destination does not exist, will cause the
-    request URL to be interpreted as ``http://couchdb:5984/media``. Care
-    should be taken to ensure that both requested URLs and destination
-    URLs are able to cope
+   For example, requesting ``http://couchdb:5984/_intranet/media`` when
+   ``/media`` on the proxy destination does not exist, will cause the
+   request URL to be interpreted as ``http://couchdb:5984/media``. Care
+   should be taken to ensure that both requested URLs and destination
+   URLs are able to cope.
 
 CommonJS support for map functions
 ==================================
@@ -155,7 +153,7 @@ be used in map functions be stored in views.lib.
 
 A sample design doc (taken from the test suite in Futon) is below:
 
-::
+.. code-block:: javascript
 
     {
        "views" : {

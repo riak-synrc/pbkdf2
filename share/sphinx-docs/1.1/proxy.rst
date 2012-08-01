@@ -10,7 +10,7 @@ Configuration of the proxy redirect is handled through the
 ``[httpd_global_handlers]`` section of the CouchDB configuration file
 (typically ``local.ini``). The format is:
 
-::
+.. code-block:: ini
 
     [httpd_global_handlers]
     PREFIX = {couch_httpd_proxy, handle_proxy_req, <<"DESTINATION">>}
@@ -34,27 +34,25 @@ Where:
 
 The proxy process then translates requests of the form:
 
-::
+.. code-block:: text
 
     http://couchdb:5984/PREFIX/path
 
 To:
 
-::
+.. code-block:: text
 
     DESTINATION/path
 
-    **Note**
-
-    Everything after ``PREFIX`` including the required forward slash
-    will be appended to the ``DESTINATION``.
+.. note::
+   Everything after ``PREFIX`` including the required forward slash
+   will be appended to the ``DESTINATION``.
 
 The response is then communicated back to the original client.
 
 For example, the following configuration:
 
-::
-
+.. code-block:: ini
 
     _google = {couch_httpd_proxy, handle_proxy_req, <<"http://www.google.com">>}
 
@@ -64,21 +62,19 @@ Google website.
 The service can also be used to forward to related CouchDB services,
 such as Lucene:
 
-::
+.. code-block:: ini
 
-      
     [httpd_global_handlers]
     _fti = {couch_httpd_proxy, handle_proxy_req, <<"http://127.0.0.1:5985">>}
 
-    **Note**
+.. note::
+   The proxy service is basic. If the request is not identified by the
+   ``DESTINATION``, or the remainder of the ``PATH`` specification is
+   incomplete, the original request URL is interpreted as if the
+   ``PREFIX`` component of that URL does not exist.
 
-    The proxy service is basic. If the request is not identified by the
-    ``DESTINATION``, or the remainder of the ``PATH`` specification is
-    incomplete, the original request URL is interpreted as if the
-    ``PREFIX`` component of that URL does not exist.
-
-    For example, requesting ``http://couchdb:5984/_intranet/media`` when
-    ``/media`` on the proxy destination does not exist, will cause the
-    request URL to be interpreted as ``http://couchdb:5984/media``. Care
-    should be taken to ensure that both requested URLs and destination
-    URLs are able to cope
+   For example, requesting ``http://couchdb:5984/_intranet/media`` when
+   ``/media`` on the proxy destination does not exist, will cause the
+   request URL to be interpreted as ``http://couchdb:5984/media``. Care
+   should be taken to ensure that both requested URLs and destination
+   URLs are able to cope.

@@ -17,13 +17,13 @@ Added built-in filters for ``_changes``: ``_doc_ids`` and ``_design``.
 The ``_changes`` feed can now be used to watch changes to specific
 document ID's or the list of ``_design`` documents in a database. If the
 ``filters`` parameter is set to ``_doc_ids`` a list of doc IDs can be
-passed in the "doc\_ids" as a JSON array.
+passed in the "doc_ids" as a JSON array.
 
 Allow wildcards in vhosts definitions
 =====================================
 
 Similar to the rewrites section of a ``_design`` document, the new
-``vhosts`` system uses variables in the form of :varname or wildcards in
+``vhosts`` system uses variables in the form of ``:varname`` or wildcards in
 the form of asterisks. The variable results can be output into the
 resulting path as they are in the rewriter.
 
@@ -53,7 +53,7 @@ required arguments to the daemon.
 
 For example:
 
-::
+.. code-block:: ini
 
     [os_daemons]
     basic_responder = /usr/local/bin/responsder.js
@@ -62,8 +62,8 @@ There is no interactivity between CouchDB and the running process, but
 you can use the OS Daemons service to create new HTTP servers and
 responders and then use the new proxy service to redirect requests and
 output to the CouchDB managed service. For more information on proxying,
-see ?. For further background on the OS Daemon service, see `CouchDB
-Externals API`_
+see :ref:`proxying`. For further background on the OS Daemon service, see
+`CouchDB Externals API`_.
 
 Stale views and ``update_after``
 ================================
@@ -103,7 +103,7 @@ the configuration file. Settings should be added to the
 ``server_options`` option of the ``[httpd]`` section of ``local.ini``.
 For example:
 
-::
+.. code-block:: ini
 
     [httpd]
     server_options = [{backlog, 128}, {acceptor_pool_size, 16}]
@@ -122,11 +122,11 @@ The error is raised both through the log file and the error message
 returned through the API call as a JSON error message. For example, when
 setting configuration values:
 
-::
+.. code-block:: bash
 
-    shell> 
+    shell> curl -X PUT http://couchdb:5984/_config/couchdb/delayed_commits \
+                -H 'X-Couch-Persist: true' -d '"false"'
     {"error":"file_permission_error","reason":"/etc/couchdb/local.ini"}
-        
 
 Errors will always be reported using the ``file_permission_error`` error
 type.

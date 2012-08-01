@@ -91,7 +91,7 @@ test/etap/test_util.erl
 test/javascript/run
 share/server/main.js
 share/server/main-coffee.js
-share/docs/sphinx-docs/build
+share/sphinx-docs/build
 
 # for make dev
 

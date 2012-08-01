@@ -1,3 +1,5 @@
+.. _api-basics:
+
 ===========
 CouchDB API
 ===========
@@ -14,21 +16,23 @@ retrieval of information from the database is typically handled by the
 ``GET`` operation, while updates are handled by either a ``POST`` or
 ``PUT`` request. There are some differences between the information that
 must be supplied for the different methods. For a guide to the basic
-HTTP methods and request structure, see ?.
+HTTP methods and request structure, see :ref:`api-format`.
 
 For nearly all operations, the submitted data, and the returned data
 structure, is defined within a JavaScript Object Notation (JSON) object.
 Basic information on the content and data types for JSON are provided in
-?.
+:ref:`json`.
 
 Errors when accessing the CouchDB API are reported using standard HTTP
 Status Codes. A guide to the generic codes returned by CouchDB are
-provided in ?.
+provided in :ref:`errors`.
 
 When accessing specific areas of the CouchDB API, specific information
 and examples on the HTTP methods and request, JSON structures, and error
 codes are provided. For a guide to the different areas of the API, see
-?.
+:ref:`api-overview`.
+
+.. _api-format:
 
 Request Format and Responses
 ============================
@@ -73,7 +77,7 @@ If you use the an unsupported HTTP request type with a URL that does not
 support the specified type, a 405 error will be returned, listing the
 supported HTTP methods. For example:
 
-::
+.. code-block:: javascript
 
     {
         "error":"method_not_allowed",
@@ -83,8 +87,7 @@ supported HTTP methods. For example:
 
 The CouchDB design document API and the functions when returning HTML
 (for example as part of a show or list) enables you to include custom
-HTTP headers through the ``headers`` block of the return object. For
-more information, see ?.
+HTTP headers through the ``headers`` block of the return object.
 
 HTTP Headers
 ============
@@ -136,7 +139,7 @@ Request Headers
    For example, when sending a request without an explicit ``Accept``
    header, or when specifying ``*/*``:
 
-   ::
+   .. code-block:: http
 
        GET /recipes HTTP/1.1
        Host: couchdb:5984
@@ -144,7 +147,7 @@ Request Headers
 
    The returned headers are:
 
-   ::
+   .. code-block:: http
 
        Server: CouchDB/1.0.1 (Erlang OTP/R13B)
        Date: Thu, 13 Jan 2011 13:39:34 GMT
@@ -157,7 +160,7 @@ Request Headers
 
    Explicitly specifying the ``Accept`` header:
 
-   ::
+   .. code-block:: http
 
        GET /recipes HTTP/1.1
        Host: couchdb:5984
@@ -165,7 +168,7 @@ Request Headers
 
    The headers returned include the ``application/json`` content type:
 
-   ::
+   .. code-block:: http
 
        Server: CouchDB/1.0.1 (Erlang OTP/R13B)
        Date: Thu, 13 Jan 2011 13:40:11 GMT
@@ -207,6 +210,8 @@ below.
    The ``Etag`` HTTP header field is used to show the revision for a
    document.
 
+.. _json:
+
 JSON Basics
 ===========
 
@@ -228,20 +233,20 @@ are:
 -  String; this should be enclosed by double-quotes and supports Unicode
    characters and backslash escaping. For example:
 
-   ::
+   .. code-block:: javascript
 
        "A String"
 
 -  Boolean - a ``true`` or ``false`` value. You can use these strings
    directly. For example:
 
-   ::
+   .. code-block:: javascript
 
        { "value": true}
 
 -  Array - a list of values enclosed in square brackets. For example:
 
-   ::
+   .. code-block:: javascript
 
        ["one", "two", "three"]
 
@@ -249,7 +254,7 @@ are:
    hash). The key must be a string, but the value can be any of the
    supported JSON values. For example:
 
-   ::
+   .. code-block:: javascript
 
        {
           "servings" : 4,
@@ -268,11 +273,12 @@ will perform the parsing of the content into a JavaScript object for
 you. Libraries for parsing and generating JSON are available in many
 languages, including Perl, Python, Ruby, Erlang and others.
 
-    **Warning**
+.. warning::
+   Care should be taken to ensure that your JSON structures are
+   valid, invalid structures will cause CouchDB to return an HTTP status code
+   of 500 (server error).
 
-    Care should be taken to ensure that your JSON structures are valid,
-    invalid structures will cause CouchDB to return an HTTP status code
-    of 500 (server error). See ? .
+.. _errors:
 
 HTTP Status Codes
 =================
@@ -327,7 +333,7 @@ corresponding API call reference.
    further information, as a JSON object, if available. The structure
    will contain two keys, ``error`` and ``reason``. For example:
 
-   ::
+   .. code-block:: javascript
 
        {"error":"not_found","reason":"no_db_file"}
 
@@ -371,6 +377,8 @@ corresponding API call reference.
    The request was invalid, either because the supplied JSON was
    invalid, or invalid information was supplied as part of the request.
 
+.. _api-overview:
+
 CouchDB API Overview
 ====================
 
@@ -394,41 +402,34 @@ the URL structure. The different sections are divided as follows:
 
    Database methods, related to adding, updating or deleting databases,
    and setting database parameters and operations. For more detailed
-   information, see ? .
+   information, see :ref:`api-db`.
 
 -  ``/db/doc``
 
    Document methods, those that create, store, update or delete CouchDB
-   documents and their attachments. For more information, see ?.
+   documents and their attachments. For more information, see :ref:`api-doc`.
 
 -  ``/db/_local/local-doc``
 
    Document methods, those that create, store, update or delete CouchDB
    documents only within the local database. Local documents are not
-   synchronized with other databases. For more information, see ?.
+   synchronized with other databases. For more information, see
+   :ref:`api-local`.
 
 -  ``/db/_design/design-doc``
 
    Design documents provide the methods and structure for recovering
    information from a CouchDB database in the form of views, shows and
-   lists. For more information, see ?.
+   lists. For more information, see :ref:`api-design`.
 
 -  ``/_special``
 
    Special methods that obtain or set information about the CouchDB
    instance, including methods for configuring replication, accessing
    the logs, and generate Universally Unique IDs (UUIDs). For more
-   information, see ?.
+   information, see :ref:`api-misc`.
 
 -  ``/_config``
 
    Methods for getting, and settings, CouchDB configuration parameters.
-   For more information, see ?.
-
-JSON Structure Reference
-========================
-
-The following appendix provides a quick reference to all the JSON
-structures that you can supply to CouchDB, or get in return to requests.
-
-JSON Structures
+   For more information, see :ref:`api-config`.

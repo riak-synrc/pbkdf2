@@ -1,3 +1,5 @@
+.. _api-db:
+
 ================
 Database Methods
 ================
@@ -7,32 +9,103 @@ CouchDB. These are database, rather than document, level requests.
 
 A list of the available methods and URL paths are provided below:
 
-Database API Calls
++--------+-------------------------+-------------------------------------------+
+| Method | Path                    | Description                               |
++========+=========================+===========================================+
+| GET    | /db                     | Returns database information              |
++--------+-------------------------+-------------------------------------------+
+| PUT    | /db                     | Create a new database                     |
++--------+-------------------------+-------------------------------------------+
+| DELETE | /db                     | Delete an existing database               |
++--------+-------------------------+-------------------------------------------+
+| GET    | /db/_all_docs           | Returns a built-in view of all documents  |
+|        |                         | in this database                          |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_all_docs           | Returns certain rows from the built-in    |
+|        |                         | view of all documents                     |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_bulk_docs          | Insert multiple documents in to the       |
+|        |                         | database in a single request              |
++--------+-------------------------+-------------------------------------------+
+| GET    | /db/_changes            | Returns changes for the given database    |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_compact            | Starts a compaction for the database      |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_compact/design-doc | Starts a compaction for all the views in  |
+|        |                         | the selected design document              |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_ensure_full_commit | Makes sure all uncommitted changes are    |
+|        |                         | written and synchronized to the disk      |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_missing_revs       | Given a list of document revisions,       |
+|        |                         | returns the document revisions that do not|
+|        |                         | exist in the database                     |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_purge              | Purge some historical documents entirely  |
+|        |                         | from database history                     |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_revs_diff          | Given a list of document revisions,       |
+|        |                         | returns differences between the given     |
+|        |                         | revisions and ones that are in the        |
+|        |                         | database                                  |
++--------+-------------------------+-------------------------------------------+
+| GET    | /db/_revs_limit         | Gets the limit of historical revisions to |
+|        |                         | store for a single document in the        |
+|        |                         | database                                  |
++--------+-------------------------+-------------------------------------------+
+| PUT    | /db/_revs_limit         | Sets the limit of historical revisions to |
+|        |                         | store for a single document in the        |
+|        |                         | database                                  |
++--------+-------------------------+-------------------------------------------+
+| GET    | /db/_security           | Returns the special security object for   |
+|        |                         | the database                              |
++--------+-------------------------+-------------------------------------------+
+| PUT    | /db/_security           | Sets the special security object for the  |
+|        |                         | database                                  |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_temp_view          | Execute a given view function for all     |
+|        |                         | documents and return the result           |
++--------+-------------------------+-------------------------------------------+
+| POST   | /db/_view_cleanup       | Removes view files that are not used by   |
+|        |                         | any design document                       |
++--------+-------------------------+-------------------------------------------+
 
 For all the database methods, the database name within the URL path
 should be the database name that you wish to perform the operation on.
 For example, to obtain the meta information for the database
 ``recipes``, you would use the HTTP request:
 
-::
+.. code-block:: http
 
     GET /recipes
 
 For clarity, the form below is used in the URL paths:
 
-::
+.. code-block:: http
 
     GET /db
 
 Where ``db`` is the name of any database.
 
+.. _api-get-db:
+
 ``GET /db``
 ===========
+
+* **Method**: ``GET /db``
+* **Request**: None
+* **Response**: Information about the database in JSON format
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **404**:
+    The requested content could not be found. The returned content will include
+    further information, as a JSON object, if available.
 
 Gets information about the specified database. For example, to retrieve
 the information for the database ``recipe``:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes
     Accept: application/json
@@ -40,7 +113,7 @@ the information for the database ``recipe``:
 The JSON response contains meta information about the database. A sample
 of the JSON returned for an empty database is provided below:
 
-::
+.. code-block:: javascript
 
     {
        "compact_running" : false,
@@ -58,8 +131,53 @@ of the JSON returned for an empty database is provided below:
 
 The elements of the returned structure are shown in the table below:
 
++----------------------------------+-------------------------------------------+
+| Field                            | Description                               |
++==================================+===========================================+
+| committed_update_seq             | The number of committed update.           |
++----------------------------------+-------------------------------------------+
+| compact_running                  | Set to true if the database compaction    |
+|                                  | routine is operating on this database.    |
++----------------------------------+-------------------------------------------+
+| db_name                          | The name of the database.                 |
++----------------------------------+-------------------------------------------+
+| disk_format_version              | The version of the physical format used   |
+|                                  | for the data when it is stored on disk.   |
++----------------------------------+-------------------------------------------+
+| disk_size                        | Size in bytes of the data as stored on the|
+|                                  | disk. Views indexes are not included in   |
+|                                  | the calculation.                          |
++----------------------------------+-------------------------------------------+
+| doc_count                        | A count of the documents in the specified |
+|                                  | database.                                 |
++----------------------------------+-------------------------------------------+
+| doc_del_count                    | Number of deleted documents               |
++----------------------------------+-------------------------------------------+
+| instance_start_time              | Timestamp of when the database was        |
+|                                  | created, expressed in milliseconds since  |
+|                                  | the epoch.                                |
++----------------------------------+-------------------------------------------+
+| purge_seq                        | The number of purge operations on the     |
+|                                  | database.                                 |
++----------------------------------+-------------------------------------------+
+| update_seq                       | The current number of updates to the      |
+|                                  | database.                                 |
++----------------------------------+-------------------------------------------+
+
 ``PUT /db``
 ===========
+
+* **Method**: ``PUT /db``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **400**:
+    Invalid database name
+
+  * **412**:
+    Database already exists
 
 Creates a new database. The database name must be composed of one or
 more of the following characters:
@@ -78,14 +196,14 @@ return an error quoting these restrictions.
 
 To create the database ``recipes``:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes
     Content-Type: application/json
 
 The returned content contains the JSON status:
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true
@@ -97,26 +215,105 @@ form the HTTP response code.
 ``DELETE /db``
 ==============
 
+* **Method**: ``DELETE /db``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **200**:
+    Database has been deleted
+
+  * **404**:
+    The requested content could not be found. The returned content will include
+    further information, as a JSON object, if available.
+
 Deletes the specified database, and all the documents and attachments
 contained within it.
 
 To delete the database ``recipes`` you would send the request:
 
-::
+.. code-block:: http
 
     DELETE http://couchdb:5984/recipes
     Content-Type: application/json
 
 If successful, the returned JSON will indicate success
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true
     }
 
+.. _api-changes:
+
 ``GET /db/_changes``
 ====================
+
+* **Method**: ``GET /db/_changes``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: doc_ids
+
+    * **Description**:  Specify the list of documents IDs to be filtered
+    * **Optional**: yes
+    * **Type**: json
+    * **Default**: none
+
+  * **Argument**: feed
+
+    * **Description**:  Type of feed
+    * **Optional**: yes
+    * **Type**: string
+    * **Default**: normal
+    * **Supported Values**:
+
+      * **continuous**: Continuous (non-polling) mode
+      * **longpoll**: Long polling mode
+      * **normal**: Normal mode
+
+  * **Argument**: filter
+
+    * **Description**:  Filter function from a design document to get updates
+    * **Optional**: yes
+    * **Type**: string
+    * **Default**: none
+    * **Supported Values**:
+
+  * **Argument**: heartbeat
+
+    * **Description**:  Period after which an empty line is sent during longpoll
+      or continuous
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 60000
+    * **Quantity**: milliseconds
+
+  * **Argument**: include_docs
+
+    * **Description**:  Include the document with the result
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: false
+
+  * **Argument**: limit
+
+    * **Description**:  Maximum number of rows rows to return
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: none
+
+  * **Argument**: since
+
+    * **Description**:  Start the results from changes immediately after the
+      specified sequence number
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 0
 
 Obtains a list of the changes made to the database. This can be used to
 monitor for update and modifications to the database for post processing
@@ -133,7 +330,7 @@ query argument.
    request, only the changes since the specific sequence number are
    returned. For example, the query
 
-   ::
+   .. code-block:: http
 
        DELETE http://couchdb:5984/recipes/_changes
        Content-Type: application/json
@@ -168,13 +365,28 @@ query argument.
 
    As with the longpoll feed type you can set both the timeout and
    heartbeat intervals to ensure that the connection is kept open for
-   new changesand updates.
+   new changes and updates.
 
 The return structure for ``normal`` and ``longpoll`` modes is a JSON
 array of changes objects, and the last update sequence number. The
 structure is described in the following table.
 
-The return format for ``continuous`` mode the server sends a CRLF
++----------------------------------+-------------------------------------------+
+| Field                            | Description                               |
++==================================+===========================================+
+| last_seq                         | Last change sequence number.              |
++----------------------------------+-------------------------------------------+
+| results [array]                  | Changes made to a database                |
++----------------------------------+-------------------------------------------+
+|         changes [array]          | List of changes, field-by-field, for this |
+|                                  | document                                  |
++----------------------------------+-------------------------------------------+
+|         id                       | Document ID                               |
++----------------------------------+-------------------------------------------+
+|         seq                      | Update sequence number                    |
++----------------------------------+-------------------------------------------+
+
+The return format for ``continuous`` mode the server sends a ``CRLF``
 (carriage-return, linefeed) delimited line for each change. Each line
 contains the `JSON object`_.
 
@@ -197,19 +409,33 @@ as for replication filters. You specify the name of the filter function
 to the ``filter`` parameter, specifying the design document name and
 filter name. For example:
 
-::
+.. code-block:: http
 
     GET /db/_changes?filter=design_doc/filtername
 
 The ``_changes`` feed can be used to watch changes to specific document
 ID's or the list of ``_design`` documents in a database. If the
 ``filters`` parameter is set to ``_doc_ids`` a list of doc IDs can be
-passed in the ``doc_ids`` parameter as a JSON array.
+passed in the ``doc_ids`` parameter as a JSON array. For more
+information, see :ref:`changes`.
 
-For more information, see ?.
+.. _api-compact:
 
 ``POST /db/_compact``
 =====================
+
+* **Method**: ``POST /db/_compact``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **202**:
+    Compaction request has been accepted
+
+  * **404**:
+    The requested content could not be found. The returned content will include
+    further information, as a JSON object, if available.
 
 Request compaction of the specified database. Compaction compresses the
 disk database file by performing the following operations:
@@ -222,7 +448,7 @@ disk database file by performing the following operations:
 
 -  Removes old revisions of documents from the database, up to the
    per-database limit specified by the ``_revs_limit`` database
-   parameter. See ? .
+   parameter. See :ref:`api-get-db`.
 
 Compaction can only be requested on an individual database; you cannot
 compact all the databases for a CouchDB instance. The compaction process
@@ -230,13 +456,29 @@ runs as a background process.
 
 You can determine if the compaction process is operating on a database
 by obtaining the database meta information, the ``compact_running``
-value of the returned database structure will be set to true. See ? .
+value of the returned database structure will be set to true. See
+:ref:`api-get-db`.
 
 You can also obtain a list of running processes to determine whether
-compaction is currently running. See ?.
+compaction is currently running. See :ref:`active-tasks`.
+
+.. _api-compact-ddoc:
 
 ``POST /db/_compact/design-doc``
 ================================
+
+* **Method**: ``POST /db/_compact/design-doc``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: yes
+* **Return Codes**:
+
+  * **202**:
+    Compaction request has been accepted
+
+  * **404**:
+    The requested content could not be found. The returned content will include
+    further information, as a JSON object, if available.
 
 Compacts the view indexes associated with the specified design document.
 You can use this in place of the full database compaction if you know a
@@ -246,7 +488,7 @@ change.
 For example, to compact the views associated with the ``recipes`` design
 document:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_compact/recipes
     Content-Type: application/json
@@ -254,7 +496,7 @@ document:
 CouchDB will immediately return with a status indicating that the
 compaction request has been received (HTTP status code 202):
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true
@@ -264,16 +506,21 @@ compaction request has been received (HTTP status code 202):
 ``POST /db/_view_cleanup``
 ==========================
 
+* **Method**: ``POST /db/_view_cleanup``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: yes
+
 Cleans up the cached view output on disk for a given view. For example:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_view_cleanup
     Content-Type: application/json
 
 If the request is successful, a basic status message us returned:
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true
@@ -283,12 +530,26 @@ If the request is successful, a basic status message us returned:
 ``POST /db/_ensure_full_commit``
 ================================
 
+* **Method**: ``POST /db/_ensure_full_commit``
+* **Request**: None
+* **Response**: JSON success statement
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **202**:
+    Commit completed successfully
+
+  * **404**:
+    The requested content could not be found. The returned content will include
+    further information, as a JSON object, if available.
+
+
 Commits any recent changes to the specified database to disk. You should
 call this if you want to ensure that recent changes have been written.
 For example, to commit all the changes to disk for the database
 ``recipes`` you would use:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_ensure_full_commit
     Content-Type: application/json
@@ -296,7 +557,7 @@ For example, to commit all the changes to disk for the database
 This returns a status message, containing the success message and the
 timestamp for when the CouchDB instance was started:
 
-::
+.. code-block:: javascript
 
     {
       "ok" : true,
@@ -305,6 +566,15 @@ timestamp for when the CouchDB instance was started:
 
 ``POST /db/_bulk_docs``
 =======================
+
+* **Method**: ``POST /db/_bulk_docs``
+* **Request**: JSON of the docs and updates to be applied
+* **Response**: JSON success statement
+* **Admin Privileges Required**: no
+* **Return Codes**:
+
+  * **201**:
+    Document(s) have been created or updated
 
 The bulk document API allows you to create and update multiple documents
 at the same time within a single request. The basic operation is similar
@@ -315,6 +585,22 @@ provide the document ID, revision information, and new document values.
 
 For both inserts and updates the basic structure of the JSON is the
 same:
+
++----------------------------------+-------------------------------------------+
+| Field                            | Description                               |
++==================================+===========================================+
+| all_or_nothing (optional)        | Sets the database commit mode to use      |
+|                                  | all-or-nothing semantics                  |
++----------------------------------+-------------------------------------------+
+| docs [array]                     | Bulk Documents Document                   |
++----------------------------------+-------------------------------------------+
+|         _id (optional)           | List of changes, field-by-field, for this |
+|                                  | document                                  |
++----------------------------------+-------------------------------------------+
+|         _rev (optional)          | Document ID                               |
++----------------------------------+-------------------------------------------+
+|         _deleted (optional)      | Update sequence number                    |
++----------------------------------+-------------------------------------------+
 
 Inserting Documents in Bulk
 ---------------------------
@@ -327,7 +613,7 @@ allow the document ID to be automatically generated.
 For example, the following inserts three new documents, two with the
 supplied document IDs, and one which will have a document ID generated:
 
-::
+.. code-block:: javascript
 
     {
        "docs" : [
@@ -359,7 +645,7 @@ on a per-document basis.
 The return structure from the example above contains a list of the
 documents created, here with the combination and their revision IDs:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_bulk_docs
     Content-Type: application/json
@@ -380,10 +666,10 @@ documents created, here with the combination and their revision IDs:
     ]
               
 
-The content and structure of the returned JSON will depend on the
-transaction semantics being used for the bulk update; see ? for more
+The content and structure of the returned JSON will depend on the transaction
+semantics being used for the bulk update; see :ref:`bulk-semantics` for more
 information. Conflicts and validation errors when updating documents in
-bulk must be handled separately; see ?.
+bulk must be handled separately; see :ref:`bulk-validation`.
 
 Updating Documents in Bulk
 --------------------------
@@ -394,7 +680,7 @@ revision for every document in the bulk update JSON string.
 
 For example, you could send the following request:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_bulk_docs
     Content-Type: application/json
@@ -428,7 +714,7 @@ For example, you could send the following request:
 The return structure is the JSON of the updated documents, with the new
 revision and ID information:
 
-::
+.. code-block:: javascript
 
     [
        {
@@ -446,17 +732,19 @@ revision and ID information:
     ]
 
 You can optionally delete documents during a bulk update by adding the
-``_deleted`` field with a value of ``true`` to each docment ID/revision
+``_deleted`` field with a value of ``true`` to each document ID/revision
 combination within the submitted JSON structure.
 
 The return type from a bulk insertion will be 201, with the content of
 the returned structure indicating specific success or otherwise messages
 on a per-document basis.
 
-The content and structure of the returned JSON will depend on the
-transaction semantics being used for the bulk update; see ? for more
+The content and structure of the returned JSON will depend on the transaction
+semantics being used for the bulk update; see :ref:`bulk-semantics` for more
 information. Conflicts and validation errors when updating documents in
-bulk must be handled separately; see ?.
+bulk must be handled separately; see :ref:`bulk-validation`.
+
+.. _bulk-semantics:
 
 Bulk Documents Transaction Semantics
 ------------------------------------
@@ -480,7 +768,7 @@ of conflict checking performed on each document. The two modes are:
    indicating a new document revision was created. If the update failed,
    then you will get an ``error`` of type ``conflict``. For example:
 
-   ::
+   .. code-block:: javascript
 
        [
           {
@@ -517,7 +805,7 @@ of conflict checking performed on each document. The two modes are:
    The returned structure contains the list of documents with new
    revisions:
 
-   ::
+   .. code-block:: javascript
 
        [
           {
@@ -544,21 +832,27 @@ of conflict checking performed on each document. The two modes are:
    to true) within the main body of the JSON of the request.
 
 The effects of different database operations on the different modes are
-summarized in the table below:
+summarized below:
 
-+--------------------+---------------+----------------------------------------+------------------------------------------------------------------------+
-| Transaction Mode   | Transaction   | Cause                                  | Resolution                                                             |
-+====================+===============+========================================+========================================================================+
-| Non-atomic         | Insert        | Requested document ID already exists   | Resubmit with different document ID, or update the existing document   |
-+--------------------+---------------+----------------------------------------+------------------------------------------------------------------------+
-| Non-atomic         | Update        | Revision missing or incorrect          | Resubmit with correct revision                                         |
-+--------------------+---------------+----------------------------------------+------------------------------------------------------------------------+
-| All-or-nothing     | Insert        | Additional revision inserted           | Resolve conflicted revisions                                           |
-+--------------------+---------------+----------------------------------------+------------------------------------------------------------------------+
-| All-or-nothing     | Update        | Additional revision inserted           | Resolve conflicted revisions                                           |
-+--------------------+---------------+----------------------------------------+------------------------------------------------------------------------+
+* **Transaction Mode**: ``Non-atomic``
 
-Table: Conflicts on Bulk Inserts
+  * **Transaction**: ``Insert``
+
+    * **Cause**: Requested document ID already exists
+    * **Resolution**: Resubmit with different document ID, or update the
+      existing document
+
+  * **Transaction**: ``Update``
+
+    * **Cause**: Revision missing or incorrect
+    * **Resolution**: Resubmit with correct revision
+
+* **Transaction Mode**: ``All-or-nothing``
+
+  * **Transaction**: ``Insert`` / ``Update``
+
+    * **Cause**: Additional revision inserted
+    * **Resolution**: Resolve conflicted revisions
 
 Replication of documents is independent of the type of insert or update.
 The documents and revisions created during a bulk insert or update are
@@ -566,6 +860,8 @@ replicated in the same way as any other document. This can mean that if
 you make use of the all-or-nothing mode the exact list of documents,
 revisions (and their conflict state) may or may not be replicated to
 other databases correctly.
+
+.. _bulk-validation:
 
 Bulk Document Validation and Conflict Errors
 --------------------------------------------
@@ -576,9 +872,21 @@ The returned JSON structure should be examined to ensure that all of the
 documents submitted in the original request were successfully added to
 the database.
 
-The exact structure of the returned information is shown in ?.
+The exact structure of the returned information is:
 
-When a document (or document revision) is not correctly comitted to the
++----------------------------------+-------------------------------------------+
+| Field                            | Description                               |
++==================================+===========================================+
+| docs [array]                     | Bulk Documents Document                   |
++----------------------------------+-------------------------------------------+
+|         id                       | Document ID                               |
++----------------------------------+-------------------------------------------+
+|         error                    | Error type                                |
++----------------------------------+-------------------------------------------+
+|         reason                   | Error string with extended reason         |
++----------------------------------+-------------------------------------------+
+
+When a document (or document revision) is not correctly committed to the
 database because of an error, you should check the ``error`` field to
 determine error type and course of action. Errors will be one of the
 following type:
@@ -602,13 +910,13 @@ following type:
 
    For example, if your validation routine includes the following:
 
-   ::
+   .. code-block:: javascript
 
         throw({forbidden: 'invalid recipe ingredient'});
 
    The error returned will be:
 
-   ::
+   .. code-block:: javascript
 
        {
           "id" : "7f7638c86173eb440b8890839ff35433",
@@ -617,15 +925,18 @@ following type:
        }
              
 
-   For more information, see ?.
-
 ``POST /db/_temp_view``
 =======================
+
+* **Method**: ``POST /db/_temp_view``
+* **Request**: JSON with the temporary view definition
+* **Response**: Temporary view result set
+* **Admin Privileges Required**: yes
 
 Creates (and executes) a temporary view based on the view function
 supplied in the JSON request. For example:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_temp_view
     Content-Type: application/json
@@ -637,7 +948,7 @@ supplied in the JSON request. For example:
 The resulting JSON response is the result from the execution of the
 temporary view:
 
-::
+.. code-block:: javascript
 
     {
        "total_rows" : 3,
@@ -667,34 +978,37 @@ relies on being executed at the time of the request. In addition to the
 time taken, they are also computationally very expensive to produce. You
 should use a defined view if you want to achieve the best performance.
 
-For more information, see ?.
-
 ``POST /db/_purge``
 ===================
 
+* **Method**: ``POST /db/_purge``
+* **Request**: JSON of the document IDs/revisions to be purged
+* **Response**: JSON structure with purged documents and purge sequence
+* **Admin Privileges Required**: no
+
 A database purge permanently removes the references to deleted documents
 from the database. Deleting a document within CouchDB does not actually
-remove the documen from the database, instead, the document is marked as
+remove the document from the database, instead, the document is marked as
 a deleted (and a new revision is created). This is to ensure that
 deleted documents are replicated to other databases as having been
 deleted. This also means that you can check the status of a document and
 identify that the document has been deleted.
 
-The purge operation removes the refernces to the deleted documents from
+The purge operation removes the references to the deleted documents from
 the database. The purging of old documents is not replicated to other
 databases. If you are replicating between databases and have deleted a
 large number of documents you should run purge on each database.
 
-    **Note**
+.. note::
 
-    Purging documents does not remove the space used by them on disk. To
-    reclaim disk space, you should run a database compact (see ?, and
-    compact views (see ?).
+   Purging documents does not remove the space used by them on disk. To
+   reclaim disk space, you should run a database compact (see
+   :ref:`api-compact`), and compact views (see :ref:`api-compact-ddoc`).
 
 To perform a purge operation you must send a request including the JSON
 of the document IDs that you want to purge. For example:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_purge
     Content-Type: application/json
@@ -711,7 +1025,7 @@ revisions that must be purged.
 The response will contain the purge sequence number, and a list of the
 document IDs and revisions successfully purged.
 
-::
+.. code-block:: javascript
 
     {
        "purged" : {
@@ -745,23 +1059,141 @@ database must be examined.
 ``GET /db/_all_docs``
 =====================
 
+* **Method**: ``GET /db/_all_docs``
+* **Request**: None
+* **Response**: JSON object containing document information, ordered by the
+  document ID
+* **Admin Privileges Required**: no
+* **Query Arguments**:
+
+  * **Argument**: descending
+
+    * **Description**:  Return the documents in descending by key order
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: false
+
+  * **Argument**: endkey
+
+    * **Description**:  Stop returning records when the specified key is reached
+    * **Optional**: yes
+    * **Type**: string
+
+  * **Argument**: endkey_docid
+
+    * **Description**:  Stop returning records when the specified document ID is
+      reached
+    * **Optional**: yes
+    * **Type**: string
+
+  * **Argument**: group
+
+    * **Description**:  Group the results using the reduce function to a group
+      or single row
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: false
+
+  * **Argument**: group_level
+
+    * **Description**:  Specify the group level to be used
+    * **Optional**: yes
+    * **Type**: numeric
+
+  * **Argument**: include_docs
+
+    * **Description**:  Include the full content of the documents in the return
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: false
+
+  * **Argument**: inclusive_end
+
+    * **Description**:  Specifies whether the specified end key should be
+      included in the result
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: true
+
+  * **Argument**: key
+
+    * **Description**:  Return only documents that match the specified key
+    * **Optional**: yes
+    * **Type**: string
+
+  * **Argument**: limit
+
+    * **Description**:  Limit the number of the returned documents to the
+      specified number
+    * **Optional**: yes
+    * **Type**: numeric
+
+  * **Argument**: reduce
+
+    * **Description**:  Use the reduction function
+    * **Optional**: yes
+    * **Type**: boolean
+    * **Default**: true
+
+  * **Argument**: skip
+
+    * **Description**:  Skip this number of records before starting to return
+      the results
+    * **Optional**: yes
+    * **Type**: numeric
+    * **Default**: 0
+
+  * **Argument**: stale
+
+    * **Description**:  Allow the results from a stale view to be used
+    * **Optional**: yes
+    * **Type**: string
+    * **Default**:
+    * **Supported Values**:
+
+      * **ok**: Allow stale views
+
+  * **Argument**: startkey
+
+    * **Description**:  Return records starting with the specified key
+    * **Optional**: yes
+    * **Type**: string
+
+  * **Argument**: startkey_docid
+
+    * **Description**:  Return records starting with the specified document ID
+    * **Optional**: yes
+    * **Type**: string
+
 Returns a JSON structure of all of the documents in a given database.
 The information is returned as a JSON structure containing meta
 information about the return structure, and the list documents and basic
 contents, consisting the ID, revision and key. The key is generated from
 the document ID.
 
++----------------------------------+-------------------------------------------+
+| Field                            | Description                               |
++==================================+===========================================+
+| offset                           | Offset where the document list started    |
++----------------------------------+-------------------------------------------+
+| rows [array]                     | Array of document object                  |
++----------------------------------+-------------------------------------------+
+| total_rows                       | Number of documents in the database/view  |
++----------------------------------+-------------------------------------------+
+| update_seq                       | Current update sequence for the database  |
++----------------------------------+-------------------------------------------+
+
 By default the information returned contains only the document ID and
 revision. For example, the request:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes/_all_docs
     Accept: application/json
 
 Returns the following structure:
 
-::
+.. code-block:: javascript
 
     {
        "total_rows" : 18386,
@@ -800,14 +1232,20 @@ View query arguments and their behavior.
 ``POST /db/_all_docs``
 ======================
 
+* **Method**: ``POST /db/_all_docs``
+* **Request**: JSON of the document IDs you want included
+* **Response**: JSON of the returned view
+* **Admin Privileges Required**: no
+
 The ``POST`` to ``_all_docs`` allows to specify multiple keys to be
 selected from the database. This enables you to request multiple
-documents in a single request, in place of multiple ? requests.
+documents in a single request, in place of multiple
+:ref:`api-get-doc` requests.
 
 The request body should contain a list of the keys to be returned as an
 array to a ``keys`` object. For example:
 
-::
+.. code-block:: http
 
     POST http://couchdb:5984/recipes/_all_docs
     User-Agent: MyApp/0.1 libwww-perl/5.837
@@ -822,7 +1260,7 @@ array to a ``keys`` object. For example:
 The return JSON is the all documents structure, but with only the
 selected keys in the output:
 
-::
+.. code-block:: javascript
 
     {
        "total_rows" : 2666,
@@ -848,13 +1286,28 @@ selected keys in the output:
 ``POST /db/_missing_revs``
 ==========================
 
+* **Method**: ``POST /db/_missing_revs``
+* **Request**: JSON list of document revisions
+* **Response**: JSON of missing revisions
+* **Admin Privileges Required**: no
+
 ``POST /db/_revs_diff``
 =======================
+
+* **Method**: ``POST /db/_revs_diff``
+* **Request**: JSON list of document revisions
+* **Response**: JSON list of differences from supplied document/revision list
+* **Admin Privileges Required**: no
 
 ``GET /db/_security``
 =====================
 
-Gets the current secrity object from the specified database. The
+* **Method**: ``GET /db/_security``
+* **Request**: None
+* **Response**: JSON of the security object
+* **Admin Privileges Required**: no
+
+Gets the current security object from the specified database. The
 security object consists of two compulsory elements, ``admins`` and
 ``readers``, which are used to specify the list of users and/or roles
 that have admin and reader rights to the database respectively. Any
@@ -865,7 +1318,7 @@ functions so that the database can control and limit functionality.
 To get the existing security object you would send the following
 request:
 
-::
+.. code-block:: javascript
 
     {
        "admins" : {
@@ -884,18 +1337,34 @@ request:
        }
     }
 
-    **Note**
+Security object structure is:
 
-    If the security object for a database has never beent set, then the
-    value returned will be empty.
+* **admins**: Roles/Users with admin privileges
+
+  * **roles** [array]: List of roles with parent privilege
+  * **users** [array]: List of users with parent privilege
+
+* **readers**: Roles/Users with reader privileges
+
+  * **roles** [array]: List of roles with parent privilege
+  * **users** [array]: List of users with parent privilege
+
+.. note::
+   If the security object for a database has never been set, then the
+   value returned will be empty.
 
 ``PUT /db/_security``
 =====================
 
+* **Method**: ``PUT /db/_security``
+* **Request**: JSON specifying the admin and user security for the database
+* **Response**: JSON status message
+* **Admin Privileges Required**: no
+
 Sets the security object for the given database.For example, to set the
 security object for the ``recipes`` database:
 
-::
+.. code-block:: javascript
 
     PUT http://couchdb:5984/recipes/_security
     Content-Type: application/json
@@ -919,7 +1388,7 @@ security object for the ``recipes`` database:
 
 If the setting was successful, a JSON status object will be returned:
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true
@@ -928,23 +1397,34 @@ If the setting was successful, a JSON status object will be returned:
 ``GET /db/_revs_limit``
 =======================
 
+* **Method**: ``GET /db/_revs_limit``
+* **Request**: None
+* **Response**: The current revision limit setting
+* **Admin Privileges Required**: no
+
+
 Gets the current ``revs_limit`` (revision limit) setting.
 
 For example to get the current limit:
 
-::
+.. code-block:: http
 
     GET http://couchdb:5984/recipes/_revs_limit
     Content-Type: application/json
 
 The returned information is the current setting as a numerical scalar:
 
-::
+.. code-block:: javascript
 
     1000
 
 ``PUT /db/_revs_limit``
 =======================
+
+* **Method**: ``PUT /db/_revs_limit``
+* **Request**: A scalar integer of the revision limit setting
+* **Response**: Confirmation of setting of the revision limit
+* **Admin Privileges Required**: no
 
 Sets the maximum number of document revisions that will be tracked by
 CouchDB, even after compaction has occurred. You can set the revision
@@ -953,7 +1433,7 @@ that you want to set as the request body.
 
 For example to set the revs limit to 100 for the ``recipes`` database:
 
-::
+.. code-block:: http
 
     PUT http://couchdb:5984/recipes/_revs_limit
     Content-Type: application/json
@@ -962,11 +1442,10 @@ For example to set the revs limit to 100 for the ``recipes`` database:
 
 If the setting was successful, a JSON status object will be returned:
 
-::
+.. code-block:: javascript
 
     {
        "ok" : true
     }
 
 .. _JSON object: #table-couchdb-api-db_db-json-changes
-.. _``POST``: #couchdb-api-dbdoc_db_post

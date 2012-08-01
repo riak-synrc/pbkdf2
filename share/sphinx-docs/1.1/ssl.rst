@@ -19,10 +19,10 @@ already is.
 
 ::
 
-    shell> 
-    shell> 
-    shell> 
-    shell> 
+    shell> mkdir cert && cd cert
+    shell> openssl genrsa > privkey.pem
+    shell> openssl req -new -x509 -key privkey.pem -out mycert.pem -days 1095
+    shell> ls
     mycert.pem privkey.pem
 
 Now, you need to edit CouchDB's configuration, either by editing your
@@ -66,7 +66,7 @@ using HTTPS on port 6984:
 
 ::
 
-    shell> 
+    shell> curl https://127.0.0.1:6984/
     curl: (60) SSL certificate problem, verify that the CA cert is OK. Details:
     error:14090086:SSL routines:SSL3_GET_SERVER_CERTIFICATE:certificate verify failed
     More details here: http://curl.haxx.se/docs/sslcerts.html
@@ -89,7 +89,7 @@ specify the ``-k`` option as the message reads:
 
 ::
 
-    shell> 
+    shell> curl -k https://127.0.0.1:6984/
     {"couchdb":"Welcome","version":"1.1.0"}
 
 All done.
