@@ -205,7 +205,7 @@ specify the ``-k`` option as the message reads:
 .. code-block:: bash
 
     shell> curl -k https://127.0.0.1:6984/
-    {"couchdb":"Welcome","version":"1.1.0"}
+    {"couchdb":"Welcome","version":"|version|"}
 
 .. _CouchDB Externals API: http://davispj.com/2010/09/26/new-couchdb-externals-api.html
 .. _Erlang inet: http://www.erlang.org/doc/man/inet.html#setopts-2

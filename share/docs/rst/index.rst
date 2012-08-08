@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to CouchDB's documentation!
-===================================
+Apache CouchDB Documentation
+============================
 
 Contents:
 
@@ -16,9 +16,9 @@ Contents:
    api-basics
    configuring
    replication
-   views
+   ddocs
    changes
-   1.1/index
+   release
    api/reference
    json-structure
 
@@ -28,4 +28,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

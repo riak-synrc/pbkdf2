@@ -38,7 +38,7 @@ interface to the databases, configuration or replication systems. The
 side panel on the right provides navigation to the main areas of Futon
 interface:
 
-.. figure:: images/futon-overview.png
+.. figure:: ../images/futon-overview.png
    :align: center
    :alt:  Futon Overview
 
@@ -95,7 +95,7 @@ Overview section of the Futon interface.
 To create a new database, click the Create Database ELLIPSIS button. You
 will be prompted for the database name, as shown in the figure below.
 
-.. figure:: images/futon-createdb.png
+.. figure:: ../images/futon-createdb.png
    :align: center
    :alt:  Creating a Database
 
@@ -113,7 +113,7 @@ saving the document back into the database.
 For example, the figure below shows the editor for a single document, a
 newly created document with a single ID, the document ``_id`` field.
 
-.. figure:: images/futon-editdoc.png
+.. figure:: ../images/futon-editdoc.png
    :align: center
    :alt:  Editing a Document
 
@@ -141,7 +141,7 @@ To add a field to the document:
    the page. This will save the document, and then display the new
    document with the saved revision information (the ``_rev`` field).
 
-   .. figure:: images/futon-editeddoc.png
+   .. figure:: ../images/futon-editeddoc.png
       :align: center
       :alt:  Edited Document
 
@@ -161,7 +161,7 @@ presented with the Replicator screen. This allows you to start
 replication between two databases by filling in or select the
 appropriate options within the form provided.
 
-.. figure:: images/futon-replform.png
+.. figure:: ../images/futon-replform.png
    :align: center
    :alt:  Replication Form
 
@@ -213,14 +213,11 @@ example, to get the database information:
 This returns the database information (formatted in the output below for
 clarity):
 
-.. code-block:: javascript
+.. code-block:: json
 
     {
-       "modules" : {
-          "geocouch" : "7fd793c10f3aa667a1088a937398bc5b51472b7f"
-       },
        "couchdb" : "Welcome",
-       "version" : "1.1.0",
+       "version" : "|version|",
     }
 
 .. note:: For some URLs, especially those that include special characters such

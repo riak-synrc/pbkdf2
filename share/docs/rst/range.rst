@@ -52,9 +52,9 @@ rangers. Read all about it in `RFC 2616`_.
 
 .. note::
    Databases that have been created with CouchDB 1.0.2 or earlier will
-   support range requests in 1.1.0, but they are using a less-optimal
+   support range requests in |version|, but they are using a less-optimal
    algorithm. If you plan to make heavy use of this feature, make sure
-   to compact your database with CouchDB 1.1.0 to take advantage of a
+   to compact your database with CouchDB |version| to take advantage of a
    better algorithm to find byte ranges.
 
 .. _RFC 2616: http://tools.ietf.org/html/rfc2616#section-14.27

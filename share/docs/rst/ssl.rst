@@ -1,7 +1,7 @@
 Native SSL Support
 ==================
 
-CouchDB 1.1 supports SSL natively. All your secure connection needs can
+CouchDB |version| supports SSL natively. All your secure connection needs can
 now be served without the need set and maintain a separate proxy server
 that handles SSL.
 
@@ -90,7 +90,7 @@ specify the ``-k`` option as the message reads:
 ::
 
     shell> curl -k https://127.0.0.1:6984/
-    {"couchdb":"Welcome","version":"1.1.0"}
+    {"couchdb":"Welcome","version":"|version|"}
 
 All done.
 

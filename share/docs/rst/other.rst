@@ -6,10 +6,10 @@ in a single design document). Any change to any of the indexes for those
 views would generate a new ETag for all view URL's in a single design
 doc, even if that specific view's results had not changed.
 
-In CouchDB 1.1 each ``_view`` URL has it's own ETag which only gets
-updated when changes are made to the database that effect that index. If
-the index for that specific view does not change, that view keeps the
-original ETag head (therefore sending back 304 Not Modified more often).
+Each ``_view`` URL has it's own ETag which only gets updated when changes
+are made to the database that effect that index. If the index for that
+specific view does not change, that view keeps the original ETag head
+(therefore sending back 304 Not Modified more often).
 
 Added built-in filters for ``_changes``: ``_doc_ids`` and ``_design``.
 ======================================================================
@@ -56,7 +56,7 @@ For example:
 .. code-block:: ini
 
     [os_daemons]
-    basic_responder = /usr/local/bin/responsder.js
+    basic_responder = /usr/local/bin/responder.js
 
 There is no interactivity between CouchDB and the running process, but
 you can use the OS Daemons service to create new HTTP servers and

@@ -91,7 +91,7 @@ test/etap/test_util.erl
 test/javascript/run
 share/server/main.js
 share/server/main-coffee.js
-share/sphinx-docs/build
+share/docs/html
 
 # for make dev
 
@@ -119,3 +119,5 @@ couchdb.stdout
 
 cover/*
 INSTALL
+
+/share/docs/manual/

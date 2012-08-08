@@ -170,7 +170,7 @@ Request Headers
 
    .. code-block:: http
 
-       Server: CouchDB/1.0.1 (Erlang OTP/R13B)
+       Server: CouchDB/|version| (Erlang OTP/R13B)
        Date: Thu, 13 Jan 2011 13:40:11 GMT
        Content-Type: application/json
        Content-Length: 227

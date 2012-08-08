@@ -45,10 +45,10 @@ rangers. See `RFC 2616`_.
 
 .. note::
    Databases that have been created with CouchDB 1.0.2 or earlier will
-   support range requests in 1.1.0, but they are using a less-optimal
-   algorithm. If you plan to make heavy use of this feature, make sure
-   to compact your database with CouchDB 1.1.0 to take advantage of a
-   better algorithm to find byte ranges.
+   support range requests, but they are using a less-optimal algorithm.
+   If you plan to make heavy use of this feature, make sure to compact
+   your database with CouchDB |version| to take advantage of a better
+   algorithm to find byte ranges.
 
 .. _proxying:
 
@@ -183,7 +183,7 @@ in a single design document). Any change to any of the indexes for those
 views would generate a new ETag for all view URL's in a single design
 doc, even if that specific view's results had not changed.
 
-In CouchDB 1.1 each ``_view`` URL has it's own ETag which only gets
+Each ``_view`` URL has it's own ETag which only gets
 updated when changes are made to the database that effect that index. If
 the index for that specific view does not change, that view keeps the
 original ETag head (therefore sending back 304 Not Modified more often).
