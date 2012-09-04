@@ -58,8 +58,10 @@ validate_rep_props([]) ->
 validate_rep_props([{<<"query_params">>, {Params}}|Rest]) ->
     lists:foreach(fun
         ({_,V}) when is_binary(V) -> ok;
-        ({K,_}) -> throw({bad_request,
-            <<K/binary," value must be a string.">>})
+        % Disabled to support the iris-monitor replicator
+        %({K,_}) -> throw({bad_request,
+        %    <<K/binary," value must be a string.">>})
+        ({K,_}) -> ok
         end, Params),
     validate_rep_props(Rest);
 validate_rep_props([_|Rest]) ->
