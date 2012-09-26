@@ -3,7 +3,7 @@ HTTP Range Requests
 
 HTTP allows you to specify byte ranges for requests. This allows the
 implementation of resumable downloads and skippable audio and video
-streams alike. Now this is available for all attachments inside CouchDB.
+streams alike. This is available for all attachments inside CouchDB.
 
 This is just a real quick run through how this looks under the hood.
 Usually, you will have larger binary files to serve from CouchDB, like
@@ -16,7 +16,7 @@ instead of ``text/plain``).
     shell> cat file.txt
     My hovercraft is full of eels!
 
-Now lets store this text file as an attachment in CouchDB. First, we
+Now let's store this text file as an attachment in CouchDB. First, we
 create a database:
 
 .. code-block:: bash
@@ -48,7 +48,7 @@ But say we only want the first 13 bytes:
     My hovercraft
 
 HTTP supports many ways to specify single and even multiple byte
-rangers. Read all about it in `RFC 2616`_.
+ranges. Read all about it in `RFC 2616`_.
 
 .. note::
    Databases that have been created with CouchDB 1.0.2 or earlier will

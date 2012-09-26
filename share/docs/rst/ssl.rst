@@ -2,7 +2,7 @@ Native SSL Support
 ==================
 
 CouchDB |version| supports SSL natively. All your secure connection needs can
-now be served without the need set and maintain a separate proxy server
+now be served without needing to setup and maintain a separate proxy server
 that handles SSL.
 
 SSL setup can be tricky, but the configuration in CouchDB was designed
