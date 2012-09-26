@@ -208,7 +208,19 @@ below.
 -  ``Etag``
 
    The ``Etag`` HTTP header field is used to show the revision for a
-   document.
+   document, or a view.
+
+   ETags have been assigned to a map/reduce group (the collection of
+   views in a single design document). Any change to any of the indexes
+   for those views would generate a new ETag for all view URL's in a
+   single design doc, even if that specific view's results had not
+   changed.
+
+   Each ``_view`` URL has its own ETag which only gets updated when
+   changes are made to the database that effect that index. If the
+   index for that specific view does not change, that view keeps the
+   original ETag head (therefore sending back 304 Not Modified more
+   often).
 
 .. _json:
 

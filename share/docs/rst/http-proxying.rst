@@ -1,3 +1,5 @@
+.. _http-proxying:
+
 HTTP Proxying
 =============
 
@@ -14,7 +16,7 @@ Configuration of the proxy redirect is handled through the
 
     [httpd_global_handlers]
     PREFIX = {couch_httpd_proxy, handle_proxy_req, <<"DESTINATION">>}
-      
+
 
 Where:
 

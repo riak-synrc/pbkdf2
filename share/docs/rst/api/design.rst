@@ -455,6 +455,8 @@ The individual fields in the returned JSON structure are detailed below:
 
 .. _api-get-view:
 
+.. _views:
+
 ``GET /db/_design/design-doc/_view/view-name``
 ==============================================
 

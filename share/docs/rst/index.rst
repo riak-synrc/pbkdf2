@@ -9,18 +9,24 @@ Apache CouchDB Documentation
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   intro
-   features
-   api-basics
-   configuring
-   replication
-   ddocs
-   changes
-   release
-   api/reference
-   json-structure
+    intro
+    api-basics
+    range
+    configuring
+    ssl
+    os-daemons
+    http-proxying
+    config_reference
+    replication
+    ddocs
+    commonjs
+    errors
+    changes
+    release
+    api/reference
+    json-structure
 
 Indices and tables
 ==================
