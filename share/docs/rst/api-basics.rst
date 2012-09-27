@@ -280,7 +280,7 @@ are:
    structures, including the main CouchDB document.
 
 Parsing JSON into a JavaScript object is supported through the
-``eval()`` function in JavaScript, or through various libraries that
+``JSON.parse()`` function in JavaScript, or through various libraries that
 will perform the parsing of the content into a JavaScript object for
 you. Libraries for parsing and generating JSON are available in many
 languages, including Perl, Python, Ruby, Erlang and others.
