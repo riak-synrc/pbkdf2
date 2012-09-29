@@ -10,7 +10,7 @@
 ## License for the specific language governing permissions and limitations under
 ## the License.
 
-SUBDIRS = docs
+SUBDIRS = doc
 
 JS_FILE = server/main.js
 
