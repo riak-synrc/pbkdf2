@@ -36,6 +36,8 @@ pygments_style = "sphinx"
  
 # @@ design CouchDB theme
 
+# @@ check out http://sphinx.pocoo.org/theming.html
+
 html_theme = "default"
 
 html_short_title = "@@"

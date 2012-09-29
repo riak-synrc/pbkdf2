@@ -82,11 +82,11 @@ README.gz: $(top_srcdir)/README
 THANKS.gz: $(top_srcdir)/THANKS
 	@sed -e '/^#.*/d' $< > $(top_builddir)/THANKS.tmp
 	@git shortlog -se 6c976bd..HEAD \
-		| grep -v @apache.org \
-		| sed -E 's/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /' \
-		>> $(top_builddir)/THANKS.tmp
+	    | grep -v @apache.org \
+	    | sed -E 's/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /' \
+	    >> $(top_builddir)/THANKS.tmp
 	@echo '\nFor a list of authors see the `AUTHORS` file.\n' \
-		>> $(top_builddir)/THANKS.tmp
+	    >> $(top_builddir)/THANKS.tmp
 	-gzip -9 < $(top_builddir)/THANKS.tmp > $@
 	@rm $(top_builddir)/THANKS.tmp
 
@@ -106,8 +106,8 @@ cover: dev
 	COVER=1 COVER_BIN=./src/couchdb/ $(top_builddir)/test/etap/run
 	SRC=./src/couchdb/ \
 	    $(ERL) -noshell \
-		-pa src/etap \
-		-eval 'etap_report:create()' \
+	    -pa src/etap \
+	    -eval 'etap_report:create()' \
 	    -s init stop > /dev/null 2>&1
 
 dev: all
