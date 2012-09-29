@@ -56,6 +56,9 @@
 ^m4/*
 ^share/Makefile
 ^share/Makefile.in
+^share/doc/Makefile
+^share/doc/Makefile.in
+^share/doc/images/*
 ^share/server/json2.js
 ^share/server/mimeparse.js
 ^share/server/coffee-script.js

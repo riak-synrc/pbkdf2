@@ -24,7 +24,6 @@ EXTRA_DIST = \
 	images/futon-replform.png \
 	make.bat \
 	Makefile.am \
-	src/_static \ 
 	src/api/authn.rst \
 	src/api/configuration.rst \
 	src/api/database.rst \
