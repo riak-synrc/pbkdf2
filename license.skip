@@ -58,6 +58,8 @@
 ^share/Makefile.in
 ^share/doc/Makefile
 ^share/doc/Makefile.in
+^share/doc/build/Makefile
+^share/doc/build/Makefile.in
 ^share/doc/images/*
 ^share/server/json2.js
 ^share/server/mimeparse.js

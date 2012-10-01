@@ -10,11 +10,26 @@
 ## License for the specific language governing permissions and limitations under
 ## the License.
 
+# -----------------------------------------------------------------------------
+
+# You can set these variables from the command line.
+SPHINXOPTS    =
+SPHINXBUILD   = sphinx-build
+PAPER         =
+
+# Internal variables.
+PAPEROPT_a4     = -D latex_paper_size=a4
+PAPEROPT_letter = -D latex_paper_size=letter
+ALLSPHINXOPTS   = -d doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) ../src
+# the i18n builder cannot share the environment and doctrees with the others
+I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
+
+# -----------------------------------------------------------------------------
+
 EXTRA_DIST = \
     html/.buildinfo
 
-nobase_dist_localdocdir_DATA = \
-    html/_images \
+html_files = \
     html/_images/futon-createdb.png \
     html/_images/futon-editdoc.png \
     html/_images/futon-editeddoc.png \
@@ -57,7 +72,6 @@ nobase_dist_localdocdir_DATA = \
     html/_static/file.png \
     html/_static/jquery.js \
     html/_static/minus.png \
-    html/_static/opensearch.xml \
     html/_static/plus.png \
     html/_static/pygments.css \
     html/_static/searchtools.js \
@@ -95,3 +109,26 @@ nobase_dist_localdocdir_DATA = \
     html/search.html \
     html/searchindex.js \
     html/ssl.html
+
+nobase_dist_localdoc_DATA = \
+	$(html_files)
+
+$(html_files): sphinx-html
+
+# @@ seems to get called twice during the build
+.PHONY: sphinx-html
+sphinx-html: ../src/_static
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
+
+# @@ figure out how to remove this _static dir
+../src/_static:
+	mkdir -p $@
+
+# @@ figure out how to move conf.py up a dir
+# http://sphinx.pocoo.org/glossary.html#term-configuration-directory
+
+# @@ check that maintainer-clean works for help2man
+maintainer-clean-local:
+	mkdir ../src/_static
+	rm -fr html
+	rm -fr doctrees
