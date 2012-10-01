@@ -33,7 +33,7 @@ release = "@@"
 highlight_language = "json"
 
 pygments_style = "sphinx"
- 
+
 # @@ design CouchDB theme
 
 # @@ check out http://sphinx.pocoo.org/theming.html
@@ -42,8 +42,8 @@ html_theme = "default"
 
 html_short_title = "@@"
 
-html_logo = "@@"
+html_logo = ""
 
-html_favicon = "@@"
+html_favicon = ""
 
-html_use_opensearch = "@@"
+html_use_opensearch = ""

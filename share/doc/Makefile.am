@@ -10,6 +10,8 @@
 ## License for the specific language governing permissions and limitations under
 ## the License.
 
+SUBDIRS = build
+
 # @@ can we remove _static?
 
 # @@ what is the license for conf.py?
@@ -24,6 +26,7 @@ EXTRA_DIST = \
 	images/futon-replform.png \
 	make.bat \
 	Makefile.am \
+	src/_static \
 	src/api/authn.rst \
 	src/api/configuration.rst \
 	src/api/database.rst \

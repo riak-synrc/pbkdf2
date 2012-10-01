@@ -1,0 +1,97 @@
+## Licensed under the Apache License, Version 2.0 (the "License"); you may not
+## use this file except in compliance with the License. You may obtain a copy of
+## the License at
+##
+##   http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+## WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+## License for the specific language governing permissions and limitations under
+## the License.
+
+EXTRA_DIST = \
+    html/.buildinfo
+
+nobase_dist_localdocdir_DATA = \
+    html/_images \
+    html/_images/futon-createdb.png \
+    html/_images/futon-editdoc.png \
+    html/_images/futon-editeddoc.png \
+    html/_images/futon-overview.png \
+    html/_images/futon-replform.png \
+    html/_sources/api/authn.txt \
+    html/_sources/api/configuration.txt \
+    html/_sources/api/database.txt \
+    html/_sources/api/dbmaint.txt \
+    html/_sources/api/design.txt \
+    html/_sources/api/documents.txt \
+    html/_sources/api/local.txt \
+    html/_sources/api/misc.txt \
+    html/_sources/api/reference.txt \
+    html/_sources/api-basics.txt \
+    html/_sources/changes.txt \
+    html/_sources/commonjs.txt \
+    html/_sources/config_reference.txt \
+    html/_sources/configuring.txt \
+    html/_sources/ddocs.txt \
+    html/_sources/errors.txt \
+    html/_sources/http-proxying.txt \
+    html/_sources/index.txt \
+    html/_sources/intro.txt \
+    html/_sources/json-structure.txt \
+    html/_sources/os-daemons.txt \
+    html/_sources/range.txt \
+    html/_sources/release.txt \
+    html/_sources/replication.txt \
+    html/_sources/ssl.txt \
+    html/_static/ajax-loader.gif \
+    html/_static/basic.css \
+    html/_static/comment-bright.png \
+    html/_static/comment-close.png \
+    html/_static/comment.png \
+    html/_static/default.css \
+    html/_static/doctools.js \
+    html/_static/down-pressed.png \
+    html/_static/down.png \
+    html/_static/file.png \
+    html/_static/jquery.js \
+    html/_static/minus.png \
+    html/_static/opensearch.xml \
+    html/_static/plus.png \
+    html/_static/pygments.css \
+    html/_static/searchtools.js \
+    html/_static/sidebar.js \
+    html/_static/underscore.js \
+    html/_static/up-pressed.png \
+    html/_static/up.png \
+    html/_static/websupport.js \
+    html/api/authn.html \
+    html/api/configuration.html \
+    html/api/database.html \
+    html/api/dbmaint.html \
+    html/api/design.html \
+    html/api/documents.html \
+    html/api/local.html \
+    html/api/misc.html \
+    html/api/reference.html \
+    html/api-basics.html \
+    html/changes.html \
+    html/commonjs.html \
+    html/config_reference.html \
+    html/configuring.html \
+    html/ddocs.html \
+    html/errors.html \
+    html/genindex.html \
+    html/http-proxying.html \
+    html/index.html \
+    html/intro.html \
+    html/json-structure.html \
+    html/objects.inv \
+    html/os-daemons.html \
+    html/range.html \
+    html/release.html \
+    html/replication.html \
+    html/search.html \
+    html/searchindex.js \
+    html/ssl.html
