@@ -109,6 +109,8 @@ CouchDB Error Status
 | reason                         | Error string with extended reason           |
 +--------------------------------+---------------------------------------------+
 
+.. _dbinfo_object:
+
 CouchDB database information object
 ===================================
 
@@ -332,6 +334,150 @@ Replication Status
 |     missing_found              | Number of missing documents found           |
 +--------------------------------+---------------------------------------------+
 
+.. _request_object:
+
+Request object
+==============
+
++--------------------------------+---------------------------------------------+
+| Field                          | Description                                 |
++================================+=============================================+
+| body                           | Request body data as `string`.              |
+|                                | If request method is `GET` method contains  |
+|                                | this field contains ``"undefined"`` value,  |
+|                                | while if `DELETE` or `HEAD` value is ``""`` |
+|                                | (empty string)                              |
++--------------------------------+---------------------------------------------+
+| cookie                         | Cookies `object`.                           |
+|                                | If request method is `GET` method contains  |
+|                                | this field contains ``"undefined"`` value,  |
+|                                | while if `DELETE` or `HEAD` value is ``""`` |
+|                                | (empty string).                             |
++--------------------------------+---------------------------------------------+
+| form                           | Form data `object`.                         |
+|                                | Contains decoded body as key-value pairs if |
+|                                | `Content-Type` header was                   |
+|                                | ``application/x-www-form-urlencoded``.      |
++--------------------------------+---------------------------------------------+
+| headers                        | Request headers `object`.                   |
++--------------------------------+---------------------------------------------+
+| id                             | Requested document id `string` if it was    |
+|                                | specified or ``null`` otherwise.            |
++--------------------------------+---------------------------------------------+
+| info                           | :ref:`Database information <dbinfo_object>` |
++--------------------------------+---------------------------------------------+
+| method                         | Request method as `string` or `array`.      |
+|                                | String value is method is one of: `HEAD`,   |
+|                                | `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`,  |
+|                                | and `TRACE`, otherwise it will be           |
+|                                | represented as array of char codes.         |
++--------------------------------+---------------------------------------------+
+| path                           | List of requested path sections.            |
++--------------------------------+---------------------------------------------+
+| peer                           | Request source IP address.                  |
++--------------------------------+---------------------------------------------+
+| query                          | URL query parameters `object`.              |
+|                                | Note that multiple keys not supported and   |
+|                                | last key value suppress others.             |
++--------------------------------+---------------------------------------------+
+| requested_path                 | List of actual requested path section.      |
++--------------------------------+---------------------------------------------+
+| raw_path                       | Raw requested path `string`.                |
++--------------------------------+---------------------------------------------+
+| secObj                         | :ref:`security_object`.                     |
++--------------------------------+---------------------------------------------+
+| userCtx                        | :ref:`userctx_object`.                      |
++--------------------------------+---------------------------------------------+
+| uuid                           | Generated UUID by specified algorithm in    |
+|                                | config file.                                |
++--------------------------------+---------------------------------------------+
+
+.. versionadded:: 0.9.0
+.. versionchanged:: 0.10.0 Add ``userCtx`` field.
+.. versionchanged:: 0.11.0 Rename ``verb`` field to ``method``.
+.. versionchanged:: 0.11.0 Add ``id``, ``peer`` and ``uuid`` fields.
+.. versionchanged:: 1.1.0 Add ``requested_path`` and ``secObj`` fields.
+.. versionchanged:: 1.2.0 Add ``raw_path`` field.
+
+.. code-block:: javascript
+
+  {
+      "body": "undefined",
+      "cookie": {
+          "AuthSession": "cm9vdDo1MDZBRjQzRjrfcuikzPRfAn-EA37FmjyfM8G8Lw",
+          "m": "3234"
+      },
+      "form": {},
+      "headers": {
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
+          "Accept-Encoding": "gzip,deflate,sdch",
+          "Accept-Language": "en-US,en;q=0.8",
+          "Connection": "keep-alive",
+          "Cookie": "m=3234:t|3247:t|6493:t|6967:t|34e2:|18c3:t|2c69:t|5acb:t|ca3:t|c01:t|5e55:t|77cb:t|2a03:t|1d98:t|47ba:t|64b8:t|4a01:t; AuthSession=cm9vdDo1MDZBRjQzRjrfcuikzPRfAn-EA37FmjyfM8G8Lw",
+          "Host": "127.0.0.1:5984",
+          "User-Agent": "Mozilla/5.0 (Windows NT 5.2) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.75 Safari/535.7"
+      },
+      "id": "foo",
+      "info": {
+          "committed_update_seq": 2701412,
+          "compact_running": false,
+          "data_size": 7580843252,
+          "db_name": "mailbox",
+          "disk_format_version": 6,
+          "disk_size": 14325313673,
+          "doc_count": 2262757,
+          "doc_del_count": 560,
+          "instance_start_time": "1347601025628957",
+          "purge_seq": 0,
+          "update_seq": 2701412
+      },
+      "method": "GET",
+      "path": [
+          "mailbox",
+          "_design",
+          "request",
+          "_show",
+          "dump",
+          "foo"
+      ],
+      "peer": "127.0.0.1",
+      "query": {},
+      "raw_path": "/mailbox/_design/request/_show/dump/foo",
+      "requested_path": [
+          "mailbox",
+          "_design",
+          "request",
+          "_show",
+          "dump",
+          "foo"
+      ],
+      "secObj": {
+          "admins": {
+              "names": [
+                  "Bob"
+              ],
+              "roles": []
+          },
+          "members": {
+              "names": [
+                  "Mike",
+                  "Alice"
+              ],
+              "roles": []
+          }
+      },
+      "userCtx": {
+          "db": "mailbox",
+          "name": "Mike",
+          "roles": [
+              "user"
+          ]
+      },
+      "uuid": "3184f9d1ea934e1f81a24c71bde5c168"
+  }
+
+
 Returned CouchDB Document with Detailed Revision Info
 =====================================================
 
@@ -393,6 +539,8 @@ Returned Document with Attachments
 |         revpos                 | Revision where this attachment exists       |
 +--------------------------------+---------------------------------------------+
 
+.. _security_object:
+
 Security Object
 ===============
 
@@ -411,3 +559,48 @@ Security Object
 +--------------------------------+---------------------------------------------+
 |         users [array]          | List of users with parent privilege         |
 +--------------------------------+---------------------------------------------+
+
+.. code-block:: javascript
+
+  {
+      "admins": {
+          "names": [
+              "Bob"
+          ],
+          "roles": []
+      },
+      "members": {
+          "names": [
+              "Mike",
+              "Alice"
+          ],
+          "roles": []
+      }
+    }
+
+
+.. _userctx_object:
+
+User Context Object
+===================
+
++--------------------------------+---------------------------------------------+
+| Field                          | Description                                 |
++================================+=============================================+
+| db                             | Database name in context of provided        |
+|                                | operation.                                  |
++--------------------------------+---------------------------------------------+
+| name                           | User name.                                  |
++--------------------------------+---------------------------------------------+
+| roles                          | List of user roles.                         |
++--------------------------------+---------------------------------------------+
+
+.. code-block:: javascript
+
+    {
+        "db": "mailbox",
+        "name": null,
+        "roles": [
+            "_admin"
+        ]
+    }
