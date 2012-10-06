@@ -110,10 +110,15 @@ html_files = \
     html/searchindex.js \
     html/ssl.html
 
-nobase_dist_localdoc_DATA = \
-	$(html_files)
+pdf_files = latex/manual.pdf.gz
+
+nobase_dist_localdoc_DATA = $(html_files)
+
+dist_localdoc_DATA = $(pdf_files)
 
 $(html_files): sphinx-html
+
+$(pdf_files): sphinx-pdf
 
 # @@ seems to get called twice during the build
 .PHONY: sphinx-html
@@ -122,8 +127,9 @@ sphinx-html: ../src/_static
 
 .PHONY: sphinx-pdf
 sphinx-pdf:
-	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
-	#@ $(MAKE) -C $(BUILDDIR)/latex all-pdf
+	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
+	$(MAKE) -C latex all-pdf
+	-gzip -9 < latex/manual.pdf > latex/manual.pdf.gz
 
 # @@ figure out how to remove this _static dir
 ../src/_static:
@@ -134,6 +140,7 @@ sphinx-pdf:
 
 # @@ check that maintainer-clean works for help2man
 maintainer-clean-local:
-	mkdir ../src/_static
-	rm -fr html
+	rmdir ../src/_static
 	rm -fr doctrees
+	rm -fr html
+	rm -fr latex

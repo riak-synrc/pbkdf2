@@ -47,3 +47,12 @@ html_logo = ""
 html_favicon = ""
 
 html_use_opensearch = ""
+
+latex_documents = [(
+	"index",
+	"CouchDB.tex",
+	"",
+	"",
+	"manual",
+	True
+)]
