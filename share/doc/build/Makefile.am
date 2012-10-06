@@ -26,10 +26,9 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 # -----------------------------------------------------------------------------
 
-EXTRA_DIST = \
-    html/.buildinfo
+EXTRA_DIST = html/.buildinfo
 
-info_DATA = texinfo/CouchDB.info
+info_TEXINFOS = texinfo/CouchDB.texi
 
 dist_localdoc_DATA = latex/CouchDB.pdf.gz
 
@@ -114,11 +113,11 @@ nobase_dist_localdoc_DATA = \
     html/searchindex.js \
     html/ssl.html
 
-$(info_files): info
+$(info_TEXINFOS): texinfo
 
-$(pdf_files): pdf
+$(dist_localdoc_DATA): pdf
 
-$(html_files): html
+$(nobase_dist_localdoc_DATA): html
 
 # @@ convert both targets to use stamp files
 # http://www.gnu.org/software/automake/manual/html_node/Multiple-Outputs.html
@@ -130,12 +129,12 @@ $(html_files): html
 # @@ seems to get called twice during the build
 # @@ use stamp files, this gets called twice during install too
 
-info:
+texinfo:
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
-	make -C $texinfo info
 
 dvi:
 	@echo "This target is not supported."
+
 ps:
 	@echo "This target is not supported."
 
@@ -147,9 +146,6 @@ pdf:
 html: ../src/_static
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
 
-install-info:
-	@echo "This target is not supported. Please use `install'."
-
 install-dvi:
 	@echo "This target is not supported."
 
@@ -157,10 +153,10 @@ install-ps:
 	@echo "This target is not supported."
 
 install-pdf:
-	@echo "This target is not supported. Please use `install'."
+	@echo "This target is not supported. Use \`install-data\` instead."
 
 install-html:
-	@echo "This target is not supported. Please use `install'."
+	@echo "This target is not supported. Use \`install-data\` instead."
 
 # @@ figure out how to remove this _static dir
 ../src/_static:
