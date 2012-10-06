@@ -44,7 +44,7 @@ libtool
 share/doc/build/doctrees
 share/doc/build/html
 share/doc/build/latex
-share/doc/build/text
+share/doc/build/texinfo
 share/server/main-coffee.js
 share/server/main.js
 src/couch_mrview/ebin/

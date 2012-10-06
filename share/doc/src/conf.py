@@ -48,6 +48,8 @@ html_favicon = ""
 
 html_use_opensearch = ""
 
+text_newlines = "native"
+
 latex_documents = [(
 	"index",
 	"CouchDB.tex",
@@ -57,4 +59,14 @@ latex_documents = [(
 	True
 )]
 
-text_newlines = "native"
+texinfo_documents = [(
+	"index",
+	"CouchDB",
+	"",
+	"",
+	"dir_entry",
+	"description",
+	"category",
+	"manual",
+	True
+)]

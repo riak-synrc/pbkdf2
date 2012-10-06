@@ -29,7 +29,11 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 EXTRA_DIST = \
     html/.buildinfo
 
-html_files = \
+info_DATA = texinfo/CouchDB.info
+
+dist_localdoc_DATA = latex/CouchDB.pdf.gz
+
+nobase_dist_localdoc_DATA = \
     html/_images/futon-createdb.png \
     html/_images/futon-editdoc.png \
     html/_images/futon-editeddoc.png \
@@ -110,44 +114,11 @@ html_files = \
     html/searchindex.js \
     html/ssl.html
 
-pdf_files = latex/CouchDB.pdf.gz
+$(info_files): info
 
-text_files = \
-    api/authn.txt \
-    api/configuration.txt \
-    api/database.txt \
-    api/dbmaint.txt \
-    api/design.txt \
-    api/documents.txt \
-    api/local.txt \
-    api/misc.txt \
-    api/reference.txt \
-    api-basics.txt \
-    changes.txt \
-    commonjs.txt \
-    config_reference.txt \
-    configuring.txt \
-    ddocs.txt \
-    errors.txt \
-    http-proxying.txt \
-    index.txt \
-    intro.txt \
-    json-structure.txt \
-    os-daemons.txt \
-    range.txt \
-    release.txt \
-    replication.txt \
-    ssl.txt \
+$(pdf_files): pdf
 
-nobase_dist_localdoc_DATA = \
-	$(html_files) \
-	$(text_files) \
-
-dist_localdoc_DATA = $(pdf_files)
-
-$(html_files): sphinx-html
-
-$(pdf_files): sphinx-pdf
+$(html_files): html
 
 # @@ convert both targets to use stamp files
 # http://www.gnu.org/software/automake/manual/html_node/Multiple-Outputs.html
@@ -157,24 +128,39 @@ $(pdf_files): sphinx-pdf
 # @@ figure out if we should distribute the PDF in the dist dir
 
 # @@ seems to get called twice during the build
-.PHONY: sphinx-html
-sphinx-html: ../src/_static
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
+# @@ use stamp files, this gets called twice during install too
 
-.PHONY: sphinx-pdf
-sphinx-pdf:
+info:
+	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
+	make -C $texinfo info
+
+dvi:
+	@echo "This target is not supported."
+ps:
+	@echo "This target is not supported."
+
+pdf:
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
 	$(MAKE) -C latex all-pdf
 	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
 
-.PHONY: sphinx-text
-sphinx-text:
-	$(SPHINXBUILD) -b text $(ALLSPHINXOPTS) text
+html: ../src/_static
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
 
-.PHONY: sphinx-info
-sphinx-info:
-	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
-	make -C texinfo info
+install-info:
+	@echo "This target is not supported. Please use `install'."
+
+install-dvi:
+	@echo "This target is not supported."
+
+install-ps:
+	@echo "This target is not supported."
+
+install-pdf:
+	@echo "This target is not supported. Please use `install'."
+
+install-html:
+	@echo "This target is not supported. Please use `install'."
 
 # @@ figure out how to remove this _static dir
 ../src/_static:
@@ -198,3 +184,8 @@ maintainer-clean-local:
 
 # @@ tweak conf.py
 # http://sphinx.pocoo.org/config.html
+
+# "make dvi" fails
+# "make ps" fails
+
+# @@ fix package name which turns out as "apache-couchdb"
