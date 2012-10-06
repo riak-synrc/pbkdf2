@@ -120,6 +120,11 @@ $(html_files): sphinx-html
 sphinx-html: ../src/_static
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
 
+.PHONY: sphinx-pdf
+sphinx-pdf:
+	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
+	#@ $(MAKE) -C $(BUILDDIR)/latex all-pdf
+
 # @@ figure out how to remove this _static dir
 ../src/_static:
 	mkdir -p $@
