@@ -120,6 +120,9 @@ $(html_files): sphinx-html
 
 $(pdf_files): sphinx-pdf
 
+# @@ convert both targets to use stamp files
+# http://www.gnu.org/software/automake/manual/html_node/Multiple-Outputs.html
+
 # @@ seems to get called twice during the build
 .PHONY: sphinx-html
 sphinx-html: ../src/_static
@@ -129,7 +132,7 @@ sphinx-html: ../src/_static
 sphinx-pdf:
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
 	$(MAKE) -C latex all-pdf
-	-gzip -9 < latex/manual.pdf > latex/manual.pdf.gz
+	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
 
 # @@ figure out how to remove this _static dir
 ../src/_static:
