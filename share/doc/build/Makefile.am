@@ -110,9 +110,38 @@ html_files = \
     html/searchindex.js \
     html/ssl.html
 
-pdf_files = latex/manual.pdf.gz
+pdf_files = latex/CouchDB.pdf.gz
 
-nobase_dist_localdoc_DATA = $(html_files)
+text_files = \
+    api/authn.txt \
+    api/configuration.txt \
+    api/database.txt \
+    api/dbmaint.txt \
+    api/design.txt \
+    api/documents.txt \
+    api/local.txt \
+    api/misc.txt \
+    api/reference.txt \
+    api-basics.txt \
+    changes.txt \
+    commonjs.txt \
+    config_reference.txt \
+    configuring.txt \
+    ddocs.txt \
+    errors.txt \
+    http-proxying.txt \
+    index.txt \
+    intro.txt \
+    json-structure.txt \
+    os-daemons.txt \
+    range.txt \
+    release.txt \
+    replication.txt \
+    ssl.txt \
+
+nobase_dist_localdoc_DATA = \
+	$(html_files) \
+	$(text_files) \
 
 dist_localdoc_DATA = $(pdf_files)
 
@@ -122,6 +151,10 @@ $(pdf_files): sphinx-pdf
 
 # @@ convert both targets to use stamp files
 # http://www.gnu.org/software/automake/manual/html_node/Multiple-Outputs.html
+
+# @@ move conf.py and use and set variables
+
+# @@ figure out if we should distribute the PDF in the dist dir
 
 # @@ seems to get called twice during the build
 .PHONY: sphinx-html
@@ -133,6 +166,15 @@ sphinx-pdf:
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
 	$(MAKE) -C latex all-pdf
 	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
+
+.PHONY: sphinx-text
+sphinx-text:
+	$(SPHINXBUILD) -b text $(ALLSPHINXOPTS) text
+
+.PHONY: sphinx-info
+sphinx-info:
+	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
+	make -C texinfo info
 
 # @@ figure out how to remove this _static dir
 ../src/_static:
@@ -147,3 +189,12 @@ maintainer-clean-local:
 	rm -fr doctrees
 	rm -fr html
 	rm -fr latex
+
+# @@ can we remove _static?
+
+# @@ what is the license for conf.py?
+
+# @@ need to explicitly put the license in the readable part of the doc
+
+# @@ tweak conf.py
+# http://sphinx.pocoo.org/config.html

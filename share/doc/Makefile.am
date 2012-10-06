@@ -12,10 +12,6 @@
 
 SUBDIRS = build
 
-# @@ can we remove _static?
-
-# @@ what is the license for conf.py?
-
 EXTRA_DIST = \
 	demo.mk \
 	images/epub-icon.png \

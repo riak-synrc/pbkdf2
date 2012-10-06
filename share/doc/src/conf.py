@@ -56,3 +56,5 @@ latex_documents = [(
 	"manual",
 	True
 )]
+
+text_newlines = "native"
