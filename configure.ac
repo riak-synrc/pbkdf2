@@ -495,15 +495,6 @@ else
     fi
 fi
 
-# Secret environment variable to skip tests while working on the build system
-if test -n "$SKIP_TESTS"; then
-    run_tests=no
-else
-    run_tests=yes
-fi
-
-AM_CONDITIONAL([RUN_TESTS], [test x${run_tests} = xyes])
-
 AM_CONDITIONAL([INIT], [test x${init_enabled} = xtrue])
 AM_CONDITIONAL([LAUNCHD], [test x${launchd_enabled} = xtrue])
 AM_CONDITIONAL([HELP2MAN], [test x${help2man_enabled} = xtrue])
