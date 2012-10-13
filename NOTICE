@@ -6,15 +6,19 @@ The Apache Software Foundation (http://www.apache.org/).
 
 This product also includes the following third-party components:
 
- * ac_check_icu.m4 (http://autoconf-archive.cryp.to/ac_check_icu.html)
+ * ax_lib_curl.m4 (http://www.gnu.org/software/autoconf-archive/ax_lib_curl.html)
+
+   Copyright 2009, Francesco Salvestrini <salvestrini@users.sourceforge.net>
+
+ * ax_check_icu.m4 (http://www.gnu.org/software/autoconf-archive/ax_check_icu.html)
 
    Copyright 2008, Akos Maroy <darkeye@tyrell.hu>
 
- * ac_check_curl.m4 (http://autoconf-archive.cryp.to/ac_check_curl.html)
+ * ax_python_module.m4 (http://www.gnu.org/software/autoconf-archive/ax_python_module.html)
 
-   Copyright 2008, Akos Maroy <darkeye@tyrell.hu>
+   Copyright 2008, Andrew Collier <colliera@ukzn.ac.za>
 
- * pkg.m4 (http://http://pkg-config.freedesktop.org/wiki/)
+ * pkg.m4 (http://pkg-config.freedesktop.org/wiki/)
 
    Copyright 2004, Scott James Remnant <scott@netsplit.com>
 

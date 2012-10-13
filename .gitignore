@@ -6,7 +6,6 @@
 *.in
 *.la
 *.lo
-*.m4
 *.o
 *.orig
 *.rej
@@ -17,6 +16,8 @@
 .*
 INSTALL
 Makefile
+acinclude.m4
+aclocal.m4
 apache-couchdb-*
 autom4te.cache
 bin/.deps/
@@ -42,6 +43,11 @@ etc/init/couchdb
 etc/launchd/org.apache.couchdb.plist
 etc/logrotate.d/couchdb
 libtool
+m4/libtool.m4
+m4/ltoptions.m4
+m4/ltsugar.m4
+m4/ltversion.m4
+m4/lt~obsolete.m4
 share/doc/build/CouchDB.log
 share/doc/build/doctrees
 share/doc/build/html

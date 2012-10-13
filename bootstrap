@@ -45,10 +45,6 @@ else
     sed "s/%release%/$REVISION/" < acinclude.m4.in > acinclude.m4
 fi
 
-gunzip -c m4/ac_check_icu.m4.gz > m4/ac_check_icu.m4
-gunzip -c m4/ac_check_curl.m4.gz > m4/ac_check_curl.m4
-gunzip -c m4/pkg.m4.gz > m4/pkg.m4
-
 # Seach a list of names for the first occurence of a program.
 # Some systems may use aclocal-1.10, others may have aclocal etc.
 #
