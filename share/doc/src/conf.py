@@ -61,7 +61,7 @@ latex_documents = [(
 
 texinfo_documents = [(
 	"index",
-	"CouchDB",
+	"content",
 	"",
 	"",
 	"dir_entry",

@@ -26,9 +26,9 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 # -----------------------------------------------------------------------------
 
-EXTRA_DIST = html/.buildinfo
-
 info_TEXINFOS = texinfo/CouchDB.texi
+
+info_node = texinfo/node.texi
 
 dist_localdoc_DATA = latex/CouchDB.pdf.gz
 
@@ -113,7 +113,16 @@ nobase_dist_localdoc_DATA = \
     html/searchindex.js \
     html/ssl.html
 
-$(info_TEXINFOS): texinfo
+EXTRA_DIST = \
+	html/.buildinfo \
+	$(info_node)
+
+# Total bodge. Automake expects Texinfo documents to be hand authored, so there
+# is no supported way talk about Texinfo files that need to be built. Instead,
+# we're hooking on to a generated target we're not supposed to know about.
+$(srcdir)/texinfo/CouchDB: $(info_node)
+
+$(info_node): texinfo
 
 $(dist_localdoc_DATA): pdf
 
