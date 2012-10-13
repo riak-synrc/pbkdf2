@@ -1,3 +1,0 @@
-@setfilename CouchDB
-
-@include texinfo/content.texi

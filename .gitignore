@@ -41,13 +41,11 @@ etc/init/couchdb
 etc/launchd/org.apache.couchdb.plist
 etc/logrotate.d/couchdb
 libtool
-share/doc/build/CouchDB
-share/doc/build/CouchDB-*
 share/doc/build/CouchDB.log
 share/doc/build/doctrees
 share/doc/build/html
 share/doc/build/latex
-share/doc/build/texinfo/futon-*
+share/doc/build/texinfo
 share/server/main-coffee.js
 share/server/main.js
 src/couch_mrview/ebin/

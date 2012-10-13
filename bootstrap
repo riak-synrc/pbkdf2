@@ -80,11 +80,22 @@ AUTOHEADER=`find_program autoheader`
 AUTOMAKE=`find_program automake-1.11 automake-1.10 automake-1.9 automake`
 AUTOCONF=`find_program autoconf`
 
+texi_file=share/doc/build/texinfo/CouchDB.texi
+
+if test ! -e $texi_file; then
+	mkdir -p `dirname $texi_file`
+	cat > $texi_file <<EOF
+@setfilename CouchDB
+EOF
+fi
+
 ${LIBTOOLIZE} -f -c --automake
 ${ACLOCAL} -I m4
 ${AUTOHEADER} -f
-${AUTOMAKE} -f -a 2>&1 | sed -e "/install/d"
+${AUTOMAKE} -f -a 2>&1
 ${AUTOCONF} -f
+
+# rm -f share/doc/build/texinfo/CouchDB.texi
 
 ln -f -s "`dirname \`readlink build-aux/missing\``/INSTALL"
 

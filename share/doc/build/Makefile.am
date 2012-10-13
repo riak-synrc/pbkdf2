@@ -26,11 +26,9 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 # -----------------------------------------------------------------------------
 
-info_TEXINFOS = texinfo/CouchDB.texi
+info_TEXINFOS = texinfo/CouchDB.texi 
 
-info_node = texinfo/node.texi
-
-dist_localdoc_DATA = latex/CouchDB.pdf.gz
+# dist_localdoc_DATA = latex/CouchDB.pdf.gz
 
 nobase_dist_localdoc_DATA = \
     html/_images/futon-createdb.png \
@@ -113,16 +111,7 @@ nobase_dist_localdoc_DATA = \
     html/searchindex.js \
     html/ssl.html
 
-EXTRA_DIST = \
-	html/.buildinfo \
-	$(info_node)
-
-# Total bodge. Automake expects Texinfo documents to be hand authored, so there
-# is no supported way talk about Texinfo files that need to be built. Instead,
-# we're hooking on to a generated target we're not supposed to know about.
-$(srcdir)/texinfo/CouchDB: $(info_node)
-
-$(info_node): texinfo
+EXTRA_DIST = html/.buildinfo
 
 $(dist_localdoc_DATA): pdf
 
@@ -138,6 +127,9 @@ $(nobase_dist_localdoc_DATA): html
 # @@ seems to get called twice during the build
 # @@ use stamp files, this gets called twice during install too
 
+$(info_TEXINFOS): texinfo
+
+.PHONY: texinfo
 texinfo:
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
 
@@ -180,6 +172,7 @@ maintainer-clean-local:
 	rm -fr doctrees
 	rm -fr html
 	rm -fr latex
+	rm -fr texinfo
 
 # @@ can we remove _static?
 
