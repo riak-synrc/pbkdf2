@@ -497,10 +497,10 @@ fi
 
 AM_CONDITIONAL([INIT], [test x${init_enabled} = xtrue])
 AM_CONDITIONAL([LAUNCHD], [test x${launchd_enabled} = xtrue])
+AM_CONDITIONAL([RUN_TESTS], [test x${skip_tests} = xyes])
 AM_CONDITIONAL([HELP2MAN], [test x${help2man_enabled} = xtrue])
 AM_CONDITIONAL([USE_NATIVE_MOCHIJSON], [test x${native_mochijson_enabled} = xyes])
 AM_CONDITIONAL([USE_CURL], [test x${use_curl} = xyes])
-AM_CONDITIONAL([RUN_TESTS], [test x$skip_tests = xyes])
 
 AC_SUBST([package_author_name], ["LOCAL_PACKAGE_AUTHOR_NAME"])
 AC_SUBST([package_author_address], ["LOCAL_PACKAGE_AUTHOR_ADDRESS"])
