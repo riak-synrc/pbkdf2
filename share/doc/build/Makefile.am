@@ -13,14 +13,14 @@
 # -----------------------------------------------------------------------------
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+SPHINXOPTS    = -n -c $(srcdir)/..
 SPHINXBUILD   = sphinx-build
 PAPER         =
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS   = -d doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) ../src
+ALLSPHINXOPTS   = -d doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(srcdir)/../src
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
@@ -132,7 +132,6 @@ src_files = \
 	../src/api-basics.rst \
 	../src/changes.rst \
 	../src/commonjs.rst \
-	../src/conf.py \
 	../src/config_reference.rst \
 	../src/configuring.rst \
 	../src/ddocs.rst \
@@ -154,6 +153,7 @@ dist_localdoc_DATA = $(pdf_files)
 nobase_dist_localdoc_DATA = $(html_files)
 
 EXTRA_DIST = \
+    ../conf.py \
 	../demo.mk \
 	../make.bat \
 	../Makefile.am \
@@ -188,7 +188,7 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
+	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(builddir)/texinfo
 	@mv -f texinfo.tmp $@
 
 $(pdf_files): pdf.stamp
@@ -200,7 +200,7 @@ $(pdf_files): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
+	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(builddir)/latex
 	$(MAKE) -C latex all-pdf
 	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
 	@mv -f pdf.tmp $@
@@ -214,7 +214,7 @@ $(html_files): html.stamp
 html.stamp: $(image_files) $(src_files)
 	@rm -f html.tmp
 	@touch html.tmp
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(builddir)/html
 	@mv -f html.tmp $@
 
 dvi:
@@ -244,9 +244,13 @@ install-html:
 # @@ figure out how to move conf.py up a dir
 # http://sphinx.pocoo.org/glossary.html#term-configuration-directory
 
+DISTCLEANFILES = \
+    texinfo.stamp \
+    pdf.stamp \
+    html.stamp
+
 # @@ check that maintainer-clean works for help2man
-maintainer-clean-local:
-	rmdir ../src/_static
+distclean-local:
 	rm -fr doctrees
 	rm -fr html
 	rm -fr latex
