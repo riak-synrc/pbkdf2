@@ -85,6 +85,10 @@ if test ! -e $texi_file; then
 EOF
 fi
 
+# @@ run autoupdate first, to get new syntax
+
+# @@ then convert this to use autoreconf -i -Wall
+
 ${LIBTOOLIZE} -f -c --automake
 ${ACLOCAL} -I m4
 ${AUTOHEADER} -f
