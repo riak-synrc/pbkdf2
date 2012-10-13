@@ -120,6 +120,6 @@ couchdb.1: couchdb.tpl.in
 	touch $@
 	if test -x "$(HELP2MAN_EXECUTABLE)"; then \
 	    $(MAKE) -f Makefile couchdb; \
-	    $(HELP2MAN_EXECUTABLE) $(HELP2MAN_OPTION) \
+	    $(HELP2MAN) $(HELP2MAN_OPTION) \
 	        --name="Apache CouchDB database server" ./couchdb --output $@; \
 	fi

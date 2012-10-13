@@ -419,11 +419,6 @@ Are the Erlang headers installed? Use the `--with-erlang' option to specify the
 path to the Erlang include directory.])])
 CPPFLAGS="$OLD_CPPFLAGS"
 
-AC_PATH_PROG([HELP2MAN_EXECUTABLE], [help2man])
-if test x${HELP2MAN_EXECUTABLE} = x; then
-    AC_MSG_WARN([You will be unable to regenerate any man pages.])
-fi
-
 use_init=yes
 use_launchd=yes
 native_mochijson_enabled=no
@@ -438,19 +433,23 @@ AC_ARG_ENABLE([launchd], [AC_HELP_STRING([--disable-launchd],
     use_launchd=$enableval
 ], [])
 
-AC_ARG_ENABLE([tests], [AC_HELP_STRING([--disable-tests],
-    [skip tests during build])], [
-    tests_enabled=$enableval
-], [])
-
 AC_ARG_ENABLE([native-mochijson], [AC_HELP_STRING([--enable-native-mochijson],
     [compile mochijson to native code (EXPERIMENTAL)])], [
     native_mochijson_enabled=$enableval
 ], [])
 
+AC_ARG_ENABLE([tests], [AC_HELP_STRING([--disable-tests],
+    [skip tests during build])], [
+    tests_enabled=$enableval
+], [])
+
+AC_ARG_ENABLE([strictness], [AC_HELP_STRING([--enable-strictness],
+    [exit when optional checks fail])], [
+    strictness_enabled=$enableval
+], [])
+
 init_enabled=false
 launchd_enabled=false
-tests_enabled=false
 
 if test "$use_init" = "yes"; then
    AC_MSG_CHECKING(location of init directory)
@@ -481,26 +480,42 @@ if test "$use_launchd" = "yes"; then
     fi
 fi
 
-AC_ARG_VAR([ERL], [path to the `erl' executable])
-AC_ARG_VAR([ERLC], [path to the `erlc' executable])
-AC_ARG_VAR([HELP2MAN_EXECUTABLE], [path to the `help2man' program])
+AC_PATH_PROG([HELP2MAN], [help2man])
 
-if test -n "$HELP2MAN_EXECUTABLE"; then
-    help2man_enabled=true
-else
-    if test -f "$srcdir/bin/couchdb.1" -a -f "$srcdir/src/couchdb/priv/couchjs.1"; then
-        help2man_enabled=true
+if test x${HELP2MAN} = x; then
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Could not find the `help2man' executable.])
     else
-        help2man_enabled=false
+        AC_MSG_WARN([You will be unable to regenerate any man pages.])
     fi
 fi
 
+AC_PATH_PROG([SPHINX_BUILD], [sphinx-build])
+
+if test x${SPHINX_BUILD} = x; then
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Could not find the `sphinx-build' executable.])
+    else
+        AC_MSG_WARN([You will be unable to regenerate any documentation.])
+    fi
+fi
+
+
+AC_ARG_VAR([ERL], [path to the `erl' executable])
+AC_ARG_VAR([ERLC], [path to the `erlc' executable])
+
 AM_CONDITIONAL([INIT], [test x${init_enabled} = xtrue])
 AM_CONDITIONAL([LAUNCHD], [test x${launchd_enabled} = xtrue])
-AM_CONDITIONAL([RUN_TESTS], [test x${skip_tests} = xyes])
-AM_CONDITIONAL([HELP2MAN], [test x${help2man_enabled} = xtrue])
 AM_CONDITIONAL([USE_NATIVE_MOCHIJSON], [test x${native_mochijson_enabled} = xyes])
 AM_CONDITIONAL([USE_CURL], [test x${use_curl} = xyes])
+AM_CONDITIONAL([TESTS], [test x${tests_enabled} = xyes])
+AM_CONDITIONAL([STRICTNESS], [test x${strictness_enabled} = xyes])
+
+AM_CONDITIONAL([HELP2MAN], [test ! x${HELP2MAN} = x])
+AM_CONDITIONAL([SPHINX_BUILD], [test ! x${SPHINX_BUILD} = x])
+
+AC_SUBST([HELP2MAN])
+AC_SUBST([SPHINX_BUILD])
 
 AC_SUBST([package_author_name], ["LOCAL_PACKAGE_AUTHOR_NAME"])
 AC_SUBST([package_author_address], ["LOCAL_PACKAGE_AUTHOR_ADDRESS"])

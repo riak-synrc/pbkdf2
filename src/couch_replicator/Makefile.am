@@ -60,7 +60,7 @@ EXTRA_DIST = $(include_files) $(source_files) $(test_files)
 CLEANFILES = $(compiled_files)
 
 check:
-if RUN_TESTS
+if TESTS
 	$(abs_top_builddir)/test/etap/run $(abs_top_srcdir)/src/couch_replicator/test
 endif
 

@@ -14,6 +14,8 @@
 
 # @@ TODO LIST BEFORE WE CAN MERGE
 
+# @@ add RM checks to configure.ac
+
 # @@ improve conf.py settings
 
 # @@ replace "test !" in configure.ac with "test -f X; then :; else" for portability
