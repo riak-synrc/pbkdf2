@@ -12,6 +12,26 @@
 
 # -----------------------------------------------------------------------------
 
+# @@ TODO LIST BEFORE WE CAN MERGE
+
+# @@ improve conf.py settings
+
+# @@ replace "test !" in configure.ac with "test -f X; then :; else" for portability
+
+# @@ stamps break parallel builds and "make -n" promise
+
+# @@ check that maintainer-clean works for help2man
+
+# @@ can we remove _static?
+
+# @@ need to explicitly put the license in the readable part of the doc
+
+# @@ fix package name which turns out as "apache-couchdb"
+
+# @@ sort out sphinx variables in this file
+
+# -----------------------------------------------------------------------------
+
 # You can set these variables from the command line.
 SPHINXOPTS    = -n -c $(srcdir)/..
 SPHINXBUILD   = sphinx-build
@@ -165,20 +185,6 @@ $(dist_localdoc_DATA): pdf
 
 $(nobase_dist_localdoc_DATA): html
 
-# @@ convert both targets to use stamp files
-# http://www.gnu.org/software/automake/manual/html_node/Multiple-Outputs.html
-
-# @@ move conf.py and use and set variables
-
-# @@ figure out if we should distribute the PDF in the dist dir
-
-# @@ seems to get called twice during the build
-# @@ use stamp files, this gets called twice during install too
-
-# @@ replace "test !" in configure.ac with "test -f X; then :; else" for portability
-
-# @@ stamps break parallel builds and "make -n" promise
-
 $(texinfo_files): texinfo.stamp
 	@if test -f $@; then :; else \
 	    rm -f texinfo.stamp; \
@@ -241,31 +247,13 @@ install-pdf:
 install-html:
 	@echo "This target is not supported. Try \`install-data' instead."
 
-# @@ figure out how to move conf.py up a dir
-# http://sphinx.pocoo.org/glossary.html#term-configuration-directory
-
 DISTCLEANFILES = \
     texinfo.stamp \
     pdf.stamp \
     html.stamp
 
-# @@ check that maintainer-clean works for help2man
 distclean-local:
 	rm -fr doctrees
 	rm -fr html
 	rm -fr latex
 	rm -fr texinfo
-
-# @@ can we remove _static?
-
-# @@ what is the license for conf.py?
-
-# @@ need to explicitly put the license in the readable part of the doc
-
-# @@ tweak conf.py
-# http://sphinx.pocoo.org/config.html
-
-# "make dvi" fails
-# "make ps" fails
-
-# @@ fix package name which turns out as "apache-couchdb"
