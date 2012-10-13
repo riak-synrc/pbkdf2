@@ -162,7 +162,7 @@ dist-hook:
 
 distcheck-hook:
 	grep -rL 'http://www.apache.org/licenses/LICENSE-2.0' * \
-            | grep -vEf license.skip; \
+            | grep --include= -vEf license.skip; \
         test "$$?" -eq 1
 
 .PHONY: distsign
