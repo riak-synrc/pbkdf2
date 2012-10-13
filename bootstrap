@@ -89,6 +89,8 @@ fi
 
 # @@ then convert this to use autoreconf -i -Wall
 
+# @@ add dep on pkg-config and autoconf-archive
+
 ${LIBTOOLIZE} -f -c --automake
 ${ACLOCAL} -I m4
 ${AUTOHEADER} -f
