@@ -26,11 +26,11 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 # -----------------------------------------------------------------------------
 
-info_TEXINFOS = texinfo/CouchDB.texi 
+texinfo_files = texinfo/CouchDB.texi 
 
-# dist_localdoc_DATA = latex/CouchDB.pdf.gz
+pdf_files = latex/CouchDB.pdf.gz
 
-nobase_dist_localdoc_DATA = \
+html_files = \
     html/_images/futon-createdb.png \
     html/_images/futon-editdoc.png \
     html/_images/futon-editeddoc.png \
@@ -111,7 +111,55 @@ nobase_dist_localdoc_DATA = \
     html/searchindex.js \
     html/ssl.html
 
-EXTRA_DIST = html/.buildinfo
+image_files = \
+	../images/epub-icon.png \
+	../images/futon-createdb.png \
+	../images/futon-editdoc.png \
+	../images/futon-editeddoc.png \
+	../images/futon-overview.png \
+	../images/futon-replform.png
+	
+src_files = \
+	../src/api/authn.rst \
+	../src/api/configuration.rst \
+	../src/api/database.rst \
+	../src/api/dbmaint.rst \
+	../src/api/design.rst \
+	../src/api/documents.rst \
+	../src/api/local.rst \
+	../src/api/misc.rst \
+	../src/api/reference.rst \
+	../src/api-basics.rst \
+	../src/changes.rst \
+	../src/commonjs.rst \
+	../src/conf.py \
+	../src/config_reference.rst \
+	../src/configuring.rst \
+	../src/ddocs.rst \
+	../src/errors.rst \
+	../src/http-proxying.rst \
+	../src/index.rst \
+	../src/intro.rst \
+	../src/json-structure.rst \
+	../src/os-daemons.rst \
+	../src/range.rst \
+	../src/release.rst \
+	../src/replication.rst \
+	../src/ssl.rst
+
+info_TEXINFOS = $(texinfo_files)
+
+dist_localdoc_DATA = $(pdf_files)
+
+nobase_dist_localdoc_DATA = $(html_files)
+
+EXTRA_DIST = \
+	../demo.mk \
+	../make.bat \
+	../Makefile.am \
+	$(image_files) \
+	$(src_files) \
+	html/.buildinfo
 
 $(dist_localdoc_DATA): pdf
 
@@ -127,11 +175,47 @@ $(nobase_dist_localdoc_DATA): html
 # @@ seems to get called twice during the build
 # @@ use stamp files, this gets called twice during install too
 
-$(info_TEXINFOS): texinfo
+# @@ replace "test !" in configure.ac with "test -f X; then :; else" for portability
 
-.PHONY: texinfo
-texinfo:
+# @@ stamps break parallel builds and "make -n" promise
+
+$(texinfo_files): texinfo.stamp
+	@if test -f $@; then :; else \
+	    rm -f texinfo.stamp; \
+	    $(MAKE) $(AM_MAKEFLAGS) texinfo.stamp; \
+	fi
+
+texinfo.stamp: $(image_files) $(src_files)
+	@rm -f texinfo.tmp
+	@touch texinfo.tmp
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) texinfo
+	@mv -f texinfo.tmp $@
+
+$(pdf_files): pdf.stamp
+	@if test -f $@; then :; else \
+	    rm -f pdf.stamp; \
+	    $(MAKE) $(AM_MAKEFLAGS) pdf.stamp; \
+	fi
+
+pdf.stamp: $(image_files) $(src_files)
+	@rm -f pdf.tmp
+	@touch pdf.tmp
+	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
+	$(MAKE) -C latex all-pdf
+	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
+	@mv -f pdf.tmp $@
+
+$(html_files): html.stamp
+	@if test -f $@; then :; else \
+	    rm -f html.stamp; \
+	    $(MAKE) $(AM_MAKEFLAGS) html.stamp; \
+	fi
+
+html.stamp: $(image_files) $(src_files)
+	@rm -f html.tmp
+	@touch html.tmp
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
+	@mv -f html.tmp $@
 
 dvi:
 	@echo "This target is not supported."
@@ -140,12 +224,10 @@ ps:
 	@echo "This target is not supported."
 
 pdf:
-	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) latex
-	$(MAKE) -C latex all-pdf
-	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
+	$(MAKE) $(AM_MAKEFLAGS) pdf.stamp
 
-html: ../src/_static
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
+html:
+	$(MAKE) $(AM_MAKEFLAGS) html.stamp
 
 install-dvi:
 	@echo "This target is not supported."
@@ -154,14 +236,10 @@ install-ps:
 	@echo "This target is not supported."
 
 install-pdf:
-	@echo "This target is not supported. Use \`install-data\` instead."
+	@echo "This target is not supported. Try \`install-data' instead."
 
 install-html:
-	@echo "This target is not supported. Use \`install-data\` instead."
-
-# @@ figure out how to remove this _static dir
-../src/_static:
-	mkdir -p $@
+	@echo "This target is not supported. Try \`install-data' instead."
 
 # @@ figure out how to move conf.py up a dir
 # http://sphinx.pocoo.org/glossary.html#term-configuration-directory

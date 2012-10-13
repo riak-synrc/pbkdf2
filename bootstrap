@@ -95,8 +95,6 @@ ${AUTOHEADER} -f
 ${AUTOMAKE} -f -a 2>&1
 ${AUTOCONF} -f
 
-# rm -f share/doc/build/texinfo/CouchDB.texi
-
 ln -f -s "`dirname \`readlink build-aux/missing\``/INSTALL"
 
 cat << EOF
