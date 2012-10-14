@@ -77,7 +77,7 @@ get_aclocal_dir_list () {
     aclocal_dir=`$ACLOCAL --print-ac-dir`
     echo $aclocal_dir
     aclocal_dirlist="$aclocal_dir/dirlist"
-    if test -e $dirlist; then
+    if test -e $aclocal_dirlist; then
         cat $aclocal_dirlist | while read dir; do
             if test -d "$dir"; then
                 echo $dir
