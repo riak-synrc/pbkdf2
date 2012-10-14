@@ -164,8 +164,8 @@ src_files = \
 info_TEXINFOS = $(texinfo_files)
 
 dist_localdoc_DATA = \
-    $(texinfo_files)
-    $(pdf_files) \
+    $(texinfo_files) \
+    $(pdf_files)
 
 nobase_dist_localdoc_DATA = $(html_files)
 
@@ -213,7 +213,7 @@ pdf.stamp: $(image_files) $(src_files)
 	if test -n "$(HAS_PDFLATEX)"; then
 	    $(top_srcdir)/build-aux/missing pdflatex; \
 	fi
-		if test -x "$(SPHINX_BUILD)"; then \
+	if test -x "$(SPHINX_BUILD)"; then \
 	    $(SPHINX_BUILD) -b latex $(SPHINXOPTS) $(builddir)/latex; \
 	    $(MAKE) -C latex all-pdf; \
 	    gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz; \
@@ -245,10 +245,10 @@ html-local:
 	$(MAKE) $(AM_MAKEFLAGS) html.stamp
 
 install-data-local:
-	$(MAKE) -C texinfo install-info; \
+	$(MAKE) -C texinfo install-info;
 
-uninstall-data-local:
-	$(MAKE) -C texinfo uninstall-info; \
+uninstall-local:
+	$(MAKE) -C texinfo uninstall-info;
 
 DISTCLEANFILES = \
     texinfo.stamp \
