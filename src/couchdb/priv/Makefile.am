@@ -71,7 +71,7 @@ couchjs.1: couchjs
 	    $(HELP2MAN) $(HELP2MAN_OPTION) \
 	        --name="$(package_name) JavaScript interpreter" ./couchjs --output $@; \
 	else \
-	    touch $@; \
+	    $(top_srcdir)/build-aux/missing help2man; \
 	fi
 
 %.cfg: %.cfg.in

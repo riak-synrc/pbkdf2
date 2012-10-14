@@ -163,7 +163,9 @@ src_files = \
 
 info_TEXINFOS = $(texinfo_files)
 
-dist_localdoc_DATA = $(pdf_files)
+dist_localdoc_DATA = \
+    $(texinfo_files)
+    $(pdf_files) \
 
 nobase_dist_localdoc_DATA = $(html_files)
 
@@ -189,10 +191,13 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	if test -x "$(SPHINX_BUILD)" -a -n "$(HAS_MAKEINFO)"; then \
+	if test -n "$(HAS_MAKEINFO)"; then
+	    $(top_srcdir)/build-aux/missing makeinfo; \
+	fi
+	if test -x "$(SPHINX_BUILD)"; then \
 	    $(SPHINX_BUILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
 	else \
-	    touch $(texinfo_files); \
+	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
 	@mv -f texinfo.tmp $@
 
@@ -205,12 +210,15 @@ $(pdf_files): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	if test -x "$(SPHINX_BUILD)" -a -n "$(HAS_PDFLATEX)"; then \
+	if test -n "$(HAS_PDFLATEX)"; then
+	    $(top_srcdir)/build-aux/missing pdflatex; \
+	fi
+		if test -x "$(SPHINX_BUILD)"; then \
 	    $(SPHINX_BUILD) -b latex $(SPHINXOPTS) $(builddir)/latex; \
 	    $(MAKE) -C latex all-pdf; \
 	    gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz; \
 	else \
-	    touch $(texinfo_files); \
+	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
 	@mv -f pdf.tmp $@
 
@@ -225,14 +233,10 @@ html.stamp: $(image_files) $(src_files)
 	@touch html.tmp
 	if test -x "$(SPHINX_BUILD)"; then \
 	    $(SPHINX_BUILD) -b html $(SPHINXOPTS) $(builddir)/html; \
+	else
+	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
 	@mv -f html.tmp $@
-
-dvi:
-	@echo "This target is not supported."
-
-ps:
-	@echo "This target is not supported."
 
 pdf-local:
 	$(MAKE) $(AM_MAKEFLAGS) pdf.stamp
@@ -240,17 +244,11 @@ pdf-local:
 html-local:
 	$(MAKE) $(AM_MAKEFLAGS) html.stamp
 
-install-dvi:
-	@echo "This target is not supported."
+install-data-local:
+	$(MAKE) -C texinfo install-info; \
 
-install-ps:
-	@echo "This target is not supported."
-
-install-pdf:
-	@echo "This target is not supported. Try \`install-data' instead."
-
-install-html:
-	@echo "This target is not supported. Try \`install-data' instead."
+uninstall-data-local:
+	$(MAKE) -C texinfo uninstall-info; \
 
 DISTCLEANFILES = \
     texinfo.stamp \
