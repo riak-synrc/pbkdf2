@@ -189,7 +189,7 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	if test -n "$(HAS_MAKEINFO)"; then
+	if test -n "$(HAS_MAKEINFO)"; then \
 	    $(top_srcdir)/build-aux/missing makeinfo; \
 	fi
 	if test -x "$(SPHINX_BUILD)"; then \
@@ -208,7 +208,7 @@ $(pdf_files): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	if test -n "$(HAS_PDFLATEX)"; then
+	if test -n "$(HAS_PDFLATEX)"; then \
 	    $(top_srcdir)/build-aux/missing pdflatex; \
 	fi
 	if test -x "$(SPHINX_BUILD)"; then \
