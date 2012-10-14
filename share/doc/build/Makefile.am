@@ -189,7 +189,7 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	if test -x "$(SPHINX_BUILD)" -a -x "$(MAKEINFO)"; then \
+	if test -x "$(SPHINX_BUILD)" -a -n "$(HAS_MAKEINFO)"; then \
 	    $(SPHINX_BUILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
 	else \
 	    touch $(texinfo_files); \
@@ -205,7 +205,7 @@ $(pdf_files): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	if test -x "$(SPHINX_BUILD)" -a -x "$(PDFLATEX)"; then \
+	if test -x "$(SPHINX_BUILD)" -a -n "$(HAS_PDFLATEX)"; then \
 	    $(SPHINX_BUILD) -b latex $(SPHINXOPTS) $(builddir)/latex; \
 	    $(MAKE) -C latex all-pdf; \
 	    gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz; \

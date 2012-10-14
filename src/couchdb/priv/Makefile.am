@@ -67,10 +67,11 @@ couchpriv_PROGRAMS = couchspawnkillable
 HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
 couchjs.1: couchjs
-	touch $@
-	if test -x "$(HELP2MAN)"; then \
+	if test -n "$(HAS_HELP2MAN)"; then \
 	    $(HELP2MAN) $(HELP2MAN_OPTION) \
 	        --name="$(package_name) JavaScript interpreter" ./couchjs --output $@; \
+	else \
+	    touch $@; \
 	fi
 
 %.cfg: %.cfg.in

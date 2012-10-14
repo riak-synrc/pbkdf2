@@ -115,9 +115,10 @@ HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 # XXX: the man pages.
 
 couchdb.1: couchdb.tpl.in
-	touch $@
-	if test -x "$(HELP2MAN)"; then \
+	if test -n "$(HAS_HELP2MAN)"; then \
 	    $(MAKE) -f Makefile couchdb; \
 	    $(HELP2MAN) $(HELP2MAN_OPTION) \
 	        --name="Apache CouchDB database server" ./couchdb --output $@; \
+	else \
+	    touch $@; \
 	fi

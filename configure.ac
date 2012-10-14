@@ -535,7 +535,7 @@ if test "$use_launchd" = "yes"; then
     fi
 fi
 
-AM_MISSING_PROG([HELP2MAN], [help2man])
+AC_PATH_PROG([HELP2MAN], [help2man])
 
 if test x${HELP2MAN} = x; then
     if test x${strictness_enabled} = xyes; then
@@ -545,7 +545,7 @@ if test x${HELP2MAN} = x; then
     fi
 fi
 
-AM_MISSING_PROG([SPHINX_BUILD], [sphinx-build])
+AC_PATH_PROG([SPHINX_BUILD], [sphinx-build])
 
 if test x${SPHINX_BUILD} = x; then
     if test x${strictness_enabled} = xyes; then
@@ -561,9 +561,9 @@ else
     AX_PYTHON_MODULE([pygments])
 fi
 
-AM_MISSING_PROG([PDFLATEX], [pdflatex])
+AC_CHECK_PROG([HAS_PDFLATEX], [pdflatex], [yes])
 
-if test x${PDFLATEX} = x; then
+if test x${HAS_PDFLATEX} = x; then
     if test x${strictness_enabled} = xyes; then
         AC_MSG_ERROR([Could not find the `pdflatex' executable.
     
@@ -573,11 +573,11 @@ Is LaTeX installed?])
     fi
 fi
 
-AM_MISSING_PROG([MAKEINFO], [makeinfo])
+AC_CHECK_PROG([HAS_MAKEINFO], [makeinfo], [yes])
 
-if test x${MAKEINFO} = x; then
+if test x${HAS_MAKEINFO} = x; then
     if test x${strictness_enabled} = xyes; then
-        AC_MSG_ERROR([Could not find the `pdflatex' executable.
+        AC_MSG_ERROR([Could not find the `makeinfo' executable.
     
 Is GNU Texinfo installed?])
     else
