@@ -15,11 +15,9 @@ You will need the following installed:
  * GNU Autoconf (>=2.68)  (http://www.gnu.org/software/autoconf/)
  * GNU Autoconf Archive   (http://www.gnu.org/software/autoconf-archive/)
  * pkg-config             (http://www.freedesktop.org/wiki/Software/pkg-config)
+ * Sphinx                 (http://sphinx.pocoo.org/)
  * GNU help2man           (http://www.gnu.org/software/help2man/)
 
-# @@ pkg-config
-
-# @@ autoconf-archive
 
 # @@ deps for docs
 
@@ -35,6 +33,7 @@ You can install the dependencies by running:
     sudo apt-get install autoconf
     sudo apt-get install autoconf-archive
     sudo apt-get install pkg-config
+	sudo apt-get install python-sphinx 
     sudo apt-get install help2man
 
 Be sure to update the version numbers to match your system's available packages.
@@ -49,6 +48,7 @@ You can install the dependencies by running:
     brew install autoconf 
     brew install autoconf-archive
     brew install pkg-config
+    @@ sphinx
     brew install help2man
 
 # @@ check these packages are correct
@@ -80,7 +80,8 @@ these tools are required or you will have missing files.
 
 You will need these files anyway, because the build will error out.
 
-# @@ check what happens if you try to install from source without them
+# @@ if you dont have them it tells you to check the README file, so we need to
+# @@ put a note in there pointing to this file or something
 
 # @@ check `syntax' with Github, etc
 

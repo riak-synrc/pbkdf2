@@ -67,8 +67,8 @@ couchpriv_PROGRAMS = couchspawnkillable
 HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
 couchjs.1: couchjs
-	if test -n "$(HAS_HELP2MAN)"; then \
-	    $(HELP2MAN) $(HELP2MAN_OPTION) \
+	if test -n "`which help2man`"; then \
+	    help2man $(HELP2MAN_OPTION) \
 	        --name="$(package_name) JavaScript interpreter" ./couchjs --output $@; \
 	else \
 	    $(top_srcdir)/build-aux/missing help2man; \

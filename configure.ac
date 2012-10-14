@@ -535,9 +535,9 @@ if test "$use_launchd" = "yes"; then
     fi
 fi
 
-AC_PATH_PROG([HELP2MAN], [help2man])
+AC_CHECK_PROG([HAS_HELP2MAN], [help2man], [yes])
 
-if test x${HELP2MAN} = x; then
+if test x${HAS_HELP2MAN} = x; then
     if test x${strictness_enabled} = xyes; then
         AC_MSG_ERROR([Could not find the `help2man' executable.])
     else
@@ -545,9 +545,9 @@ if test x${HELP2MAN} = x; then
     fi
 fi
 
-AC_PATH_PROG([SPHINX_BUILD], [sphinx-build])
+AC_CHECK_PROG([HAS_SPHINX_BUILD], [sphinx-build], [yes])
 
-if test x${SPHINX_BUILD} = x; then
+if test x${HAS_SPHINX_BUILD} = x; then
     if test x${strictness_enabled} = xyes; then
         AC_MSG_ERROR([Could not find the `sphinx-build' executable.])
     else

@@ -189,11 +189,11 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	if test -n "$(HAS_MAKEINFO)"; then \
+	if test -n "`which makeinfo`"; then \
 	    $(top_srcdir)/build-aux/missing makeinfo; \
 	fi
-	if test -x "$(SPHINX_BUILD)"; then \
-	    $(SPHINX_BUILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
+	if test -n "`which sphinx-build`"; then \
+	    sphinx-build -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
 	else \
 	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
@@ -208,11 +208,11 @@ $(pdf_files): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	if test -n "$(HAS_PDFLATEX)"; then \
+	if test -n "`which pdflatex`"; then \
 	    $(top_srcdir)/build-aux/missing pdflatex; \
 	fi
-	if test -x "$(SPHINX_BUILD)"; then \
-	    $(SPHINX_BUILD) -b latex $(SPHINXOPTS) $(builddir)/latex; \
+	if test -n "`which sphinx-build`"; then \
+	    sphinx-build -b latex $(SPHINXOPTS) $(builddir)/latex; \
 	    $(MAKE) -C latex all-pdf; \
 	    gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz; \
 	else \
@@ -229,8 +229,8 @@ $(html_files): html.stamp
 html.stamp: $(image_files) $(src_files)
 	@rm -f html.tmp
 	@touch html.tmp
-	if test -x "$(SPHINX_BUILD)"; then \
-	    $(SPHINX_BUILD) -b html $(SPHINXOPTS) $(builddir)/html; \
+	if test -n "`which sphinx-build`"; then \
+	    sphinx-build -b html $(SPHINXOPTS) $(builddir)/html; \
 	else
 	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
