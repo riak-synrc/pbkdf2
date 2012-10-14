@@ -58,8 +58,7 @@ find_program() {
     fi
   done
 
-  echo "Failed to locate required program:" 1>&2
-  echo "\t$@" 1>&2
+  echo "Unable to find any of the following: $@" 1>&2
   set -e
   exit 1
 }
