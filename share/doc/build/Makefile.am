@@ -41,9 +41,13 @@ SPHINXOPTS = \
 
 # -----------------------------------------------------------------------------
 
-texinfo_files = texinfo/CouchDB.texi 
+info_name = CouchDB
 
-pdf_files = latex/CouchDB.pdf.gz
+info_file = texinfo/$(info_name)
+
+texinfo_file = texinfo/CouchDB.texi
+
+pdf_file = latex/CouchDB.pdf.gz
 
 html_files = \
     html/_images/futon-createdb.png \
@@ -161,9 +165,11 @@ src_files = \
 	../src/replication.rst \
 	../src/ssl.rst
 
+
 dist_localdoc_DATA = \
-    $(texinfo_files) \
-    $(pdf_files)
+    $(info_file) \
+    $(texinfo_file) \
+    $(pdf_file)
 
 nobase_dist_localdoc_DATA = $(html_files)
 
@@ -176,30 +182,31 @@ EXTRA_DIST = \
 	$(src_files) \
 	html/.buildinfo
 
-$(pdf_files): pdf
+$(pdf_file): pdf
 
 $(html_files): html
 
-$(texinfo_files): texinfo.stamp
+$(info_file): info.stamp
 	@if test -f $@; then :; else \
-	    rm -f texinfo.stamp; \
-	    $(MAKE) $(AM_MAKEFLAGS) texinfo.stamp; \
+	    rm -f info.stamp; \
+	    $(MAKE) $(AM_MAKEFLAGS) info.stamp; \
 	fi
 
-texinfo.stamp: $(image_files) $(src_files)
-	@rm -f texinfo.tmp
-	@touch texinfo.tmp
+info.stamp: $(image_files) $(src_files)
+	@rm -f info.tmp
+	@touch info.tmp
 	if test -z "`which makeinfo`"; then \
 	    $(top_srcdir)/build-aux/missing makeinfo; \
 	fi
 	if test -n "`which sphinx-build`"; then \
 	    sphinx-build -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
+	    $(MAKE) -C texinfo info; \
 	else \
 	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
-	@mv -f texinfo.tmp $@
+	@mv -f info.tmp $@
 
-$(pdf_files): pdf.stamp
+$(pdf_file): pdf.stamp
 	@if test -f $@; then :; else \
 	    rm -f pdf.stamp; \
 	    $(MAKE) $(AM_MAKEFLAGS) pdf.stamp; \
@@ -243,13 +250,20 @@ html-local:
 	$(MAKE) $(AM_MAKEFLAGS) html.stamp
 
 install-data-local:
-	$(MAKE) -C texinfo install-info;
+	$(INSTALL) -d $(DESTDIR)$(infodir)
+	$(INSTALL_DATA) $(info_file) $(DESTDIR)$(infodir)/$(info_name);
+	if test -n "`which install-info`"; then\
+	    install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$(info_name); \
+	fi
 
 uninstall-local:
-	$(MAKE) -C texinfo uninstall-info;
+	rm -f $(infodir)/$(info_name)
+	if test -n "`which install-info`"; then\
+	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_name) \;
+	fi
 
 DISTCLEANFILES = \
-    texinfo.stamp \
+    info.stamp \
     pdf.stamp \
     html.stamp
 

@@ -585,6 +585,18 @@ Is GNU Texinfo installed?])
     fi
 fi
 
+AC_CHECK_PROG([HAS_INSTALLINFO], [install-info], [yes])
+
+if test x${HAS_INSTALLINFO} = x; then
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Could not find the `install-info' executable.
+    
+Is GNU Texinfo installed?])
+    else
+        AC_MSG_WARN([You will be unable to install info documentation.])
+    fi
+fi
+
 AC_ARG_VAR([ERL], [path to the `erl' executable])
 AC_ARG_VAR([ERLC], [path to the `erlc' executable])
 
