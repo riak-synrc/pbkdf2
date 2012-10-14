@@ -10,9 +10,11 @@ Dependencies
 
 You will need the following installed:
 
- * GNU Automake (>=1.6.3) (http://www.gnu.org/software/automake/)
- * GNU Autoconf (>=2.59)  (http://www.gnu.org/software/autoconf/)
  * GNU Libtool            (http://www.gnu.org/software/libtool/)
+ * GNU Automake (>=1.6.3) (http://www.gnu.org/software/automake/)
+ * GNU Autoconf (>=2.68)  (http://www.gnu.org/software/autoconf/)
+ * GNU Autoconf Archive   (http://www.gnu.org/software/autoconf-archive/)
+ * pkg-config             (http://www.freedesktop.org/wiki/Software/pkg-config)
  * GNU help2man           (http://www.gnu.org/software/help2man/)
 
 # @@ pkg-config
@@ -28,7 +30,7 @@ Debian-based (inc. Ubuntu) Systems
 
 You can install the dependencies by running:
 
-    apt-get install automake autoconf libtool help2man
+    apt-get install libtool automake autoconf autoconf-archive pkg-config help2man
 
 Be sure to update the version numbers to match your system's available packages.
 
@@ -37,9 +39,13 @@ Mac OS X
 
 You can install the dependencies by running:
 
-    port install automake autoconf libtool help2man
+    brew install libtool automake autoconf autoconf-archive pkg-config help2man
 
-You will need MacPorts installed to use the `port` command.
+# @@ check these packages are correct
+
+# @@ check other files don't use MacPorts
+
+You will need Homebrew installed to use the `brew` command.
 
 Bootstrapping
 -------------
