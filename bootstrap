@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+cd `dirname $0`
+
 get () {
     variable_name=$1
     echo "changequote(\`[', \`]')" > acinclude.m4.tmp
@@ -29,37 +31,98 @@ get () {
     rm -f acinclude.m4.tmp
 }
 
-# mkdir -p build-aux
-mkdir -p m4
-
 if test -z "$REVISION"; then
-	REVISION=`git describe --always`-git
+    if test -d .git; then
+        REVISION=`git describe --always`-git
+    else
+        # default to svn
+        REVISION=`\`which svn\` info . 2> /dev/null | awk "/Revision:/{print \\$2}"`
+    fi
 fi
-
 if test -z "`get LOCAL_VERSION_STAGE`" -o -z "$REVISION"; then
     sed "s/%release%//" < acinclude.m4.in > acinclude.m4
 else
     sed "s/%release%/$REVISION/" < acinclude.m4.in > acinclude.m4
 fi
 
-texi_file="share/doc/build/texinfo/CouchDB.texi"
+find_program() {
+  set +e
+  for f in "$@"
+  do
+    file=`which ${f} 2>/dev/null | grep -v '^no '`
+    if test -n "x${file}" -a -x "${file}"
+    then
+      echo ${file}
+      set -e
+      exit 0
+    fi
+  done
 
-if test ! -e $texi_file; then
-	mkdir -p `dirname $texi_file`
-	cat > $texi_file <<EOF
-@setfilename CouchDB
-EOF
-fi
-
-# @@ then convert this to use autoreconf -i -Wall
+  echo "Failed to locate required program:" 1>&2
+  echo "\t$@" 1>&2
+  set -e
+  exit 1
+}
 
 # @@ add dep on pkg-config and autoconf-archive
 
-autoreconf -vi -Wall
+LIBTOOLIZE=`find_program glibtoolize libtoolize`
+ACLOCAL=`find_program aclocal-1.11 aclocal-1.10 aclocal-1.9 aclocal`
+AUTOHEADER=`find_program autoheader`
+AUTOMAKE=`find_program automake-1.11 automake-1.10 automake-1.9 automake`
+AUTOCONF=`find_program autoconf`
+
+get_aclocal_dir_list () {
+    aclocal_dir=`$ACLOCAL --print-ac-dir`
+    echo $aclocal_dir
+    aclocal_dirlist="$aclocal_dir/dirlist"
+    if test -e $dirlist; then
+        cat $aclocal_dirlist | while read dir; do
+            if test -d "$dir"; then
+                echo $dir
+            fi
+        done
+    fi
+}
+
+aclocal_dir_list=`get_aclocal_dir_list`
+
+if test -z "`find $aclocal_dir_list -name ax_check_icu.m4`"; then
+    echo "Unable to find the \`ax_check_icu.m4' file."
+    echo
+    echo "Have you installed GNU Autoconf Archive?"
+    exit 1
+fi
+
+if test -z "`find $aclocal_dir_list -name ax_lib_curl.m4`"; then
+    echo "Unable to find the \`ax_check_icu.m4' file."
+    echo
+    echo "Have you installed GNU Autoconf Archive?"
+    exit 1
+fi
+
+if test -z "`find $aclocal_dir_list -name pkg.m4`"; then
+    echo "Unable to find the \`pkg.m4' file."
+    echo
+    echo "Have you installed pkg-config?"
+    exit 1
+fi
+
+
+mkdir -p build-aux
+mkdir -p m4
+
+${LIBTOOLIZE} -f -c --automake
+${ACLOCAL} -I m4 -Wall
+${AUTOHEADER} -f
+${AUTOMAKE} -f -a -Wall
+${AUTOCONF} -f -Wall
+
+rm -f INSTALL
 
 ln -f -s "`dirname \`readlink build-aux/missing\``/INSTALL"
 
-if test -e INSTALL; then
+if test ! -s INSTALL; then
 	echo "Broken INSTALL file."
 	exit 1
 fi
