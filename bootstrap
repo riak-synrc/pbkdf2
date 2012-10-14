@@ -59,7 +59,7 @@ find_program() {
   done
 
   echo "Unable to find any variant: $@" 1>&2
-  echo
+  echo 1>&2
   echo "Have you installed a version of this package?" 1>&2
   set -e
   exit 1
