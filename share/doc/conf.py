@@ -59,6 +59,10 @@ latex_documents = [(
 	True
 )]
 
+#latex_elements[(
+#	"a4paper" # @@ do we want this?
+#)]
+
 texinfo_documents = [(
 	"index",
 	"CouchDB",

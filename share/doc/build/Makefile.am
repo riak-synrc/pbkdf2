@@ -38,7 +38,6 @@ SPHINX_BUILD = sphinx-build
 
 SPHINXOPTS = \
     -d doctrees \
-    -D latex_paper_size=a4 \
     -n -c $(srcdir)/.. \
     $(srcdir)/../src
 
@@ -192,7 +191,7 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	$(SPHINX_UILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo
+	$(SPHINX_BUILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo
 	@mv -f texinfo.tmp $@
 
 $(pdf_files): pdf.stamp

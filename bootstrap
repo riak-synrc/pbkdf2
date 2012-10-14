@@ -112,11 +112,21 @@ fi
 mkdir -p build-aux
 mkdir -p m4
 
+texi_file="share/doc/build/texinfo/CouchDB.texi"
+
+mkdir -p `dirname $texi_file`
+
+cat > $texi_file << EOF
+@setfilename CouchDB
+EOF
+
 ${LIBTOOLIZE} -f -c --automake
 ${ACLOCAL} -I m4 -Wall
 ${AUTOHEADER} -f
 ${AUTOMAKE} -f -a -Wall
 ${AUTOCONF} -f -Wall
+
+rm -f $texi_file 
 
 rm -f INSTALL
 
