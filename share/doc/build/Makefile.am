@@ -259,7 +259,7 @@ install-data-local:
 uninstall-local:
 	rm -f $(infodir)/$(info_name)
 	if test -n "`which install-info`"; then\
-	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_name) \;
+	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_name) ; \
 	fi
 
 DISTCLEANFILES = \
