@@ -62,7 +62,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 ])
 
 if test x$snappy_have_builtin_expect = xyes ; then
-    AC_DEFINE([HAVE_BUILTIN_EXPECT], [1], [Define to 1 if the compiler supports __builtin_expect.])
+    AC_DEFINE([HAVE_BUILTIN_EXPECT], [1],
+        [Define to 1 if the compiler supports __builtin_expect.])
 fi
 
 AC_MSG_CHECKING([if the compiler supports __builtin_ctzll])
@@ -78,7 +79,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 ])
 
 if test x$snappy_have_builtin_ctz = xyes ; then
-    AC_DEFINE([HAVE_BUILTIN_CTZ], [1], [Define to 1 if the compiler supports __builtin_ctz and friends.])
+    AC_DEFINE([HAVE_BUILTIN_CTZ], [1],
+        [Define to 1 if the compiler supports __builtin_ctz and friends.])
 fi
 
 if test "$ac_cv_header_stdint_h" = "yes"; then
@@ -105,7 +107,12 @@ AC_MSG_CHECKING([for pthread_create in -lpthread])
 original_LIBS="$LIBS"
 LIBS="-lpthread $original_LIBS"
 
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include<pthread.h>]], [[pthread_create((void *)0, (void *)0, (void *)0, (void *)0)]])],[pthread=yes],[pthread=no])
+AC_LINK_IFELSE([
+    AC_LANG_PROGRAM(
+        [[#include<pthread.h>]],
+        [[pthread_create((void *)0, (void *)0, (void *)0, (void *)0)]])],
+        [pthread=yes],
+        [pthread=no])
 
 if test x${pthread} = xyes; then
     AC_MSG_RESULT([yes])
@@ -115,26 +122,30 @@ else
 fi
 
 AC_PATH_PROG([ERL], [erl])
+
 AS_IF([test x${ERL} = x], [
     AC_MSG_ERROR([Could not find the `erl' executable. Is Erlang installed?])
-    ])
+])
 
-AC_ARG_WITH([erlang], [AS_HELP_STRING([--with-erlang=PATH],[set PATH to the Erlang include directory])], [
+AC_ARG_WITH([erlang], [
+    AS_HELP_STRING([--with-erlang=PATH],
+        [set PATH to the Erlang include directory])
+], [
     ERLANG_FLAGS="-I$withval"
 ], [
     realerl=`readlink -f $ERL 2>/dev/null`
     AS_IF([test $? -eq 0], [
-           erlbase=`dirname $realerl`
-           erlbase=`dirname $erlbase`
-           ERLANG_FLAGS="-I${erlbase}/usr/include"
-          ], [
-           # Failed to figure out where erl is installed..
-           # try to add some default directories to search
-           ERLANG_FLAGS="-I${libdir}/erlang/usr/include"
-           ERLANG_FLAGS="$ERLANG_FLAGS -I/usr/lib/erlang/usr/include"
-           ERLANG_FLAGS="$ERLANG_FLAGS -I/usr/local/lib/erlang/usr/include"
-           ERLANG_FLAGS="$ERLANG_FLAGS -I/opt/local/lib/erlang/usr/include"
-          ])
+        erlbase=`dirname $realerl`
+        erlbase=`dirname $erlbase`
+        ERLANG_FLAGS="-I${erlbase}/usr/include"
+    ], [
+        # Failed to figure out where erl is installed..
+        # try to add some default directories to search
+        ERLANG_FLAGS="-I${libdir}/erlang/usr/include"
+        ERLANG_FLAGS="$ERLANG_FLAGS -I/usr/lib/erlang/usr/include"
+        ERLANG_FLAGS="$ERLANG_FLAGS -I/usr/local/lib/erlang/usr/include"
+        ERLANG_FLAGS="$ERLANG_FLAGS -I/opt/local/lib/erlang/usr/include"
+    ])
 ])
 
 AC_SUBST(ERLANG_FLAGS)
@@ -154,29 +165,35 @@ PKG_CHECK_MODULES([JS], [mozjs185], [
     ])
 ])
 
-AC_ARG_WITH([js-include], [AS_HELP_STRING([--with-js-include=PATH],[set PATH to the SpiderMonkey include directory])], [
+AC_ARG_WITH([js-include], [
+    AS_HELP_STRING([--with-js-include=PATH],
+        [set PATH to the SpiderMonkey include directory])
+], [
     JS_INCLUDE="$withval"
     JS_CFLAGS="-I$JS_INCLUDE"
 ], [])
 
-AC_ARG_WITH([js-lib], [AS_HELP_STRING([--with-js-lib=PATH],[set PATH to the SpiderMonkey library directory])],
-    [
+AC_ARG_WITH([js-lib], [
+    AS_HELP_STRING([--with-js-lib=PATH],
+        [set PATH to the SpiderMonkey library directory])
+], [
     JS_LIB_DIR=$withval
     JS_LIBS="-L$withval"
 ], [])
 
 use_js_trunk=no
 
-AC_ARG_ENABLE([js-trunk], [AS_HELP_STRING([--enable-js-trunk],[allow use of SpiderMonkey versions newer than js185-1.0.0])], [
+AC_ARG_ENABLE([js-trunk], [
+    AS_HELP_STRING([--enable-js-trunk],
+        [allow use of SpiderMonkey versions newer than js185-1.0.0])
+], [
     use_js_trunk=$enableval
 ], [])
 
 AC_ARG_VAR([ERLC_FLAGS], [general flags to prepend to ERLC_FLAGS])
 AC_ARG_VAR([FLAGS], [general flags to prepend to LDFLAGS and CPPFLAGS])
 
-AS_CASE([$(uname -s)],
-    [CYGWIN*], [] ,
-    [*], [
+AS_CASE([$(uname -s)], [CYGWIN*], [] , [*], [
     CPPFLAGS="$CPPFLAGS -I/opt/local/include"
     CPPFLAGS="$CPPFLAGS -I/opt/local/include/js"
     CPPFLAGS="$CPPFLAGS -I/usr/local/include"
@@ -196,14 +213,12 @@ CFLAGS="-O2 $CFLAGS"
 
 LIBS="$LIBS $LDFLAGS"
 
-AS_CASE([$(uname -s)],
-    [CYGWIN*], [
-        JS_CFLAGS="-DXP_WIN $JS_CFLAGS"
-        IS_WINDOWS="TRUE"
-    ] ,
-    [*], [
-        # XP_UNIX required for jsapi.h, tested on Linux and Darwin.
-        JS_CFLAGS="-DXP_UNIX $JS_CFLAGS"
+AS_CASE([$(uname -s)], [CYGWIN*], [
+    JS_CFLAGS="-DXP_WIN $JS_CFLAGS"
+    IS_WINDOWS="TRUE"
+], [*], [
+    # XP_UNIX required for jsapi.h, tested on Linux and Darwin.
+    JS_CFLAGS="-DXP_UNIX $JS_CFLAGS"
 ])
 
 AM_CONDITIONAL([WINDOWS], [test x$IS_WINDOWS = xTRUE])
@@ -215,15 +230,14 @@ OLD_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$JS_CFLAGS $CPPFLAGS"
 
 AC_CHECK_HEADER([jsapi.h], [], [
-    AC_CHECK_HEADER([js/jsapi.h],
-        [
+    AC_CHECK_HEADER([js/jsapi.h], [
         CPPFLAGS="$CPPFLAGS -I$JS_INCLUDE/js"
-        ],
-        [
-            AC_MSG_ERROR([Could not find the jsapi header.
+    ], [
+        AC_MSG_ERROR([Could not find the jsapi header.
 
 Are the Mozilla SpiderMonkey headers installed?])
-        ])])
+    ])
+])
 
 AC_CHECK_LIB([mozjs185], [JS_NewContext], [JS_LIB_BASE=mozjs185], [
     AC_CHECK_LIB([mozjs185-1.0], [JS_NewContext], [JS_LIB_BASE=mozjs185-1.0], [
@@ -233,7 +247,13 @@ AC_CHECK_LIB([mozjs185], [JS_NewContext], [JS_LIB_BASE=mozjs185], [
                     AC_CHECK_LIB([js32], [JS_NewContext], [JS_LIB_BASE=js32], [
                         AC_MSG_ERROR([Could not find the js library.
 
-Is the Mozilla SpiderMonkey library installed?])])])])])])])
+Is the Mozilla SpiderMonkey library installed?])
+                    ])
+                ])
+            ])
+        ])
+    ])
+])
 
 # Figure out what version of SpiderMonkey to use
 
@@ -248,19 +268,23 @@ enforcement of preventing anonymous functions in a statement context. This
 will most likely break your existing JavaScript code as well as render all
 example code invalid.
 
-If you wish to ignore this error pass --enable-js-trunk to ./configure.])],
-        [[#include <jsapi.h>]])
+If you wish to ignore this error pass --enable-js-trunk to ./configure.])
+        ], [
+            [#include <jsapi.h>]
+        ])
     fi
-    AC_DEFINE([SM185], [1],
-        [Use SpiderMonkey 1.8.5]))
+    AC_DEFINE([SM185], [1], [Use SpiderMonkey 1.8.5])
+)
 
 AC_CHECK_LIB([$JS_LIB_BASE], [JS_ThrowStopIteration],
     AC_DEFINE([SM180], [1],
-        [Use SpiderMonkey 1.8.0]))
+        [Use SpiderMonkey 1.8.0])
+)
 
 AC_CHECK_LIB([$JS_LIB_BASE], [JS_GetStringCharsAndLength],
     AC_DEFINE([HAVE_JS_GET_STRING_CHARS_AND_LENGTH], [1],
-        [Use newer JS_GetCharsAndLength function.]))
+        [Use newer JS_GetCharsAndLength function.])
+)
 
 # Else, hope that 1.7.0 works
 
@@ -289,7 +313,10 @@ if test x${IS_WINDOWS} = xTRUE; then
     fi
     AC_SUBST(JS_LIB_BINARY)
     # On windows we need to know the path to the openssl binaries.
-    AC_ARG_WITH([openssl-bin-dir], [AS_HELP_STRING([--with-openssl-bin-dir=PATH],[path to the open ssl binaries for distribution on Windows])], [
+    AC_ARG_WITH([openssl-bin-dir], [
+        AS_HELP_STRING([--with-openssl-bin-dir=PATH],
+            [path to the open ssl binaries for distribution on Windows])
+    ], [
         openssl_bin_dir=`cygpath -m "$withval"`
         AC_SUBST(openssl_bin_dir)
     ], [])
@@ -302,14 +329,17 @@ if test x${IS_WINDOWS} = xTRUE; then
     # (in theory we could just install the assembly locally - but
     # there are at least 4 directories with binaries, meaning 4 copies;
     # so using the redist .exe means it ends up installed globally...)
-    AC_ARG_WITH([msvc-redist-dir], [AS_HELP_STRING([--with-msvc-redist-dir=PATH],[path to the msvc redistributables for the Windows platform])], [
+    AC_ARG_WITH([msvc-redist-dir], [
+        AS_HELP_STRING([--with-msvc-redist-dir=PATH],
+            [path to the msvc redistributables for the Windows platform])
+    ], [
         msvc_redist_dir=`cygpath -m "$withval"`
         msvc_redist_name="vcredist_x86.exe"
         AC_SUBST(msvc_redist_dir)
         AC_SUBST(msvc_redist_name)
     ], [])
     if test ! -f ${msvc_redist_dir}/${msvc_redist_name}; then
-        AC_MSG_WARN([The MSVC redistributable seems to be missing; expect the installer to fail.])
+        AC_MSG_WARN([Installer may fail due to missing MSVC redistributable.])
     fi
 fi
 
@@ -320,7 +350,10 @@ AC_SUBST(JS_LIBS)
 LIBS="$OLD_LIBS"
 CPPFLAGS="$OLD_CPPFLAGS"
 
-AC_ARG_WITH([win32-icu-binaries], [AS_HELP_STRING([--with-win32-icu-binaries=PATH],[set PATH to the Win32 native ICU binaries directory])], [
+AC_ARG_WITH([win32-icu-binaries], [
+    AS_HELP_STRING([--with-win32-icu-binaries=PATH],
+        [set PATH to the Win32 native ICU binaries directory])
+], [
     ICU_CPPFLAGS="-I$withval/include"
     ICU_LIBS="-L$withval/lib -licuuc -licudt -licuin"
     ICU_BIN=$withval/bin
@@ -336,14 +369,19 @@ AC_SUBST(ICU_BIN)
 
 use_curl=yes
 
-AC_ARG_WITH([win32-curl], [AS_HELP_STRING([--with-win32-curl=PATH],[set PATH to the Win32 native curl directory])], [
+AC_ARG_WITH([win32-curl], [
+    AS_HELP_STRING([--with-win32-curl=PATH],
+        [set PATH to the Win32 native curl directory])
+], [
     # default build on windows is a static lib, and that's what we want too
     CURL_CFLAGS="-I$withval/include -DCURL_STATICLIB"
     CURL_LIBS="-L$withval/lib -llibcurl -lWs2_32 -lkernel32 -luser32 -ladvapi32 -lWldap32"
     # OpenSSL libraries may be pulled in via libcurl if it was built with SSL
     # these are libeay32 ssleay32 instead of crypto ssl on unix
 ], [
-    AX_LIB_CURL([7.18.0],[AC_DEFINE([HAVE_CURL], [1], ["Provide HTTP support to couchjs"])],[
+    AX_LIB_CURL([7.18.0],[
+        AC_DEFINE([HAVE_CURL], [1], ["Provide HTTP support to couchjs"])
+    ],[
         AC_MSG_WARN([You will be unable to run some JavaScript unit tests.])
         use_curl=no
         CURL_LIBS=
@@ -384,23 +422,33 @@ if test `echo $version | ${AWK} "{print \\$2}"` -eq 6; then
     fi
 fi
 
-otp_release="`${ERL} -noshell -eval 'io:put_chars(erlang:system_info(otp_release)).' -s erlang halt`"
+otp_release="`\
+    ${ERL} -noshell \
+    -eval 'io:put_chars(erlang:system_info(otp_release)).' \
+    -s erlang halt`"
 
 AC_SUBST(otp_release)
 
 AM_CONDITIONAL([USE_OTP_NIFS], [test x$otp_release \> xR13B03])
 AM_CONDITIONAL([USE_EJSON_COMPARE_NIF], [test x$otp_release \> xR14B03])
 
-has_crypto=`${ERL} -eval "case application:load(crypto) of ok -> ok; _ -> exit(no_crypto) end." -noshell -s init stop`
+has_crypto=`\
+    ${ERL} -eval "\
+        case application:load(crypto) of ok -> ok; _ -> exit(no_crypto) end. \
+    " -noshell -s init stop`
 
 if test -n "$has_crypto"; then
-    AC_MSG_ERROR([Could not find the Erlang crypto library. Has Erlang been compiled with OpenSSL support?])
+    AC_MSG_ERROR([Could not find the Erlang crypto library.
+    
+Has Erlang been compiled with OpenSSL support?])
 fi
 
 AC_PATH_PROG([ERLC], [erlc])
 
 if test x${ERLC} = x; then
-    AC_MSG_ERROR([Could not find the `erlc' executable. Is Erlang installed?])
+    AC_MSG_ERROR([Could not find the `erlc' executable.
+    
+Is Erlang installed?])
 fi
 
 OLD_CPPFLAGS="$CPPFLAGS"
@@ -409,8 +457,10 @@ CPPFLAGS="$ERLANG_FLAGS $CPPFLAGS"
 AC_CHECK_HEADER([erl_driver.h], [], [
     AC_MSG_ERROR([Could not find the `erl_driver.h' header.
 
-Are the Erlang headers installed? Use the `--with-erlang' option to specify the
-path to the Erlang include directory.])])
+Are the Erlang headers installed?
+
+Use the `--with-erlang' option to specify the Erlang include directory.])
+])
 
 CPPFLAGS="$OLD_CPPFLAGS"
 
@@ -418,23 +468,38 @@ use_init=yes
 use_launchd=yes
 native_mochijson_enabled=no
 
-AC_ARG_ENABLE([init], [AS_HELP_STRING([--disable-init],[don't install init script where applicable])], [
+AC_ARG_ENABLE([init], [
+    AS_HELP_STRING([--disable-init],
+        [don't install init script where applicable])
+], [
     use_init=$enableval
 ], [])
 
-AC_ARG_ENABLE([launchd], [AS_HELP_STRING([--disable-launchd],[don't install launchd configuration where applicable])], [
+AC_ARG_ENABLE([launchd], [
+    AS_HELP_STRING([--disable-launchd],
+        [don't install launchd configuration where applicable])
+], [
     use_launchd=$enableval
 ], [])
 
-AC_ARG_ENABLE([native-mochijson], [AS_HELP_STRING([--enable-native-mochijson],[compile mochijson to native code (EXPERIMENTAL)])], [
+AC_ARG_ENABLE([native-mochijson], [
+    AS_HELP_STRING([--enable-native-mochijson],
+        [compile mochijson to native code (EXPERIMENTAL)])
+], [
     native_mochijson_enabled=$enableval
 ], [])
 
-AC_ARG_ENABLE([tests], [AS_HELP_STRING([--disable-tests],[skip tests during build])], [
+AC_ARG_ENABLE([tests], [
+    AS_HELP_STRING([--disable-tests],
+        [skip tests during build])
+], [
     tests_enabled=$enableval
 ], [])
 
-AC_ARG_ENABLE([strictness], [AS_HELP_STRING([--enable-strictness],[exit when optional checks fail])], [
+AC_ARG_ENABLE([strictness], [
+    AS_HELP_STRING([--enable-strictness],
+        [exit when optional checks fail])
+], [
     strictness_enabled=$enableval
 ], [])
 
@@ -498,6 +563,7 @@ AM_CONDITIONAL([INIT], [test x${init_enabled} = xtrue])
 AM_CONDITIONAL([LAUNCHD], [test x${launchd_enabled} = xtrue])
 AM_CONDITIONAL([USE_NATIVE_MOCHIJSON], [test x${native_mochijson_enabled} = xyes])
 AM_CONDITIONAL([USE_CURL], [test x${use_curl} = xyes])
+
 AM_CONDITIONAL([TESTS], [test x${tests_enabled} = xyes])
 AM_CONDITIONAL([STRICTNESS], [test x${strictness_enabled} = xyes])
 
