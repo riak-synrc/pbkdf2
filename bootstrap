@@ -58,7 +58,9 @@ find_program() {
     fi
   done
 
-  echo "Unable to find any file: $@" 1>&2
+  echo "Unable to find any variant: $@" 1>&2
+  echo
+  echo "Have you installed a version of this package?" 1>&2
   set -e
   exit 1
 }
