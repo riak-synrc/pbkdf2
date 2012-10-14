@@ -112,6 +112,11 @@ fi
 mkdir -p build-aux
 mkdir -p m4
 
+# If automake gets invoked from a partially updated source tree, this file
+# is not created, and the build will fail, and need another bootstrap.
+
+# @@ figure out how to avoid this
+
 texi_file="share/doc/build/texinfo/CouchDB.texi"
 
 mkdir -p `dirname $texi_file`

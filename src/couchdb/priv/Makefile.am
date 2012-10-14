@@ -14,9 +14,7 @@ couchlibdir = $(localerlanglibdir)/couch-$(version)
 couchprivdir = $(couchlibdir)/priv
 couchprivlibdir = $(couchlibdir)/priv/lib
 
-if HELP2MAN
 dist_man1_MANS = couchjs.1
-endif
 
 EXTRA_DIST = \
 	spawnkillable/couchspawnkillable.sh \
@@ -70,8 +68,8 @@ HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
 couchjs.1: couchjs
 	touch $@
-	if test -x "$(HELP2MAN_EXECUTABLE)"; then \
-	    $(HELP2MAN_EXECUTABLE) $(HELP2MAN_OPTION) \
+	if test -x "$(HELP2MAN)"; then \
+	    $(HELP2MAN) $(HELP2MAN_OPTION) \
 	        --name="$(package_name) JavaScript interpreter" ./couchjs --output $@; \
 	fi
 

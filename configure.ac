@@ -555,6 +555,35 @@ if test x${SPHINX_BUILD} = x; then
     fi
 fi
 
+if test x${strictness_enabled} = xyes; then
+    AX_PYTHON_MODULE([pygments], [fatal])
+else
+    AX_PYTHON_MODULE([pygments])
+fi
+
+AC_PATH_PROG([PDFLATEX], [pdflatex])
+
+if test x${PDFLATEX} = x; then
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Could not find the `pdflatex' executable.
+    
+Is LaTeX installed?])
+    else
+        AC_MSG_WARN([You will be unable to regenerate PDF documentation.])
+    fi
+fi
+
+AC_PATH_PROG([MAKEINFO], [makeinfo])
+
+if test x${MAKEINFO} = x; then
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Could not find the `pdflatex' executable.
+    
+Is GNU Texinfo installed?])
+    else
+        AC_MSG_WARN([You will be unable to regenerate info documentation.])
+    fi
+fi
 
 AC_ARG_VAR([ERL], [path to the `erl' executable])
 AC_ARG_VAR([ERLC], [path to the `erlc' executable])
@@ -566,12 +595,6 @@ AM_CONDITIONAL([USE_CURL], [test x${use_curl} = xyes])
 
 AM_CONDITIONAL([TESTS], [test x${tests_enabled} = xyes])
 AM_CONDITIONAL([STRICTNESS], [test x${strictness_enabled} = xyes])
-
-AM_CONDITIONAL([HELP2MAN], [test ! x${HELP2MAN} = x])
-AM_CONDITIONAL([SPHINX_BUILD], [test ! x${SPHINX_BUILD} = x])
-
-AC_SUBST([HELP2MAN])
-AC_SUBST([SPHINX_BUILD])
 
 AC_SUBST([package_author_name], ["LOCAL_PACKAGE_AUTHOR_NAME"])
 AC_SUBST([package_author_address], ["LOCAL_PACKAGE_AUTHOR_ADDRESS"])

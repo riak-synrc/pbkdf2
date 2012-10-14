@@ -178,9 +178,9 @@ EXTRA_DIST = \
 	$(src_files) \
 	html/.buildinfo
 
-$(dist_localdoc_DATA): pdf
+$(pdf_files): pdf
 
-$(nobase_dist_localdoc_DATA): html
+$(html_files): html
 
 $(texinfo_files): texinfo.stamp
 	@if test -f $@; then :; else \
@@ -191,7 +191,11 @@ $(texinfo_files): texinfo.stamp
 texinfo.stamp: $(image_files) $(src_files)
 	@rm -f texinfo.tmp
 	@touch texinfo.tmp
-	$(SPHINX_BUILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo
+	if test -x "$(SPHINX_BUILD)" -a -x "$(MAKEINFO)"; then \
+	    $(SPHINX_BUILD) -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
+	else \
+	    touch $(texinfo_files); \
+	fi
 	@mv -f texinfo.tmp $@
 
 $(pdf_files): pdf.stamp
@@ -203,9 +207,13 @@ $(pdf_files): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	$(SPHINX_BUILD) -b latex $(SPHINXOPTS) $(builddir)/latex
-	$(MAKE) -C latex all-pdf
-	-gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
+	if test -x "$(SPHINX_BUILD)" -a -x "$(PDFLATEX)"; then \
+	    $(SPHINX_BUILD) -b latex $(SPHINXOPTS) $(builddir)/latex; \
+	    $(MAKE) -C latex all-pdf; \
+	    gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz; \
+	else \
+	    touch $(texinfo_files); \
+	fi
 	@mv -f pdf.tmp $@
 
 $(html_files): html.stamp
@@ -217,7 +225,9 @@ $(html_files): html.stamp
 html.stamp: $(image_files) $(src_files)
 	@rm -f html.tmp
 	@touch html.tmp
-	$(SPHINX_BUILD) -b html $(SPHINXOPTS) $(builddir)/html
+	if test -x "$(SPHINX_BUILD)"; then \
+	    $(SPHINX_BUILD) -b html $(SPHINXOPTS) $(builddir)/html; \
+	fi
 	@mv -f html.tmp $@
 
 dvi:

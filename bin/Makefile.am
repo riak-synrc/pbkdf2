@@ -18,9 +18,7 @@ endif
 
 noinst_SCRIPTS = couchjs_dev couch-config_dev
 
-if HELP2MAN
 dist_man1_MANS = couchdb.1
-endif
 
 CLEANFILES = $(bin_SCRIPTS) $(dist_man1_MANS) $(noinst_SCRIPTS)
 
@@ -118,7 +116,7 @@ HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
 couchdb.1: couchdb.tpl.in
 	touch $@
-	if test -x "$(HELP2MAN_EXECUTABLE)"; then \
+	if test -x "$(HELP2MAN)"; then \
 	    $(MAKE) -f Makefile couchdb; \
 	    $(HELP2MAN) $(HELP2MAN_OPTION) \
 	        --name="Apache CouchDB database server" ./couchdb --output $@; \
