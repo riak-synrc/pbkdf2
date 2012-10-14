@@ -535,7 +535,7 @@ if test "$use_launchd" = "yes"; then
     fi
 fi
 
-AC_PATH_PROG([HELP2MAN], [help2man])
+AM_MISSING_PROG([HELP2MAN], [help2man])
 
 if test x${HELP2MAN} = x; then
     if test x${strictness_enabled} = xyes; then
@@ -545,7 +545,7 @@ if test x${HELP2MAN} = x; then
     fi
 fi
 
-AC_PATH_PROG([SPHINX_BUILD], [sphinx-build])
+AM_MISSING_PROG([SPHINX_BUILD], [sphinx-build])
 
 if test x${SPHINX_BUILD} = x; then
     if test x${strictness_enabled} = xyes; then
@@ -561,7 +561,7 @@ else
     AX_PYTHON_MODULE([pygments])
 fi
 
-AC_PATH_PROG([PDFLATEX], [pdflatex])
+AM_MISSING_PROG([PDFLATEX], [pdflatex])
 
 if test x${PDFLATEX} = x; then
     if test x${strictness_enabled} = xyes; then
@@ -573,7 +573,7 @@ Is LaTeX installed?])
     fi
 fi
 
-AC_PATH_PROG([MAKEINFO], [makeinfo])
+AM_MISSING_PROG([MAKEINFO], [makeinfo])
 
 if test x${MAKEINFO} = x; then
     if test x${strictness_enabled} = xyes; then

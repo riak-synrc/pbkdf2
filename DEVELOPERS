@@ -30,7 +30,12 @@ Debian-based (inc. Ubuntu) Systems
 
 You can install the dependencies by running:
 
-    apt-get install libtool automake autoconf autoconf-archive pkg-config help2man
+    sudo apt-get install libtool
+    sudo apt-get install automake
+    sudo apt-get install autoconf
+    sudo apt-get install autoconf-archive
+    sudo apt-get install pkg-config
+    sudo apt-get install help2man
 
 Be sure to update the version numbers to match your system's available packages.
 
@@ -39,7 +44,12 @@ Mac OS X
 
 You can install the dependencies by running:
 
-    brew install libtool automake autoconf autoconf-archive pkg-config help2man
+    brew install libtool
+    brew install automake
+    brew install autoconf 
+    brew install autoconf-archive
+    brew install pkg-config
+    brew install help2man
 
 # @@ check these packages are correct
 
@@ -55,6 +65,28 @@ Bootstrap the pristine source by running:
     ./bootstrap
 
 You must repeat this step every time you update your source checkout.
+
+Configuring
+-----------
+
+Configure the source by running:
+
+    ./configure --enable-strictness
+
+This will cause `configure' to fail when optional dependancies are missing.
+Certain parts of the build are shipped along with the release, and so the tools
+needed to rebuild them are not required. When you are building from source,
+these tools are required or you will have missing files.
+
+# @@ check what happens if you try to install from source without them
+
+# @@ check `syntax' with Github, etc
+
+If you're working on the build system itself, you can run:
+
+    ./configure --disable-tests
+
+This skips the tests allowing quicker `make' cycles.
 
 Testing
 -------
@@ -79,10 +111,6 @@ The release procedure is documented in the project wiki:
 Unix-like Systems
 ~~~~~~~~~~~~~~~~~
 
-Configure the source by running:
-
-    ./configure
-
 Prepare the release artefacts by running:
 
     make distcheck
@@ -95,10 +123,6 @@ The release artefacts can be found in the root source directory.
 
 Microsoft Windows
 ~~~~~~~~~~~~~~~~~
-
-Configure the source by running:
-
-    ./configure
 
 Prepare the release artefacts by running:
 
