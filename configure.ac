@@ -10,30 +10,26 @@ dnl WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 dnl License for the specific language governing permissions and limitations
 dnl under the License.
 
-AC_INIT(
-    [LOCAL_PACKAGE_NAME],
-    [LOCAL_VERSION],
-    [LOCAL_BUG_URI],
-    [LOCAL_PACKAGE_TARNAME])
+AC_INIT([LOCAL_PACKAGE_NAME],[LOCAL_VERSION],[LOCAL_BUG_URI],[LOCAL_PACKAGE_TARNAME])
 
-AC_PREREQ([2.59])
+AC_PREREQ([2.69])
 
 AC_CONFIG_SRCDIR([CHANGES])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_HEADERS([src/snappy/google-snappy/config.h])
 
 AM_INIT_AUTOMAKE([1.6.3 foreign])
 
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS
 AC_ENABLE_SHARED
 AC_DISABLE_STATIC
 
 AC_PROG_CC
 LT_INIT([win32-dll])
-AC_PROG_LIBTOOL
+LT_INIT
 AC_PROG_LN_S
 
 PKG_PROG_PKG_CONFIG
@@ -51,12 +47,12 @@ AC_CHECK_FUNC([mmap])
 
 AC_MSG_CHECKING([if the compiler supports __builtin_expect])
 
-AC_TRY_COMPILE(, [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     return __builtin_expect(1, 1) ? 1 : 0
-], [
+]])],[
     snappy_have_builtin_expect=yes
     AC_MSG_RESULT([yes])
-], [
+],[
     snappy_have_builtin_expect=no
     AC_MSG_RESULT([no])
 ])
@@ -66,12 +62,12 @@ fi
 
 AC_MSG_CHECKING([if the compiler supports __builtin_ctzll])
 
-AC_TRY_COMPILE(, [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     return (__builtin_ctzll(0x100000000LL) == 32) ? 1 : 0
-], [
+]])],[
     snappy_have_builtin_ctz=yes
     AC_MSG_RESULT([yes])
-], [
+],[
     snappy_have_builtin_ctz=no
     AC_MSG_RESULT([no])
 ])
@@ -104,9 +100,7 @@ AC_MSG_CHECKING([for pthread_create in -lpthread])
 original_LIBS="$LIBS"
 LIBS="-lpthread $original_LIBS"
 
-AC_TRY_LINK([#include<pthread.h>],
-    [pthread_create((void *)0, (void *)0, (void *)0, (void *)0)],
-    [pthread=yes], [pthread=no])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include<pthread.h>]], [[pthread_create((void *)0, (void *)0, (void *)0, (void *)0)]])],[pthread=yes],[pthread=no])
 
 if test x${pthread} = xyes; then
     AC_MSG_RESULT([yes])
@@ -120,8 +114,7 @@ AS_IF([test x${ERL} = x], [
     AC_MSG_ERROR([Could not find the `erl' executable. Is Erlang installed?])
     ])
 
-AC_ARG_WITH([erlang], [AC_HELP_STRING([--with-erlang=PATH],
-    [set PATH to the Erlang include directory])], [
+AC_ARG_WITH([erlang], [AS_HELP_STRING([--with-erlang=PATH],[set PATH to the Erlang include directory])], [
     ERLANG_FLAGS="-I$withval"
 ], [
     realerl=`readlink -f $ERL 2>/dev/null`
@@ -155,22 +148,19 @@ PKG_CHECK_MODULES([JS], [mozjs185], [
     ])
 ])
 
-AC_ARG_WITH([js-include], [AC_HELP_STRING([--with-js-include=PATH],
-    [set PATH to the SpiderMonkey include directory])], [
+AC_ARG_WITH([js-include], [AS_HELP_STRING([--with-js-include=PATH],[set PATH to the SpiderMonkey include directory])], [
     JS_INCLUDE="$withval"
     JS_CFLAGS="-I$JS_INCLUDE"
 ], [])
 
-AC_ARG_WITH([js-lib], [AC_HELP_STRING([--with-js-lib=PATH],
-    [set PATH to the SpiderMonkey library directory])],
+AC_ARG_WITH([js-lib], [AS_HELP_STRING([--with-js-lib=PATH],[set PATH to the SpiderMonkey library directory])],
     [
     JS_LIB_DIR=$withval
     JS_LIBS="-L$withval"
 ], [])
 
 use_js_trunk=no
-AC_ARG_ENABLE([js-trunk], [AC_HELP_STRING([--enable-js-trunk],
-    [allow use of SpiderMonkey versions newer than js185-1.0.0])], [
+AC_ARG_ENABLE([js-trunk], [AS_HELP_STRING([--enable-js-trunk],[allow use of SpiderMonkey versions newer than js185-1.0.0])], [
     use_js_trunk=$enableval
 ], [])
 
@@ -293,8 +283,7 @@ if test x${IS_WINDOWS} = xTRUE; then
     AC_SUBST(JS_LIB_BINARY)
 
     # On windows we need to know the path to the openssl binaries.
-    AC_ARG_WITH([openssl-bin-dir], [AC_HELP_STRING([--with-openssl-bin-dir=PATH],
-        [path to the open ssl binaries for distribution on Windows])], [
+    AC_ARG_WITH([openssl-bin-dir], [AS_HELP_STRING([--with-openssl-bin-dir=PATH],[path to the open ssl binaries for distribution on Windows])], [
         openssl_bin_dir=`cygpath -m "$withval"`
         AC_SUBST(openssl_bin_dir)
     ], [])
@@ -309,8 +298,7 @@ if test x${IS_WINDOWS} = xTRUE; then
     # (in theory we could just install the assembly locally - but
     # there are at least 4 directories with binaries, meaning 4 copies;
     # so using the redist .exe means it ends up installed globally...)
-    AC_ARG_WITH([msvc-redist-dir], [AC_HELP_STRING([--with-msvc-redist-dir=PATH],
-        [path to the msvc redistributables for the Windows platform])], [
+    AC_ARG_WITH([msvc-redist-dir], [AS_HELP_STRING([--with-msvc-redist-dir=PATH],[path to the msvc redistributables for the Windows platform])], [
         msvc_redist_dir=`cygpath -m "$withval"`
         msvc_redist_name="vcredist_x86.exe"
         AC_SUBST(msvc_redist_dir)
@@ -327,13 +315,12 @@ AC_SUBST(JS_LIBS)
 LIBS="$OLD_LIBS"
 CPPFLAGS="$OLD_CPPFLAGS"
 
-AC_ARG_WITH([win32-icu-binaries], [AC_HELP_STRING([--with-win32-icu-binaries=PATH],
-    [set PATH to the Win32 native ICU binaries directory])], [
+AC_ARG_WITH([win32-icu-binaries], [AS_HELP_STRING([--with-win32-icu-binaries=PATH],[set PATH to the Win32 native ICU binaries directory])], [
     ICU_CPPFLAGS="-I$withval/include"
     ICU_LIBS="-L$withval/lib -licuuc -licudt -licuin"
     ICU_BIN=$withval/bin
 ], [
-    AC_CHECK_ICU([3.4.1])
+    AX_CHECK_ICU([3.4.1])
     ICU_BIN=
 ])
 
@@ -343,16 +330,14 @@ AC_SUBST(ICU_LIBS)
 AC_SUBST(ICU_BIN)
 
 use_curl=yes
-AC_ARG_WITH([win32-curl], [AC_HELP_STRING([--with-win32-curl=PATH],
-    [set PATH to the Win32 native curl directory])], [
+AC_ARG_WITH([win32-curl], [AS_HELP_STRING([--with-win32-curl=PATH],[set PATH to the Win32 native curl directory])], [
     # default build on windows is a static lib, and that's what we want too
     CURL_CFLAGS="-I$withval/include -DCURL_STATICLIB"
     CURL_LIBS="-L$withval/lib -llibcurl -lWs2_32 -lkernel32 -luser32 -ladvapi32 -lWldap32"
     # OpenSSL libraries may be pulled in via libcurl if it was built with SSL
     # these are libeay32 ssleay32 instead of crypto ssl on unix
 ], [
-    AC_CHECK_CURL([7.18.0],
-        [AC_DEFINE([HAVE_CURL], [1], ["Provide HTTP support to couchjs"])], [
+    AX_LIB_CURL([7.18.0],[AC_DEFINE([HAVE_CURL], [1], ["Provide HTTP support to couchjs"])],[
         AC_MSG_WARN([You will be unable to run some JavaScript unit tests.])
         use_curl=no
         CURL_LIBS=
@@ -423,28 +408,23 @@ use_init=yes
 use_launchd=yes
 native_mochijson_enabled=no
 
-AC_ARG_ENABLE([init], [AC_HELP_STRING([--disable-init],
-    [don't install init script where applicable])], [
+AC_ARG_ENABLE([init], [AS_HELP_STRING([--disable-init],[don't install init script where applicable])], [
     use_init=$enableval
 ], [])
 
-AC_ARG_ENABLE([launchd], [AC_HELP_STRING([--disable-launchd],
-    [don't install launchd configuration where applicable])], [
+AC_ARG_ENABLE([launchd], [AS_HELP_STRING([--disable-launchd],[don't install launchd configuration where applicable])], [
     use_launchd=$enableval
 ], [])
 
-AC_ARG_ENABLE([native-mochijson], [AC_HELP_STRING([--enable-native-mochijson],
-    [compile mochijson to native code (EXPERIMENTAL)])], [
+AC_ARG_ENABLE([native-mochijson], [AS_HELP_STRING([--enable-native-mochijson],[compile mochijson to native code (EXPERIMENTAL)])], [
     native_mochijson_enabled=$enableval
 ], [])
 
-AC_ARG_ENABLE([tests], [AC_HELP_STRING([--disable-tests],
-    [skip tests during build])], [
+AC_ARG_ENABLE([tests], [AS_HELP_STRING([--disable-tests],[skip tests during build])], [
     tests_enabled=$enableval
 ], [])
 
-AC_ARG_ENABLE([strictness], [AC_HELP_STRING([--enable-strictness],
-    [exit when optional checks fail])], [
+AC_ARG_ENABLE([strictness], [AS_HELP_STRING([--enable-strictness],[exit when optional checks fail])], [
     strictness_enabled=$enableval
 ], [])
 
