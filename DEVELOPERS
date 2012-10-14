@@ -15,6 +15,12 @@ You will need the following installed:
  * GNU Libtool            (http://www.gnu.org/software/libtool/)
  * GNU help2man           (http://www.gnu.org/software/help2man/)
 
+# @@ pkg-config
+
+# @@ autoconf-archive
+
+# @@ deps for docs
+
 The `help2man` tool is optional, but will generate `man` pages for you.
 
 Debian-based (inc. Ubuntu) Systems
