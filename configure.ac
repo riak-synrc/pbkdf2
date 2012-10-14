@@ -10,7 +10,11 @@ dnl WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 dnl License for the specific language governing permissions and limitations
 dnl under the License.
 
-AC_INIT([LOCAL_PACKAGE_NAME],[LOCAL_VERSION],[LOCAL_BUG_URI],[LOCAL_PACKAGE_TARNAME])
+AC_INIT(
+    [LOCAL_PACKAGE_NAME],
+    [LOCAL_VERSION],
+    [LOCAL_BUG_URI],
+    [LOCAL_PACKAGE_TARNAME])
 
 AC_PREREQ([2.69])
 
@@ -56,6 +60,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     snappy_have_builtin_expect=no
     AC_MSG_RESULT([no])
 ])
+
 if test x$snappy_have_builtin_expect = xyes ; then
     AC_DEFINE([HAVE_BUILTIN_EXPECT], [1], [Define to 1 if the compiler supports __builtin_expect.])
 fi
@@ -71,6 +76,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     snappy_have_builtin_ctz=no
     AC_MSG_RESULT([no])
 ])
+
 if test x$snappy_have_builtin_ctz = xyes ; then
     AC_DEFINE([HAVE_BUILTIN_CTZ], [1], [Define to 1 if the compiler supports __builtin_ctz and friends.])
 fi
@@ -93,7 +99,6 @@ SNAPPY_PATCHLEVEL="snappy_patchlevel"
 AC_SUBST([SNAPPY_MAJOR])
 AC_SUBST([SNAPPY_MINOR])
 AC_SUBST([SNAPPY_PATCHLEVEL])
-dnl End of google snappy specific config
 
 AC_MSG_CHECKING([for pthread_create in -lpthread])
 
@@ -131,6 +136,7 @@ AC_ARG_WITH([erlang], [AS_HELP_STRING([--with-erlang=PATH],[set PATH to the Erla
            ERLANG_FLAGS="$ERLANG_FLAGS -I/opt/local/lib/erlang/usr/include"
           ])
 ])
+
 AC_SUBST(ERLANG_FLAGS)
 
 PKG_CHECK_MODULES([JS], [mozjs185], [
@@ -160,12 +166,14 @@ AC_ARG_WITH([js-lib], [AS_HELP_STRING([--with-js-lib=PATH],[set PATH to the Spid
 ], [])
 
 use_js_trunk=no
+
 AC_ARG_ENABLE([js-trunk], [AS_HELP_STRING([--enable-js-trunk],[allow use of SpiderMonkey versions newer than js185-1.0.0])], [
     use_js_trunk=$enableval
 ], [])
 
 AC_ARG_VAR([ERLC_FLAGS], [general flags to prepend to ERLC_FLAGS])
 AC_ARG_VAR([FLAGS], [general flags to prepend to LDFLAGS and CPPFLAGS])
+
 AS_CASE([$(uname -s)],
     [CYGWIN*], [] ,
     [*], [
@@ -178,6 +186,7 @@ AS_CASE([$(uname -s)],
     LDFLAGS="$LDFLAGS -L/opt/local/lib"
     LDFLAGS="$LDFLAGS -L/usr/local/lib"
 ])
+
 CPPFLAGS="$CPPFLAGS $FLAGS"
 LDFLAGS="$LDFLAGS $FLAGS"
 
@@ -193,7 +202,7 @@ AS_CASE([$(uname -s)],
         IS_WINDOWS="TRUE"
     ] ,
     [*], [
-        # XP_UNIX required for jsapi.h and has been tested to work on Linux and Darwin.
+        # XP_UNIX required for jsapi.h, tested on Linux and Darwin.
         JS_CFLAGS="-DXP_UNIX $JS_CFLAGS"
 ])
 
@@ -201,6 +210,7 @@ AM_CONDITIONAL([WINDOWS], [test x$IS_WINDOWS = xTRUE])
 
 OLD_LIBS="$LIBS"
 LIBS="$JS_LIBS $LIBS"
+
 OLD_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$JS_CFLAGS $CPPFLAGS"
 
@@ -229,7 +239,6 @@ Is the Mozilla SpiderMonkey library installed?])])])])])])])
 
 AC_CHECK_LIB([$JS_LIB_BASE], [JS_NewCompartmentAndGlobalObject],
     # Prevent people from accidentally using SpiderMonkey's that are too new
-
     if test "$use_js_trunk" = "no"; then
         AC_CHECK_DECL([JSOPTION_ANONFUNFIX], [], [
             AC_MSG_ERROR([Your SpiderMonkey library is too new.
@@ -255,7 +264,7 @@ AC_CHECK_LIB([$JS_LIB_BASE], [JS_GetStringCharsAndLength],
 
 # Else, hope that 1.7.0 works
 
-# Deal with JSScript -> JSObject -> JSScript switcheroo
+# Deal with JSScript to JSObject to JSScript switcheroo
 
 AC_CHECK_TYPE([JSScript*],
     [AC_DEFINE([JSSCRIPT_TYPE], [JSScript*], [Use JSObject* for scripts])],
@@ -266,9 +275,7 @@ AC_CHECK_TYPE([JSScript*],
 AC_DEFINE([COUCHJS_NAME], ["couchjs"], ["CouchJS executable name."])
 
 if test x${IS_WINDOWS} = xTRUE; then
-
     AC_DEFINE([COUCHJS_NAME], ["couchjs.exe"], ["CouchJS executable name."])
-
     if test -f "$JS_LIB_DIR/$JS_LIB_BASE.dll"; then
         # seamonkey 1.7- build layout on Windows
         JS_LIB_BINARY="$JS_LIB_DIR/$JS_LIB_BASE.dll"
@@ -281,19 +288,16 @@ if test x${IS_WINDOWS} = xTRUE; then
         fi
     fi
     AC_SUBST(JS_LIB_BINARY)
-
     # On windows we need to know the path to the openssl binaries.
     AC_ARG_WITH([openssl-bin-dir], [AS_HELP_STRING([--with-openssl-bin-dir=PATH],[path to the open ssl binaries for distribution on Windows])], [
         openssl_bin_dir=`cygpath -m "$withval"`
         AC_SUBST(openssl_bin_dir)
     ], [])
-
     # Windows uses Inno setup - look for its compiler.
     AC_PATH_PROG([INNO_COMPILER_EXECUTABLE], [iscc])
     if test x${INNO_COMPILER_EXECUTABLE} = x; then
         AC_MSG_WARN([You will be unable to build the Windows installer.])
     fi
-
     # We need the msvc redistributables for this platform too
     # (in theory we could just install the assembly locally - but
     # there are at least 4 directories with binaries, meaning 4 copies;
@@ -310,6 +314,7 @@ if test x${IS_WINDOWS} = xTRUE; then
 fi
 
 JS_LIBS="-l$JS_LIB_BASE -lm $JS_LIBS"
+
 AC_SUBST(JS_LIBS)
 
 LIBS="$OLD_LIBS"
@@ -330,6 +335,7 @@ AC_SUBST(ICU_LIBS)
 AC_SUBST(ICU_BIN)
 
 use_curl=yes
+
 AC_ARG_WITH([win32-curl], [AS_HELP_STRING([--with-win32-curl=PATH],[set PATH to the Win32 native curl directory])], [
     # default build on windows is a static lib, and that's what we want too
     CURL_CFLAGS="-I$withval/include -DCURL_STATICLIB"
@@ -379,7 +385,9 @@ if test `echo $version | ${AWK} "{print \\$2}"` -eq 6; then
 fi
 
 otp_release="`${ERL} -noshell -eval 'io:put_chars(erlang:system_info(otp_release)).' -s erlang halt`"
+
 AC_SUBST(otp_release)
+
 AM_CONDITIONAL([USE_OTP_NIFS], [test x$otp_release \> xR13B03])
 AM_CONDITIONAL([USE_EJSON_COMPARE_NIF], [test x$otp_release \> xR14B03])
 
@@ -397,11 +405,13 @@ fi
 
 OLD_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$ERLANG_FLAGS $CPPFLAGS"
+
 AC_CHECK_HEADER([erl_driver.h], [], [
     AC_MSG_ERROR([Could not find the `erl_driver.h' header.
 
 Are the Erlang headers installed? Use the `--with-erlang' option to specify the
 path to the Erlang include directory.])])
+
 CPPFLAGS="$OLD_CPPFLAGS"
 
 use_init=yes
@@ -586,14 +596,18 @@ AC_OUTPUT
 # identifies this dastardly mix as a unix variant, and libtool kindly
 # passes incorrect flags and names through to the MS linker. The simplest fix
 # is to modify libtool via sed to remove those options.
+#
 # As this is only done once at first configure, and subsequent config or source
 # changes may trigger a silent reversion to the non-functioning original.
+#
 # Changes are;
+#
 # 1. replace LIB$name with $name in libname_spec (e.g. libicu -> icu) to ensure
 #    correct windows versions of .lib and .dlls are found or generated.
 # 2. remove incompatible \w-link\w from archive_cmds
 # 3. remove GNU-style directives to be passed through to the linker
 # 4. swap GNU-style shared library flags with MS -dll variant
+#
 # This obscene hackery is tracked under COUCHDB-440 and COUCHDB-1197.
 
 if test x${IS_WINDOWS} = xTRUE; then
