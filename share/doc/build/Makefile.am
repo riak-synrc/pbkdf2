@@ -161,8 +161,6 @@ src_files = \
 	../src/replication.rst \
 	../src/ssl.rst
 
-info_TEXINFOS = $(texinfo_files)
-
 dist_localdoc_DATA = \
     $(texinfo_files) \
     $(pdf_files)
