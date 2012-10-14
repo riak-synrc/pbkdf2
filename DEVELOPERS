@@ -16,12 +16,19 @@ You will need the following installed:
  * GNU Autoconf Archive   (http://www.gnu.org/software/autoconf-archive/)
  * pkg-config             (http://www.freedesktop.org/wiki/Software/pkg-config)
  * Sphinx                 (http://sphinx.pocoo.org/)
+ * LaTex                  (http://www.latex-project.org/)
+ * GNU Texinfo            (http://www.gnu.org/software/texinfo/)
  * GNU help2man           (http://www.gnu.org/software/help2man/)
 
+# @@ instructions for LaTex
+# @@ http://www.latex-project.org/ftp.html
+# @@ need help to flesh out instructions for Windows
 
 # @@ deps for docs
 
 The `help2man` tool is optional, but will generate `man` pages for you.
+
+# @@ add more notes like this one
 
 Debian-based (inc. Ubuntu) Systems
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -33,7 +40,12 @@ You can install the dependencies by running:
     sudo apt-get install autoconf
     sudo apt-get install autoconf-archive
     sudo apt-get install pkg-config
-	sudo apt-get install python-sphinx 
+    sudo apt-get install python-sphinx 
+    sudo apt-get install texlive-latex-base
+    sudo apt-get install texlive-latex-recommended
+    sudo apt-get install texlive-latex-extra
+    sudo apt-get install texlive-fonts-recommended
+    sudo apt-get install texinfo
     sudo apt-get install help2man
 
 Be sure to update the version numbers to match your system's available packages.
@@ -50,6 +62,8 @@ You can install the dependencies by running:
     brew install pkg-config
     @@ sphinx
     brew install help2man
+
+# @@ instructions for LaTex
 
 # @@ check these packages are correct
 
