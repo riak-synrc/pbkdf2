@@ -231,7 +231,7 @@ html.stamp: $(image_files) $(src_files)
 	@touch html.tmp
 	if test -n "`which sphinx-build`"; then \
 	    sphinx-build -b html $(SPHINXOPTS) $(builddir)/html; \
-	else
+	else \
 	    $(top_srcdir)/build-aux/missing sphinx-build; \
 	fi
 	@mv -f html.tmp $@
