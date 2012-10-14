@@ -43,7 +43,7 @@ SPHINXOPTS = \
 
 info_name = CouchDB
 
-info_file = texinfo/$(info_name)
+info_file = texinfo/$(info_name).info
 
 texinfo_file = texinfo/CouchDB.texi
 
