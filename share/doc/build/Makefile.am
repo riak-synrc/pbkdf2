@@ -34,8 +34,6 @@
 
 # -----------------------------------------------------------------------------
 
-SPHINX_BUILD = sphinx-build
-
 SPHINXOPTS = \
     -d doctrees \
     -n -c $(srcdir)/.. \
