@@ -118,11 +118,11 @@ mkdir -p m4
 
 # @@ figure out how to avoid this
 
-texi_file="share/doc/build/texinfo/CouchDB.texi"
+info_file="share/doc/build/texinfo/CouchDB"
 
-mkdir -p `dirname $texi_file`
+mkdir -p `dirname $info_file`
 
-cat > $texi_file << EOF
+cat > $info_file".texi" << EOF
 @setfilename CouchDB
 EOF
 
@@ -132,7 +132,7 @@ ${AUTOHEADER} -f
 ${AUTOMAKE} -f -a -Wall
 ${AUTOCONF} -f -Wall
 
-rm -f $texi_file 
+touch $info_file
 
 rm -f INSTALL
 
