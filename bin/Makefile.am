@@ -120,5 +120,5 @@ couchdb.1: couchdb.tpl.in
 	    help2man $(HELP2MAN_OPTION) \
 	        --name="Apache CouchDB database server" ./couchdb --output $@; \
 	else \
-	    $(top_srcdir)/build-aux/missing help2man; \
+	    $(top_srcdir)/build-aux/missing help2man && exit 1; \
 	fi
