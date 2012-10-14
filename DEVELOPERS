@@ -78,6 +78,8 @@ Certain parts of the build are shipped along with the release, and so the tools
 needed to rebuild them are not required. When you are building from source,
 these tools are required or you will have missing files.
 
+You will need these files anyway, because the build will error out.
+
 # @@ check what happens if you try to install from source without them
 
 # @@ check `syntax' with Github, etc
