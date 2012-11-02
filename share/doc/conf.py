@@ -18,29 +18,38 @@ extensions = ["sphinx.ext.todo"]
 
 source_suffix = ".rst"
 
-master_doc = "index"
+master_doc = "src/index"
 
 nitpicky = True
 
-project = "@@"
+# CouchDB ##############################################################
+# These will be over-ridden during make dist but are listed here
+# to ensure that the readthedocs.org build has version numbers present
+# The short X.Y version.
+#version = "@@"
+version = "latest"
+# The full version, including alpha/beta/rc tags.
+# release = None
+#release = "@@"
+release = "latest"
 
-copyright = "@@"
+#project = "@@"
+project = u'Apache CouchDB'
 
-version = "@@"
-
-release = "@@"
+#copyright = "@@"
+copyright = u'2012, Apache Software Foundation'
 
 highlight_language = "json"
 
 pygments_style = "sphinx"
 
 # @@ design CouchDB theme
-
-# @@ check out http://sphinx.pocoo.org/theming.html
+# @@ http://jinja.pocoo.org/docs/ looks nice
 
 html_theme = "default"
 
-html_short_title = "@@"
+# inherit from project title
+#html_short_title = "@@"
 
 html_logo = ""
 
@@ -50,27 +59,30 @@ html_use_opensearch = ""
 
 text_newlines = "native"
 
-latex_documents = [(
-	"index",
-	"CouchDB.tex",
-	"",
-	"",
-	"manual",
-	True
-)]
+# use this for excluding docs from final build
+# unused_docs = ["src/tmp/*.rst"]
 
-#latex_elements[(
-#	"a4paper" # @@ do we want this?
-#)]
+# latex_documents = [(
+# 	"index",
+# 	"CouchDB.tex",
+# 	"",
+# 	"",
+# 	"manual",
+# 	True
+# )]
 
-texinfo_documents = [(
-	"index",
-	"CouchDB",
-	"",
-	"",
-	"dir_entry",
-	"description",
-	"category",
-	"manual",
-	True
-)]
+# #latex_elements[(
+# #	"a4paper" # @@ do we want this?
+# #)]
+
+# texinfo_documents = [(
+# 	"index",
+# 	"CouchDB",
+# 	"",
+# 	"",
+# 	"dir_entry",
+# 	"description",
+# 	"category",
+# 	"manual",
+# 	True
+# )]
