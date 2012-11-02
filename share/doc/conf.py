@@ -57,6 +57,8 @@ html_favicon = ""
 
 html_use_opensearch = ""
 
+html_add_permalinks = True
+
 text_newlines = "native"
 
 # use this for excluding docs from final build
@@ -86,3 +88,7 @@ text_newlines = "native"
 # 	"manual",
 # 	True
 # )]
+
+rst_epilog = """
+.. |psf| replace:: Apache Software Foundation
+"""
