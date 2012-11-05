@@ -349,10 +349,6 @@ Request object
 |                                | (empty string)                              |
 +--------------------------------+---------------------------------------------+
 | cookie                         | Cookies `object`.                           |
-|                                | If request method is `GET` method contains  |
-|                                | this field contains ``"undefined"`` value,  |
-|                                | while if `DELETE` or `HEAD` value is ``""`` |
-|                                | (empty string).                             |
 +--------------------------------+---------------------------------------------+
 | form                           | Form data `object`.                         |
 |                                | Contains decoded body as key-value pairs if |
@@ -391,13 +387,6 @@ Request object
 | uuid                           | Generated UUID by specified algorithm in    |
 |                                | config file.                                |
 +--------------------------------+---------------------------------------------+
-
-.. versionadded:: 0.9.0
-.. versionchanged:: 0.10.0 Add ``userCtx`` field.
-.. versionchanged:: 0.11.0 Rename ``verb`` field to ``method``.
-.. versionchanged:: 0.11.0 Add ``id``, ``peer`` and ``uuid`` fields.
-.. versionchanged:: 1.1.0 Add ``requested_path`` and ``secObj`` fields.
-.. versionchanged:: 1.2.0 Add ``raw_path`` field.
 
 .. code-block:: javascript
 
