@@ -467,6 +467,48 @@ Request object
   }
 
 
+.. _response_object:
+
+Response object
+===============
+
++--------------------------------+---------------------------------------------+
+| Field                          | Description                                 |
++================================+=============================================+
+| code                           | HTTP status code `number`.                  |
++--------------------------------+---------------------------------------------+
+| json                           | JSON encodable `object`.                    |
+|                                | Implicitly sets `Content-Type` header as    |
+|                                | ``application/json``.                       |
++--------------------------------+---------------------------------------------+
+| body                           | Raw response text `string`.                 |
+|                                | Implicitly sets `Content-Type` header as    |
+|                                | ``text/html; charset=utf-8``.               |
++--------------------------------+---------------------------------------------+
+| base64                         | Base64 encoded `string`.                    |
+|                                | Implicitly sets `Content-Type` header as    |
+|                                | ``application/binary``.                     |
++--------------------------------+---------------------------------------------+
+| headers                        | Response headers `object`.                  |
+|                                | `Content-Type` header from this object      |
+|                                | overrides any implicitly assigned one.      |
++--------------------------------+---------------------------------------------+
+| stop                           | `boolean` signal to stop iteration over     |
+|                                | view result rows (for list functions only)  |
++--------------------------------+---------------------------------------------+
+
+.. warning::
+   ``body``, ``base64`` and ``json`` object keys are overlaps each other and
+   the last wins. Since most realizations of key-value objects doesn't preserve
+   key order mixing them may create confusing situation. Try to use only one of
+   them.
+
+.. note::
+   Any custom property makes CouchDB raise internal exception.
+   Also `Response object` could be a simple string value which would be
+   implicitly wrapped into ``{"body": ...}`` object.
+
+
 Returned CouchDB Document with Detailed Revision Info
 =====================================================
 
@@ -592,4 +634,25 @@ User Context Object
         "roles": [
             "_admin"
         ]
+    }
+
+
+.. _view_head_info_object:
+
+View Head Information
+=====================
+
++--------------------------------+---------------------------------------------+
+| Field                          | Description                                 |
++================================+=============================================+
+| total_rows                     | Number of documents in the view             |
++--------------------------------+---------------------------------------------+
+| offset                         | Offset where the document list started      |
++--------------------------------+---------------------------------------------+
+
+.. code-block:: javascript
+
+    {
+        "total_rows": 42,
+        "offset": 3
     }
