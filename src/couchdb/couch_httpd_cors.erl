@@ -85,29 +85,33 @@ make_cors_header(Origin, Host) ->
     maybe_add_credentials(Origin, Host, Headers).
 
 preflight_request(MochiReq) ->
+    Origin = MochiReq:get_header_value("Origin"),
+    preflight_request(MochiReq, Origin).
+
+preflight_request(MochiReq, undefined) ->
+    MochiReq;
+preflight_request(MochiReq, Origin) ->
     Host = couch_httpd_vhost:host(MochiReq),
-    case MochiReq:get_header_value("Origin") of
-    undefined ->
-        MochiReq;
+    AcceptedOrigins = get_accepted_origins(Host),
+    AcceptAll = lists:member("*", AcceptedOrigins),
 
-    Origin ->
-        AcceptedOrigins = get_accepted_origins(Host),
-        AcceptAll = lists:member("*", AcceptedOrigins),
+    HandlerFun = fun() ->
+        OriginList = couch_util:to_list(Origin),
+        handle_preflight_request(OriginList, Host, MochiReq)
+    end,
 
-        case {AcceptAll, AcceptedOrigins} of
-        {true, _} ->
-            handle_preflight_request(couch_util:to_list(Origin),
-                                     Host, MochiReq);
-        {false, _} ->
-            case lists:member(Origin, AcceptedOrigins) of
-            true ->
-                handle_preflight_request(couch_util:to_list(Origin),
-                                         Host, MochiReq);
-            false ->
-                false
-            end
+    case AcceptAll of
+    true ->
+        HandlerFun();
+    false ->
+        case lists:member(Origin, AcceptedOrigins) of
+        true ->
+            HandlerFun();
+        false ->
+            false
         end
     end.
+
 
 handle_preflight_request(Origin, Host, MochiReq) ->
     %% get supported methods
