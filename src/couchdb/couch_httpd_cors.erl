@@ -224,16 +224,21 @@ split_headers(H) ->
     re:split(H, ",\\s*", [{return,list}, trim]).
 
 split_host_port(HostAsString) ->
-    case string:rchr(HostAsString, $:) of
-    0 ->
+    % split at semicolon ":"
+    Split = string:rchr(HostAsString, $:),
+    split_host_port(HostAsString, Split).
+
+split_host_port(HostAsString, 0) ->
+    % no semicolon
+    {HostAsString, '*'};
+split_host_port(HostAsString, N) ->
+    HostPart = string:substr(HostAsString, 1, N-1),
+    % parse out port
+    % is there a nicer way?
+    case (catch erlang:list_to_integer(string:substr(HostAsString,
+                    N+1, length(HostAsString)))) of
+    {'EXIT', _} ->
         {HostAsString, '*'};
-    N ->
-        HostPart = string:substr(HostAsString, 1, N-1),
-        case (catch erlang:list_to_integer(string:substr(HostAsString,
-                        N+1, length(HostAsString)))) of
-        {'EXIT', _} ->
-            {HostAsString, '*'};
-        Port ->
-            {HostPart, Port}
-        end
+    Port ->
+        {HostPart, Port}
     end.
