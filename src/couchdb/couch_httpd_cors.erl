@@ -33,6 +33,8 @@
 % TODO: - pick a sane default
 -define(CORS_DEFAULT_MAX_AGE, 12345).
 
+%% is_preflight_request/1
+
 is_preflight_request(#httpd{method=Method}=Req) when Method /= 'OPTIONS' ->
     Req;
 is_preflight_request(Req) ->
@@ -49,40 +51,6 @@ is_preflight_request(#httpd{mochi_req=MochiReq}=Req, true) ->
         Req
     end.
 
-cors_headers(MochiReq) ->
-    EnableCors = enable_cors(),
-    cors_headers(MochiReq, EnableCors).
-
-cors_headers(#httpd{mochi_req=MochiReq}, true) ->
-    Host = couch_httpd_vhost:host(MochiReq),
-    AcceptedOrigins = get_accepted_origins(Host),
-    case MochiReq:get_header_value("Origin") of
-    undefined ->
-        [];
-    Origin ->
-        handle_cors_headers(couch_util:to_list(Origin),
-                            Host, AcceptedOrigins)
-    end;
-cors_headers(_MochiReq, false) ->
-    [].
-
-handle_cors_headers(_Origin, _Host, []) ->
-    [];
-handle_cors_headers(Origin, Host, AcceptedOrigins) ->
-    AcceptAll = lists:member("*", AcceptedOrigins),
-    case {AcceptAll, lists:member(Origin, AcceptedOrigins)} of
-    {true, _} ->
-        make_cors_header(Origin, Host);
-    {false, true}  ->
-        make_cors_header(Origin, Host);
-    _ ->
-        []
-    end.
-
-
-make_cors_header(Origin, Host) ->
-    Headers = [{"Access-Control-Allow-Origin", Origin}],
-    maybe_add_credentials(Origin, Host, Headers).
 
 preflight_request(MochiReq) ->
     Origin = MochiReq:get_header_value("Origin"),
@@ -192,6 +160,47 @@ credentials(_Origin, Host) ->
     Default = get_bool_config("cors", "credentials", false),
     get_bool_config(cors_section(Host), "credentials", Default).
 
+
+% cors_headers/1
+
+cors_headers(MochiReq) ->
+    EnableCors = enable_cors(),
+    cors_headers(MochiReq, EnableCors).
+
+cors_headers(#httpd{mochi_req=MochiReq}, true) ->
+    Host = couch_httpd_vhost:host(MochiReq),
+    AcceptedOrigins = get_accepted_origins(Host),
+    case MochiReq:get_header_value("Origin") of
+    undefined ->
+        [];
+    Origin ->
+        handle_cors_headers(couch_util:to_list(Origin),
+                            Host, AcceptedOrigins)
+    end;
+cors_headers(_MochiReq, false) ->
+    [].
+
+
+handle_cors_headers(_Origin, _Host, []) ->
+    [];
+handle_cors_headers(Origin, Host, AcceptedOrigins) ->
+    AcceptAll = lists:member("*", AcceptedOrigins),
+    case {AcceptAll, lists:member(Origin, AcceptedOrigins)} of
+    {true, _} ->
+        make_cors_header(Origin, Host);
+    {false, true}  ->
+        make_cors_header(Origin, Host);
+    _ ->
+        []
+    end.
+
+
+make_cors_header(Origin, Host) ->
+    Headers = [{"Access-Control-Allow-Origin", Origin}],
+    maybe_add_credentials(Origin, Host, Headers).
+
+
+%% util
 
 cors_config(Host, Key, Default) ->
     couch_config:get(cors_section(Host), Key,
