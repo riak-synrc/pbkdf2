@@ -105,6 +105,14 @@ test() ->
 
     ok = couch_config:set("cors", "origins", "http://example.com", false),
 
+
+    % TBD
+    % case-sensitive mismatch of allowed origins should fail
+    % auth with * Origin should fail
+    % test all cors with vhosts
+    % test multiple per-host configuration
+
+
     %% do tests with auth
     ok = set_admin_password("test", "test"),
 
