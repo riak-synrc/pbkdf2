@@ -20,7 +20,7 @@
 
 -include("couch_db.hrl").
 
--export([is_preflight_request/1, cors_headers/1]).
+-export([is_preflight_request/1, cors_headers/2]).
 
 -define(SUPPORTED_HEADERS, "Accept, Accept-Language, Content-Type," ++
         "Expires, Last-Modified, Pragma, Origin, Content-Length," ++
@@ -29,6 +29,12 @@
 
 -define(SUPPORTED_METHODS, "GET, HEAD, POST, PUT, DELETE," ++
         "TRACE, CONNECT, COPY, OPTIONS").
+
+% as defined in http://www.w3.org/TR/cors/#terminology
+-define(SIMPLE_HEADERS, ["Cache-Control", "Content-Language",
+        "Content-Type", "Expires", "Last-Modified", "Pragma"]).
+-define(SIMPLE_CONTENT_TYPE_VALUES, ["application/x-www-form-urlencoded",
+        "multipart/form-data", "text/plain"]).
 
 % TODO: - pick a sane default
 -define(CORS_DEFAULT_MAX_AGE, 12345).
@@ -173,11 +179,12 @@ send_preflight_response(#httpd{mochi_req=MochiReq}=Req, Headers) ->
 
 % cors_headers/1
 
-cors_headers(MochiReq) ->
+cors_headers(MochiReq, RequestHeaders) ->
     EnableCors = enable_cors(),
-    cors_headers(MochiReq, EnableCors).
+    CorsHeaders = do_cors_headers(MochiReq, EnableCors),
+    maybe_apply_cors_headers(CorsHeaders, RequestHeaders).
 
-cors_headers(#httpd{mochi_req=MochiReq}, true) ->
+do_cors_headers(#httpd{mochi_req=MochiReq}, true) ->
     Host = couch_httpd_vhost:host(MochiReq),
     AcceptedOrigins = get_accepted_origins(Host),
     case MochiReq:get_header_value("Origin") of
@@ -191,8 +198,41 @@ cors_headers(#httpd{mochi_req=MochiReq}, true) ->
         handle_cors_headers(couch_util:to_list(Origin),
                             Host, AcceptedOrigins)
     end;
-cors_headers(_MochiReq, false) ->
+do_cors_headers(_MochiReq, false) ->
     [].
+
+maybe_apply_cors_headers([], RequestHeaders) ->
+    RequestHeaders;
+maybe_apply_cors_headers(CorsHeaders, RequestHeaders) ->
+    % for each RequestHeader that isn't in SimpleHeaders,
+    % (or Content-Type with SIMPLE_CONTENT_TYPE_VALUES)
+    % append to Access-Control-Exposed-Headers
+    % return: RequestHeaders ++ CorsHeaders ++ ACEH
+
+    LowerRequestHeaders = [string:to_lower(K) || {K,_V} <- RequestHeaders],
+    LowerSimpleHeaders = [string:to_lower(H) || H <- ?SIMPLE_HEADERS],
+
+    ExposedHeaders0 = LowerRequestHeaders -- LowerSimpleHeaders,
+
+    % here we may have not moved Content-Type into ExposedHeaders,
+    % now we need to check whether the Content-Type valus is
+    % in ?SIMPLE_CONTENT_TYPE_VALUES and if it isn’t add Content-
+    % Type to to ExposedHeaders
+    ContentType = string:to_lower(
+        proplists:get_value("Content-Type", RequestHeaders)),
+
+    IncludeContentType = lists:member(ContentType, ?SIMPLE_CONTENT_TYPE_VALUES),
+    ExposedHeaders = case IncludeContentType of
+    false ->
+        ExposedHeaders0 ++ ["Content-Type"];
+    true ->
+        ExposedHeaders0
+    end,
+
+    CorsHeaders
+    ++ RequestHeaders
+    ++ [{"Access-Control-Exposed-Headers",
+            string:join(ExposedHeaders, ", ")}].
 
 
 handle_cors_headers(_Origin, _Host, []) ->

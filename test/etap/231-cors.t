@@ -32,7 +32,7 @@ server() ->
 main(_) ->
     test_util:init_code_path(),
 
-    etap:plan(25),
+    etap:plan(27),
     case (catch test()) of
         ok ->
             etap:end_tests();
@@ -203,7 +203,10 @@ test_db_request(VHost) ->
     {ok, _, RespHeaders, _Body} ->
         etap:is(proplists:get_value("Access-Control-Allow-Origin", RespHeaders),
             "http://example.com",
-            "db Access-Control-Allow-Origin ok");
+            "db Access-Control-Allow-Origin ok"),
+        etap:is(proplists:get_value("Access-Control-Exposed-Headers", RespHeaders),
+            "server, Content-Type",
+            "db Access-Control-ExposedHeaders ok");
     _ ->
         etap:is(false, true, "ibrowse failed")
     end.
