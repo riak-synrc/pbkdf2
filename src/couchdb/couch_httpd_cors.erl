@@ -35,6 +35,8 @@
 
 %% is_preflight_request/1
 
+% http://www.w3.org/TR/cors/#resource-preflight-requests
+
 is_preflight_request(#httpd{method=Method}=Req) when Method /= 'OPTIONS' ->
     Req;
 is_preflight_request(Req) ->
@@ -57,6 +59,9 @@ preflight_request(MochiReq) ->
     preflight_request(MochiReq, Origin).
 
 preflight_request(MochiReq, undefined) ->
+    % If the Origin header is not present terminate this set of
+    % steps. The request is outside the scope of this specification.
+    % http://www.w3.org/TR/cors/#resource-preflight-requests
     MochiReq;
 preflight_request(MochiReq, Origin) ->
     Host = couch_httpd_vhost:host(MochiReq),
@@ -70,12 +75,24 @@ preflight_request(MochiReq, Origin) ->
 
     case AcceptAll of
     true ->
+        % Always matching is acceptable since the list of
+        % origins can be unbounded.
+        % http://www.w3.org/TR/cors/#resource-preflight-requests
         HandlerFun();
     false ->
         case lists:member(Origin, AcceptedOrigins) of
+        % The Origin header can only contain a single origin as
+        % the user agent will not follow redirects.
+        % http://www.w3.org/TR/cors/#resource-preflight-requests
+        % TODO: Square against multi origin thinger in Security Considerations
         true ->
             HandlerFun();
         false ->
+            % If the value of the Origin header is not a
+            % case-sensitive match for any of the values
+            % in list of origins do not set any additional
+            % headers and terminate this set of steps.
+            % http://www.w3.org/TR/cors/#resource-preflight-requests
             false
         end
     end.
@@ -103,6 +120,11 @@ handle_preflight_request(Origin, Host, MochiReq) ->
 
     case MochiReq:get_header_value("Access-Control-Request-Method") of
     undefined ->
+        % If there is no Access-Control-Request-Method header
+        % or if parsing failed, do not set any additional headers
+        % and terminate this set of steps. The request is outside
+        % the scope of this specification.
+        % http://www.w3.org/TR/cors/#resource-preflight-requests
         {ok, PreflightHeaders0};
     Method ->
         case lists:member(Method, SupportedMethods) of
@@ -131,6 +153,10 @@ handle_preflight_request(Origin, Host, MochiReq) ->
                 false
             end;
         false ->
+        % If method is not a case-sensitive match for any of
+        % the values in list of methods do not set any additional
+        % headers and terminate this set of steps.
+        % http://www.w3.org/TR/cors/#resource-preflight-requests
             false
         end
     end.
@@ -172,6 +198,10 @@ cors_headers(#httpd{mochi_req=MochiReq}, true) ->
     AcceptedOrigins = get_accepted_origins(Host),
     case MochiReq:get_header_value("Origin") of
     undefined ->
+        % If the Origin header is not present terminate
+        % this set of steps. The request is outside the scope
+        % of this specification.
+        % http://www.w3.org/TR/cors/#resource-processing-model
         [];
     Origin ->
         handle_cors_headers(couch_util:to_list(Origin),
@@ -191,6 +221,11 @@ handle_cors_headers(Origin, Host, AcceptedOrigins) ->
     {false, true}  ->
         make_cors_header(Origin, Host);
     _ ->
+        % If the value of the Origin header is not a
+        % case-sensitive match for any of the values
+        % in list of origins, do not set any additional
+        % headers and terminate this set of steps.
+        % http://www.w3.org/TR/cors/#resource-requests
         []
     end.
 
