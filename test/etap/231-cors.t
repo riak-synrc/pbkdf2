@@ -49,10 +49,8 @@ dbname2() -> "etap-test-db2".
 admin_user_ctx() -> {user_ctx, #user_ctx{roles=[<<"_admin">>]}}.
 
 set_admin_password(UserName, Password) ->
-    Salt = binary_to_list(couch_uuids:random()),
-    Hashed = couch_util:to_hex(crypto:sha(Password ++ Salt)),
-    couch_config:set("admins", UserName,
-        "-hashed-" ++ Hashed ++ "," ++ Salt, false).
+    Hashed = couch_passwords:hash_admin_password(Password),
+    couch_config:set("admins", UserName, Hashed, false).
 
 cycle_db(DbName) ->
     couch_server:delete(list_to_binary(DbName), [admin_user_ctx()]),
