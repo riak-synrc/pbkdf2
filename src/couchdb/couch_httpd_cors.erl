@@ -171,22 +171,6 @@ send_preflight_response(#httpd{mochi_req=MochiReq}=Req, Headers) ->
     {ok, MochiReq:respond({204, Headers2, <<>>})}.
 
 
-maybe_add_credentials(Origin, Host, Headers) ->
-    maybe_add_credentials(Headers, credentials(Origin, Host)).
-
-maybe_add_credentials(Headers, false) ->
-    Headers;
-maybe_add_credentials(Headers, true) ->
-    Headers ++ [{"Access-Control-Allow-Credentials", "true"}].
-
-
-credentials("*", _Host) ->
-    false;
-credentials(_Origin, Host) ->
-    Default = get_bool_config("cors", "credentials", false),
-    get_bool_config(cors_section(Host), "credentials", Default).
-
-
 % cors_headers/1
 
 cors_headers(MochiReq) ->
@@ -236,6 +220,23 @@ make_cors_header(Origin, Host) ->
 
 
 %% util
+
+maybe_add_credentials(Origin, Host, Headers) ->
+    maybe_add_credentials(Headers, allow_credentials(Origin, Host)).
+
+maybe_add_credentials(Headers, false) ->
+    Headers;
+maybe_add_credentials(Headers, true) ->
+    Headers ++ [{"Access-Control-Allow-Credentials", "true"}].
+
+
+allow_credentials("*", _Host) ->
+    false;
+allow_credentials(_Origin, Host) ->
+    Default = get_bool_config("cors", "credentials", false),
+    get_bool_config(cors_section(Host), "credentials", Default).
+
+
 
 cors_config(Host, Key, Default) ->
     couch_config:get(cors_section(Host), Key,
