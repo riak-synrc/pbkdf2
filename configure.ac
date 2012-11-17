@@ -545,22 +545,6 @@ if test x${HAS_HELP2MAN} = x; then
     fi
 fi
 
-AC_CHECK_PROG([HAS_SPHINX_BUILD], [sphinx-build], [yes])
-
-if test x${HAS_SPHINX_BUILD} = x; then
-    if test x${strictness_enabled} = xyes; then
-        AC_MSG_ERROR([Could not find the `sphinx-build' executable.])
-    else
-        AC_MSG_WARN([You will be unable to regenerate any documentation.])
-    fi
-fi
-
-if test x${strictness_enabled} = xyes; then
-    AX_PYTHON_MODULE([pygments], [fatal])
-else
-    AX_PYTHON_MODULE([pygments])
-fi
-
 AC_CHECK_PROG([HAS_PDFLATEX], [pdflatex], [yes])
 
 if test x${HAS_PDFLATEX} = x; then
@@ -595,6 +579,22 @@ Is GNU Texinfo installed?])
     else
         AC_MSG_WARN([You will be unable to install info documentation.])
     fi
+fi
+
+AC_CHECK_PROG([HAS_SPHINX_BUILD], [sphinx-build], [yes])
+
+if test x${HAS_SPHINX_BUILD} = x; then
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Could not find the `sphinx-build' executable.])
+    else
+        AC_MSG_WARN([You will be unable to regenerate any documentation.])
+    fi
+fi
+
+if test x${strictness_enabled} = xyes; then
+    AX_PYTHON_MODULE([pygments], [fatal])
+else
+    AX_PYTHON_MODULE([pygments])
 fi
 
 AC_ARG_VAR([ERL], [path to the `erl' executable])

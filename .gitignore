@@ -27,7 +27,12 @@ bin/couchdb
 bin/couchdb.1
 bin/couchjs_dev
 bin/couchpw
-build-aux
+build-aux/config.*
+build-aux/depcomp
+build-aux/install-sh
+build-aux/ltmain.sh
+build-aux/missing
+build-aux/texinfo.tex
 config.h
 config.log
 config.status

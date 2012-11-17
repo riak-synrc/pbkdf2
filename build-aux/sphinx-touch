@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+# This script is called by the build system and is used to touch the list of
+# expected output files when sphinx-build is not available. If the files exist,
+# this will satisfy make. If they do not exist, we create of empty files.
+
+if test -z "`which sphinx-build`"; then
+    for file in $*; do
+        mkdir -p `dirname $file`
+        touch $file
+    done
+fi

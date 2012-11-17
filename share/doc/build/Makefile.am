@@ -16,6 +16,8 @@
 
 # @@ add RM checks to configure.ac
 
+# @@ make PDF building optional and not fail by default
+
 # @@ improve conf.py settings
 
 # @@ replace "test !" in configure.ac with "test -f X; then :; else" for portability
@@ -44,8 +46,6 @@ SPHINXOPTS = \
 info_name = CouchDB
 
 info_file = texinfo/$(info_name).info
-
-texinfo_file = texinfo/CouchDB.texi
 
 pdf_file = latex/CouchDB.pdf.gz
 
@@ -131,56 +131,54 @@ html_files = \
     html/ssl.html
 
 image_files = \
-	../images/epub-icon.png \
-	../images/futon-createdb.png \
-	../images/futon-editdoc.png \
-	../images/futon-editeddoc.png \
-	../images/futon-overview.png \
-	../images/futon-replform.png
-	
-src_files = \
-	../src/api/authn.rst \
-	../src/api/configuration.rst \
-	../src/api/database.rst \
-	../src/api/dbmaint.rst \
-	../src/api/design.rst \
-	../src/api/documents.rst \
-	../src/api/local.rst \
-	../src/api/misc.rst \
-	../src/api/reference.rst \
-	../src/api-basics.rst \
-	../src/changes.rst \
-	../src/commonjs.rst \
-	../src/config_reference.rst \
-	../src/configuring.rst \
-	../src/ddocs.rst \
-	../src/errors.rst \
-	../src/http-proxying.rst \
-	../src/index.rst \
-	../src/intro.rst \
-	../src/json-structure.rst \
-	../src/os-daemons.rst \
-	../src/range.rst \
-	../src/release.rst \
-	../src/replication.rst \
-	../src/ssl.rst
+    ../images/epub-icon.png \
+    ../images/futon-createdb.png \
+    ../images/futon-editdoc.png \
+    ../images/futon-editeddoc.png \
+    ../images/futon-overview.png \
+    ../images/futon-replform.png
 
+src_files = \
+    ../src/api/authn.rst \
+    ../src/api/configuration.rst \
+    ../src/api/database.rst \
+    ../src/api/dbmaint.rst \
+    ../src/api/design.rst \
+    ../src/api/documents.rst \
+    ../src/api/local.rst \
+    ../src/api/misc.rst \
+    ../src/api/reference.rst \
+    ../src/api-basics.rst \
+    ../src/changes.rst \
+    ../src/commonjs.rst \
+    ../src/config_reference.rst \
+    ../src/configuring.rst \
+    ../src/ddocs.rst \
+    ../src/errors.rst \
+    ../src/http-proxying.rst \
+    ../src/index.rst \
+    ../src/intro.rst \
+    ../src/json-structure.rst \
+    ../src/os-daemons.rst \
+    ../src/range.rst \
+    ../src/release.rst \
+    ../src/replication.rst \
+    ../src/ssl.rst
 
 dist_localdoc_DATA = \
     $(info_file) \
-    $(texinfo_file) \
     $(pdf_file)
 
 nobase_dist_localdoc_DATA = $(html_files)
 
 EXTRA_DIST = \
     ../conf.py \
-	../demo.mk \
-	../make.bat \
-	../Makefile.am \
-	$(image_files) \
-	$(src_files) \
-	html/.buildinfo
+    ../demo.mk \
+    ../make.bat \
+    ../Makefile.am \
+    $(image_files) \
+    $(src_files) \
+    html/.buildinfo
 
 $(pdf_file): pdf
 
@@ -195,15 +193,10 @@ $(info_file): info.stamp
 info.stamp: $(image_files) $(src_files)
 	@rm -f info.tmp
 	@touch info.tmp
-	if test -z "`which makeinfo`"; then \
-	    $(top_srcdir)/build-aux/missing makeinfo; \
-	fi
-	if test -n "`which sphinx-build`"; then \
-	    sphinx-build -b texinfo $(SPHINXOPTS) $(builddir)/texinfo; \
-	    $(MAKE) -C texinfo info; \
-	else \
-	    $(top_srcdir)/build-aux/missing sphinx-build; \
-	fi
+	$(top_srcdir)/build-aux/sphinx-build \
+	    -b texinfo $(SPHINXOPTS) $(builddir)/texinfo
+	$(MAKE) -C texinfo info
+	$(top_srcdir)/build-aux/sphinx-touch $(info_file)
 	@mv -f info.tmp $@
 
 $(pdf_file): pdf.stamp
@@ -215,16 +208,11 @@ $(pdf_file): pdf.stamp
 pdf.stamp: $(image_files) $(src_files)
 	@rm -f pdf.tmp
 	@touch pdf.tmp
-	if test -z "`which pdflatex`"; then \
-	    $(top_srcdir)/build-aux/missing pdflatex; \
-	fi
-	if test -n "`which sphinx-build`"; then \
-	    sphinx-build -b latex $(SPHINXOPTS) $(builddir)/latex; \
-	    $(MAKE) -C latex all-pdf; \
-	    gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz; \
-	else \
-	    $(top_srcdir)/build-aux/missing sphinx-build; \
-	fi
+	$(top_srcdir)/build-aux/sphinx-build \
+	    -b latex $(SPHINXOPTS) $(builddir)/latex
+	$(MAKE) -C latex all-pdf
+	$(top_srcdir)/build-aux/sphinx-touch $(pdf_file)
+	gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
 	@mv -f pdf.tmp $@
 
 $(html_files): html.stamp
@@ -236,11 +224,9 @@ $(html_files): html.stamp
 html.stamp: $(image_files) $(src_files)
 	@rm -f html.tmp
 	@touch html.tmp
-	if test -n "`which sphinx-build`"; then \
-	    sphinx-build -b html $(SPHINXOPTS) $(builddir)/html; \
-	else \
-	    $(top_srcdir)/build-aux/missing sphinx-build; \
-	fi
+	$(top_srcdir)/build-aux/sphinx-build \
+	    -b html $(SPHINXOPTS) $(builddir)/html
+	$(top_srcdir)/build-aux/sphinx-touch $(html_files)
 	@mv -f html.tmp $@
 
 pdf-local:
@@ -252,13 +238,13 @@ html-local:
 install-data-local:
 	$(INSTALL) -d $(DESTDIR)$(infodir)
 	$(INSTALL_DATA) $(info_file) $(DESTDIR)$(infodir)/$(info_name);
-	if test -n "`which install-info`"; then\
+	if test -n "`which install-infoBOZ`"; then\
 	    install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$(info_name); \
 	fi
 
 uninstall-local:
 	rm -f $(infodir)/$(info_name)
-	if test -n "`which install-info`"; then\
+	if test -n "`which install-infoBOZ`"; then\
 	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_name) ; \
 	fi
 
