@@ -55,32 +55,32 @@ html_files = \
     html/_images/futon-editeddoc.png \
     html/_images/futon-overview.png \
     html/_images/futon-replform.png \
-    html/_sources/api/authn.txt \
-    html/_sources/api/configuration.txt \
-    html/_sources/api/database.txt \
-    html/_sources/api/dbmaint.txt \
-    html/_sources/api/design.txt \
-    html/_sources/api/documents.txt \
-    html/_sources/api/local.txt \
-    html/_sources/api/misc.txt \
-    html/_sources/api/reference.txt \
-    html/_sources/api-basics.txt \
-    html/_sources/changes.txt \
-    html/_sources/commonjs.txt \
-    html/_sources/config_reference.txt \
-    html/_sources/configuring.txt \
-    html/_sources/ddocs.txt \
-    html/_sources/errors.txt \
-    html/_sources/http-proxying.txt \
-    html/_sources/index.txt \
-    html/_sources/intro.txt \
-    html/_sources/json-structure.txt \
+    html/_sources/api/authn.rst \
+    html/_sources/api/configuration.rst \
+    html/_sources/api/database.rst \
+    html/_sources/api/dbmaint.rst \
+    html/_sources/api/design.rst \
+    html/_sources/api/documents.rst \
+    html/_sources/api/local.rst \
+    html/_sources/api/misc.rst \
+    html/_sources/api/reference.rst \
+    html/_sources/api-basics.rst \
+    html/_sources/changes.rst \
+    html/_sources/commonjs.rst \
+    html/_sources/config_reference.rst \
+    html/_sources/configuring.rst \
+    html/_sources/ddocs.rst \
+    html/_sources/errors.rst \
+    html/_sources/http-proxying.rst \
+    html/_sources/index.rst \
+    html/_sources/intro.rst \
+    html/_sources/json-structure.rst \
     html/_sources/query-servers.rst \
-    html/_sources/os-daemons.txt \
-    html/_sources/range.txt \
-    html/_sources/release.txt \
-    html/_sources/replication.txt \
-    html/_sources/ssl.txt \
+    html/_sources/os-daemons.rst \
+    html/_sources/range.rst \
+    html/_sources/release.rst \
+    html/_sources/replication.rst \
+    html/_sources/ssl.rst \
     html/_static/ajax-loader.gif \
     html/_static/basic.css \
     html/_static/comment-bright.png \
