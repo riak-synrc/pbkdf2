@@ -64,30 +64,32 @@ text_newlines = "native"
 # use this for excluding docs from final build
 # unused_docs = ["src/tmp/*.rst"]
 
-# latex_documents = [(
-# 	"index",
-# 	"CouchDB.tex",
-# 	"",
-# 	"",
-# 	"manual",
-# 	True
-# )]
+latex_documents = [(
+       "index",
+       "CouchDB.tex",
+       "",
+       "",
+       "manual",
+       True
+)]
 
-# #latex_elements[(
-# #	"a4paper" # @@ do we want this?
-# #)]
+# latex_paper_size = 'a4paper'
 
-# texinfo_documents = [(
-# 	"index",
-# 	"CouchDB",
-# 	"",
-# 	"",
-# 	"dir_entry",
-# 	"description",
-# 	"category",
-# 	"manual",
-# 	True
-# )]
+latex_elements = {
+    'papersize':'a4paper'
+    }
+
+texinfo_documents = [(
+       "index",
+       "CouchDB",
+       "",
+       "",
+       "dir_entry",
+       "description",
+       "category",
+       "manual",
+       True
+)]
 
 rst_epilog = """
 .. |psf| replace:: Apache Software Foundation
