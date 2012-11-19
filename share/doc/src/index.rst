@@ -33,7 +33,7 @@ Contents:
     config_reference
     replication
     ddocs
-    queryservers
+    query-servers
     commonjs
     errors
     changes

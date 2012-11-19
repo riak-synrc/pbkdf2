@@ -160,6 +160,7 @@ src_files = \
     ../src/intro.rst \
     ../src/json-structure.rst \
     ../src/os-daemons.rst \
+    ../query-servers.rst \
     ../src/range.rst \
     ../src/release.rst \
     ../src/replication.rst \
