@@ -151,21 +151,23 @@ proxy_auth_user(Req) ->
             end
     end.
 
+decode_auth_session(Cookie) ->
+    try
+    AuthSession = couch_util:decodeBase64Url(Cookie),
+    [_A, _B, _Cs] = re:split(?b2l(AuthSession), ":",
+                             [{return, list}, {parts, 3}])
+    catch
+    _:_Error ->
+        Reason = <<"Malformed AuthSession cookie. Please clear your cookies.">>,
+        throw({bad_request, Reason})
+    end.
 
 cookie_authentication_handler(#httpd{mochi_req=MochiReq}=Req) ->
     case MochiReq:get_cookie_value("AuthSession") of
     undefined -> Req;
     [] -> Req;
     Cookie ->
-        [User, TimeStr, HashStr] = try
-            AuthSession = couch_util:decodeBase64Url(Cookie),
-            [_A, _B, _Cs] = re:split(?b2l(AuthSession), ":",
-                                     [{return, list}, {parts, 3}])
-        catch
-            _:_Error ->
-                Reason = <<"Malformed AuthSession cookie. Please clear your cookies.">>,
-                throw({bad_request, Reason})
-        end,
+        [User, TimeStr, HashStr] = decode_auth_session(Cookie),
         % Verify expiry and hash
         CurrentTime = make_cookie_time(),
         case couch_config:get("couch_httpd_auth", "secret", nil) of
