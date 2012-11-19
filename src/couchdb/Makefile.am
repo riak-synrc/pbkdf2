@@ -192,5 +192,5 @@ endif
 # $(ERL) -noshell -run edoc_run files [\"$<\"]
 
 %.beam: %.erl couch_db.hrl couch_js_functions.hrl
-	$(ERLC) $(ERLC_FLAGS) ${TEST} $<;
+	$(ERLC) $(ERLC_FLAGS) $(ERLC_FLAGS_EXT) ${TEST} $<;
 

@@ -90,18 +90,19 @@ THANKS.gz: $(top_srcdir)/THANKS
 	-gzip -9 < $(top_builddir)/THANKS.tmp > $@
 	@rm $(top_builddir)/THANKS.tmp
 
-check: dev check-js
+check: dev-test check-js
 	$(top_builddir)/test/etap/run $(top_srcdir)/test/etap
+	$(MAKE) clean
 
-check-js: dev
+check-js: dev-test
 if USE_CURL
 	$(top_builddir)/test/javascript/run
 endif
 
-check-etap: dev
+check-etap: dev-test
 	$(top_builddir)/test/etap/run $(top_srcdir)/test/etap
 
-cover: dev
+cover: dev-test
 	rm -f cover/*.coverdata
 	COVER=1 COVER_BIN=./src/couchdb/ $(top_builddir)/test/etap/run
 	SRC=./src/couchdb/ \
@@ -109,6 +110,10 @@ cover: dev
 		-pa src/etap \
 		-eval 'etap_report:create()' \
 	    -s init stop > /dev/null 2>&1
+
+dev-test:
+	$(MAKE) clean
+	ERLC_FLAGS_EXT="+export_all" $(MAKE) $(AM_MAKEFLAGS) dev
 
 dev: all
 	@echo "This command is intended for developers to use;"
