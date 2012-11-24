@@ -68,7 +68,7 @@ HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
 # Depend on source files so distributed man pages are not rebuilt for end user.
 
-couchjs.1: $COUCHJS_SRCS
+couchjs.1: $(COUCHJS_SRCS)
 	$(MAKE) -f Makefile couchjs; \
 	$(top_srcdir)/build-aux/missing --run \
 	    help2man $(HELP2MAN_OPTION) \
