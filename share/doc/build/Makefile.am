@@ -217,11 +217,11 @@ install-data-local:
 	$(INSTALL) -d $(DESTDIR)$(infodir)
 	if test -s $(info_file); then \
 	    $(INSTALL_DATA) $(info_file) $(DESTDIR)$(infodir)/$(info_name); \
-	    if test -n "`which install-info`"; then\
+	    if test -n "`which install-info`"; then \
 	        install-info \
 	            --info-dir=$(DESTDIR)$(infodir) \
 	            $(DESTDIR)$(infodir)/$(info_name); \
-	    fi
+	    fi \
 	fi
 
 # @@ check AM_UPDATE_INFO_DIR=no
