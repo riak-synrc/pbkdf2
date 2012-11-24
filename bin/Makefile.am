@@ -119,10 +119,10 @@ $(man_file): couchdb.tpl.in
 	$(MAKE) -f Makefile couchdb; \
 	$(top_srcdir)/build-aux/missing --run \
 	    help2man \
-	        --no-info
-	        --help-option="-h"
-	        --version-option="-V"
-	        --name="$(package_name) database server"
+	        --no-info \
+	        --help-option="-h" \
+	        --version-option="-V" \
+	        --name="$(package_name) database server" \
 	        ./couchdb --output $@
 
 install-data-local:

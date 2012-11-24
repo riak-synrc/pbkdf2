@@ -73,10 +73,10 @@ $(man_file): $(COUCHJS_SRCS)
 	$(MAKE) -f Makefile couchjs; \
 	$(top_srcdir)/build-aux/missing --run \
 	    help2man \
-	        --no-info
-	        --help-option="-h"
-	        --version-option="-V"
-	        --name="$(package_name) JavaScript interpreter"
+	        --no-info \
+	        --help-option="-h" \
+	        --version-option="-V" \
+	        --name="$(package_name) JavaScript interpreter" \
 	        ./couchjs --output $@
 
 install-data-local:
