@@ -25,9 +25,10 @@ EXTRA_DIST = \
 	couch_ejson_compare/erl_nif_compat.h \
 	couch_js/sm170.c \
 	couch_js/sm180.c \
-	couch_js/sm185.c
+	couch_js/sm185.c \
+	$(man_file)
 
-CLEANFILES = $(dist_man1_MANS) stat_descriptions.cfg
+CLEANFILES = $(man_file) stat_descriptions.cfg
 
 couchprivlib_LTLIBRARIES = couch_icu_driver.la
 if USE_EJSON_COMPARE_NIF
@@ -125,6 +126,7 @@ if WINDOWS
 endif
 
 uninstall-local:
+	rm -f $(DESTDIR)$(man1dir)/$(man_file)
 	if test -f "$(DESTDIR)$(couchprivlibdir)/couch_erl_driver"; then \
 	    rm -f "$(DESTDIR)$(couchprivlibdir)/couch_erl_driver.so"; \
 	fi

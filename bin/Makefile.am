@@ -24,7 +24,9 @@ man_file = couchdb.1
 
 BUILT_SOURCES = $(man_file)
 
-CLEANFILES = $(bin_SCRIPTS) $(dist_man1_MANS) $(noinst_SCRIPTS)
+EXTRA_DIST = $(man_file)
+
+CLEANFILES = $(bin_SCRIPTS) $(man_file) $(noinst_SCRIPTS)
 
 transform = @program_transform_name@
 couchdb_command_name = `echo couchdb | sed '$(transform)'`
@@ -130,3 +132,6 @@ install-data-local:
 	    $(INSTALL) -d $(DESTDIR)$(man1dir); \
 	    $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
 	fi
+
+uninstall-local:
+	rm -f $(DESTDIR)$(man1dir)/$(man_file)

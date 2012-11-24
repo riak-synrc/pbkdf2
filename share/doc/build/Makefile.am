@@ -245,6 +245,12 @@ uninstall-local:
 	if test -n "`which install-info`"; then\
 	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_file_inst) ; \
 	fi
+	rm -f $(DESTDIR)$(localdocdir)/$(pdf_file_inst)
+	for file in $(html_files); do \
+	    if test -s $$file; then \
+	        rm -f $(DESTDIR)$(localdocdir)/$$file; \
+	    fi \
+	done
 
 DISTCLEANFILES = \
     info.stamp \
