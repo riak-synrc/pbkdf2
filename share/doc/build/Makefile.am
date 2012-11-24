@@ -188,7 +188,7 @@ pdf.stamp: $(image_files) $(src_files)
 	$(top_srcdir)/build-aux/sphinx-build \
 	    -b latex $(SPHINXOPTS) $(builddir)/latex
 	$(MAKE) -C latex all-pdf
-	$(top_srcdir)/build-aux/sphinx-touch $(pdf_file)
+	$(top_srcdir)/build-aux/sphinx-touch latex/CouchDB.pdf
 	gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
 	@mv -f pdf.tmp $@
 
