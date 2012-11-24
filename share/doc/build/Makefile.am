@@ -242,8 +242,10 @@ install-data-local:
 # @@ check AM_UPDATE_INFO_DIR=no
 uninstall-local:
 	rm -f $(DESTDIR)$(infodir)/$(info_file_inst)
-	if test -n "`which install-info`"; then\
-	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_file_inst) ; \
+	if test -d $(DESTDIR)$(infodir); then \
+	    if test -n "`which install-info`"; then\
+	        install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_file_inst) ; \
+	    fi \
 	fi
 	rm -f $(DESTDIR)$(localdocdir)/$(pdf_file_inst)
 	for file in $(html_files); do \
