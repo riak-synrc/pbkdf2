@@ -43,6 +43,8 @@ EXTRA_DIST = \
     NOTICE \
     README \
     THANKS \
+    build-aux/sphinx-build \
+    build-aux/sphinx-touch \
     license.skip
 
 AUTHORS.gz: $(top_srcdir)/AUTHORS

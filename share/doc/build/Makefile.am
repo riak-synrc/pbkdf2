@@ -55,32 +55,6 @@ html_files = \
     html/_images/futon-editeddoc.png \
     html/_images/futon-overview.png \
     html/_images/futon-replform.png \
-    html/_sources/api/authn.rst \
-    html/_sources/api/configuration.rst \
-    html/_sources/api/database.rst \
-    html/_sources/api/dbmaint.rst \
-    html/_sources/api/design.rst \
-    html/_sources/api/documents.rst \
-    html/_sources/api/local.rst \
-    html/_sources/api/misc.rst \
-    html/_sources/api/reference.rst \
-    html/_sources/api-basics.rst \
-    html/_sources/changes.rst \
-    html/_sources/commonjs.rst \
-    html/_sources/config_reference.rst \
-    html/_sources/configuring.rst \
-    html/_sources/ddocs.rst \
-    html/_sources/errors.rst \
-    html/_sources/http-proxying.rst \
-    html/_sources/index.rst \
-    html/_sources/intro.rst \
-    html/_sources/json-structure.rst \
-    html/_sources/query-servers.rst \
-    html/_sources/os-daemons.rst \
-    html/_sources/range.rst \
-    html/_sources/release.rst \
-    html/_sources/replication.rst \
-    html/_sources/ssl.rst \
     html/_static/ajax-loader.gif \
     html/_static/basic.css \
     html/_static/comment-bright.png \
@@ -122,9 +96,9 @@ html_files = \
     html/index.html \
     html/intro.html \
     html/json-structure.html \
-    html/query-servers.html \
     html/objects.inv \
     html/os-daemons.html \
+    html/query-servers.html \
     html/range.html \
     html/release.html \
     html/replication.html \
@@ -238,16 +212,18 @@ pdf-local:
 html-local:
 	$(MAKE) $(AM_MAKEFLAGS) html.stamp
 
+# @@ check AM_UPDATE_INFO_DIR=no
 install-data-local:
 	$(INSTALL) -d $(DESTDIR)$(infodir)
 	$(INSTALL_DATA) $(info_file) $(DESTDIR)$(infodir)/$(info_name);
-	if test -n "`which install-infoBOZ`"; then\
+	if test -n "`which install-info`"; then\
 	    install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$(info_name); \
 	fi
 
+# @@ check AM_UPDATE_INFO_DIR=no
 uninstall-local:
-	rm -f $(infodir)/$(info_name)
-	if test -n "`which install-infoBOZ`"; then\
+	rm -f $(DESTDIR)$(infodir)/$(info_name)
+	if test -n "`which install-info`"; then\
 	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_name) ; \
 	fi
 
