@@ -43,11 +43,13 @@ SPHINXOPTS = \
 
 # -----------------------------------------------------------------------------
 
-info_name = CouchDB
+info_file_dist = texinfo/CouchDB.info
 
-info_file = texinfo/$(info_name).info
+info_file_inst = CouchDB
 
-pdf_file = latex/CouchDB.pdf.gz
+pdf_file_dist = latex/CouchDB.pdf
+
+pdf_file_inst = CouchDB.pdf.gz
 
 html_files = \
     html/_images/futon-createdb.png \
@@ -142,12 +144,6 @@ src_files = \
     ../src/replication.rst \
     ../src/ssl.rst
 
-dist_localdoc_DATA = \
-    $(info_file) \
-    $(pdf_file)
-
-nobase_dist_localdoc_DATA = $(html_files)
-
 EXTRA_DIST = \
     ../src/conf.py \
     ../demo.mk \
@@ -155,13 +151,20 @@ EXTRA_DIST = \
     ../Makefile.am \
     $(image_files) \
     $(src_files) \
-    html/.buildinfo
+    $(info_file_dist) \
+    $(pdf_file_dist) \
+    $(html_files)
 
-$(pdf_file): pdf
+BUILT_SOURCES = \
+    $(info_file_dist) \
+    $(pdf_file_dist) \
+    $(html_files)
+
+$(pdf_file_dist): pdf
 
 $(html_files): html
 
-$(info_file): info.stamp
+$(info_file_dist): info.stamp
 	@if test -f $@; then :; else \
 	    rm -f info.stamp; \
 	    $(MAKE) $(AM_MAKEFLAGS) info.stamp; \
@@ -173,7 +176,7 @@ info.stamp: $(image_files) $(src_files)
 	$(top_srcdir)/build-aux/sphinx-build \
 	    -b texinfo $(SPHINXOPTS) $(builddir)/texinfo
 	$(MAKE) -C texinfo info
-	$(top_srcdir)/build-aux/sphinx-touch $(info_file)
+	$(top_srcdir)/build-aux/sphinx-touch $(info_file_dist)
 	@mv -f info.tmp $@
 
 $(pdf_file): pdf.stamp
@@ -188,8 +191,8 @@ pdf.stamp: $(image_files) $(src_files)
 	$(top_srcdir)/build-aux/sphinx-build \
 	    -b latex $(SPHINXOPTS) $(builddir)/latex
 	$(MAKE) -C latex all-pdf
-	$(top_srcdir)/build-aux/sphinx-touch latex/CouchDB.pdf
-	gzip -9 < latex/CouchDB.pdf > latex/CouchDB.pdf.gz
+	$(top_srcdir)/build-aux/sphinx-touch $(pdf_file_dist)
+	gzip -9 < $(pdf_file_dist) > $(pdf_file_dist).gz
 	@mv -f pdf.tmp $@
 
 $(html_files): html.stamp
@@ -214,15 +217,27 @@ html-local:
 
 # @@ check AM_UPDATE_INFO_DIR=no
 install-data-local:
-	$(INSTALL) -d $(DESTDIR)$(infodir)
-	if test -s $(info_file); then \
-	    $(INSTALL_DATA) $(info_file) $(DESTDIR)$(infodir)/$(info_name); \
+	if test -s $(info_file_dist); then \
+	    $(INSTALL) -d $(DESTDIR)$(infodir); \
+	    $(INSTALL_DATA) \
+	        $(info_file_dist) $(DESTDIR)$(infodir)/$(info_file_inst); \
 	    if test -n "`which install-info`"; then \
 	        install-info \
 	            --info-dir=$(DESTDIR)$(infodir) \
-	            $(DESTDIR)$(infodir)/$(info_name); \
+	            $(DESTDIR)$(infodir)/$(info_file_inst); \
 	    fi \
 	fi
+	if test -s $(pdf_file_dist); then \
+	    $(INSTALL) -d $(DESTDIR)$(localdocdir); \
+	    $(INSTALL_DATA) \
+	        $(pdf_file_dist).gz $(DESTDIR)$(localdocdir)/$(pdf_file_inst); \
+	fi
+	for file in $(html_files); do \
+	    if test -s $$file; then \
+	        $(INSTALL) -d `dirname $(DESTDIR)$(localdocdir)/$$file`; \
+	        $(INSTALL_DATA) $$file $(DESTDIR)$(localdocdir)/$$file; \
+	    fi \
+	done
 
 # @@ check AM_UPDATE_INFO_DIR=no
 uninstall-local:

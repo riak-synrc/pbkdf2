@@ -107,7 +107,6 @@ couch-config_dev: couch-config.tpl
 	$@ < $<
 	chmod +x $@
 
-
 HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
 # Depend on source files so distributed man pages are not rebuilt for end user.

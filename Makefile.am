@@ -47,38 +47,38 @@ EXTRA_DIST = \
     build-aux/sphinx-touch \
     license.skip
 
-AUTHORS.gz: $(top_srcdir)/AUTHORS
-	-gzip -9 < $< > $@
+AUTHORS.gz: AUTHORS
+	gzip -9 < $< > $@
 
-BUGS.gz: $(top_srcdir)/BUGS
-	-gzip -9 < $< > $@
+BUGS.gz: BUGS
+	gzip -9 < $< > $@
 
-CHANGES.gz: $(top_srcdir)/CHANGES
-	-gzip -9 < $< > $@
+CHANGES.gz: CHANGES
+	gzip -9 < $< > $@
 
-DEVELOPERS.gz: $(top_srcdir)/DEVELOPERS
-	-gzip -9 < $< > $@
+DEVELOPERS.gz: DEVELOPERS
+	gzip -9 < $< > $@
 
-INSTALL.gz: $(top_srcdir)/INSTALL
-	-gzip -9 < $< > $@
+INSTALL.gz: INSTALL
+	gzip -9 < $< > $@
 
-INSTALL.Unix.gz: $(top_srcdir)/INSTALL.Unix
-	-gzip -9 < $< > $@
+INSTALL.Unix.gz: INSTALL.Unix
+	gzip -9 < $< > $@
 
-INSTALL.Windows.gz: $(top_srcdir)/INSTALL.Windows
-	-gzip -9 < $< > $@
+INSTALL.Windows.gz: INSTALL.Windows
+	gzip -9 < $< > $@
 
-LICENSE.gz: $(top_srcdir)/LICENSE
-	-gzip -9 < $< > $@
+LICENSE.gz: LICENSE
+	gzip -9 < $< > $@
 
-NEWS.gz: $(top_srcdir)/NEWS
-	-gzip -9 < $< > $@
+NEWS.gz: NEWS
+	gzip -9 < $< > $@
 
-NOTICE.gz: $(top_srcdir)/NOTICE
-	-gzip -9 < $< > $@
+NOTICE.gz: NOTICE
+	gzip -9 < $< > $@
 
-README.gz: $(top_srcdir)/README
-	-gzip -9 < $< > $@
+README.gz: README
+	gzip -9 < $< > $@
 
 .PHONY: THANKS.gz
 THANKS.gz: $(top_srcdir)/THANKS
