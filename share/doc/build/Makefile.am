@@ -241,9 +241,9 @@ install-data-local:
 
 # @@ check AM_UPDATE_INFO_DIR=no
 uninstall-local:
-	rm -f $(DESTDIR)$(infodir)/$(info_name)
+	rm -f $(DESTDIR)$(infodir)/$(info_file_inst)
 	if test -n "`which install-info`"; then\
-	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_name) ; \
+	    install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_file_inst) ; \
 	fi
 
 DISTCLEANFILES = \

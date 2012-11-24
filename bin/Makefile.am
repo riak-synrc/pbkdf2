@@ -69,16 +69,16 @@ couch-config: couch-config.tpl
 	    -e "s|%bindir%|@bindir@|g" \
 	    -e "s|%localerlanglibdir%|@localerlanglibdir@|g" \
 	    -e "s|%localconfdir%|@localconfdir@|g" \
-		-e "s|%localdatadir%|$(localdatadir)|g" \
-		-e "s|%localbuilddatadir%|$(localdatadir)|g" \
+	    -e "s|%localdatadir%|$(localdatadir)|g" \
+	    -e "s|%localbuilddatadir%|$(localdatadir)|g" \
 	    -e "s|%localstatelogdir%|@localstatelogdir@|g" \
 	    -e "s|%localstatelibdir%|@localstatelibdir@|g" \
 	    -e "s|%localstatedir%|@localstatedir@|g" \
 	    -e "s|%localstaterundir%|@localstaterundir@|g" \
-		-e "s|%couchlibdir%|@localerlanglibdir@/couch-%version%|g"\
-		-e "s|%couchincludedir%|@localerlanglibdir@/include|g"\
-		-e "s|%couchebindir%|@localerlanglibdir@/ebin|g"\
-		-e "s|%couchprivlibdir%|@localerlanglibdir@/couch-%version%/priv/lib|g"\
+	    -e "s|%couchlibdir%|@localerlanglibdir@/couch-%version%|g"\
+	    -e "s|%couchincludedir%|@localerlanglibdir@/include|g"\
+	    -e "s|%couchebindir%|@localerlanglibdir@/ebin|g"\
+	    -e "s|%couchprivlibdir%|@localerlanglibdir@/couch-%version%/priv/lib|g"\
 	    -e "s|%bug_uri%|@bug_uri@|g" \
 	    -e "s|%package_author_address%|@package_author_address@|g" \
 	    -e "s|%package_author_name%|@package_author_name@|g" \
@@ -92,17 +92,17 @@ couch-config_dev: couch-config.tpl
 	sed -e "s|%ERL%|$(ERL)|g" \
 	    -e "s|%bindir%|$(abs_top_builddir)/bin|g" \
 	    -e "s|%localerlanglibdir%|$(abs_top_builddir)\/src\/couchdb|g" \
-		-e "s|%couchlibdir%|$(abs_top_builddir)\/src\/couchdb|g"\
-		-e "s|%couchincludedir%|$(abs_top_builddir)\/src\/couchdb|g"\
-		-e "s|%couchebindir%|$(abs_top_builddir)\/src\/couchdb|g"\
-		-e "s|%couchprivlibdir%|$(abs_top_builddir)/src/couchdb/priv/.libs|g"\
-		-e "s|%localdatadir%|$(abs_top_srcdir)/share|g" \
-		-e "s|%localbuilddatadir%|$(abs_top_builddir)/share|g" \
+	    -e "s|%couchlibdir%|$(abs_top_builddir)\/src\/couchdb|g"\
+	    -e "s|%couchincludedir%|$(abs_top_builddir)\/src\/couchdb|g"\
+	    -e "s|%couchebindir%|$(abs_top_builddir)\/src\/couchdb|g"\
+	    -e "s|%couchprivlibdir%|$(abs_top_builddir)/src/couchdb/priv/.libs|g"\
+	    -e "s|%localdatadir%|$(abs_top_srcdir)/share|g" \
+	    -e "s|%localbuilddatadir%|$(abs_top_builddir)/share|g" \
 	    -e "s|%localstatelibdir%|$(abs_top_builddir)/tmp/lib|g" \
 	    -e "s|%localstatelogdir%|$(abs_top_builddir)/tmp/log|g" \
-		-e "s|%localstatedir%|$(abs_top_builddir)/tmp|g" \
+	    -e "s|%localstatedir%|$(abs_top_builddir)/tmp|g" \
 	    -e "s|%localstaterundir%|$(abs_top_builddir)/tmp/run|g" \
-		-e "s|%bug_uri%|@bug_uri@|g" \
+	    -e "s|%bug_uri%|@bug_uri@|g" \
 	    -e "s|%package_author_address%|@package_author_address@|g" \
 	    -e "s|%package_author_name%|@package_author_name@|g" \
 	    -e "s|%package_name%|@package_name@|g" \
