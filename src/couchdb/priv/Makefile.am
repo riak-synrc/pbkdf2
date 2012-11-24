@@ -13,8 +13,11 @@
 couchlibdir = $(localerlanglibdir)/couch-$(version)
 couchprivdir = $(couchlibdir)/priv
 couchprivlibdir = $(couchlibdir)/priv/lib
+man1dir = $(mandir)/man1
 
-dist_man1_MANS = couchjs.1
+man_file = couchjs.1
+
+BUILT_SOURCES = $(man_file)
 
 EXTRA_DIST = \
 	spawnkillable/couchspawnkillable.sh \
@@ -64,15 +67,23 @@ couchjs_LDADD = $(CURL_LIBS) $(JS_LIBS)
 couchpriv_DATA = stat_descriptions.cfg
 couchpriv_PROGRAMS = couchspawnkillable
 
-HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
-
 # Depend on source files so distributed man pages are not rebuilt for end user.
 
-couchjs.1: $(COUCHJS_SRCS)
+$(man_file): $(COUCHJS_SRCS)
 	$(MAKE) -f Makefile couchjs; \
 	$(top_srcdir)/build-aux/missing --run \
-	    help2man $(HELP2MAN_OPTION) \
-	    --name="$(package_name) JavaScript interpreter" ./couchjs --output $@
+	    help2man \
+	        --no-info
+	        --help-option="-h"
+	        --version-option="-V"
+	        --name="$(package_name) JavaScript interpreter"
+	        ./couchjs --output $@
+
+install-data-local:
+	if test `cat $(man_file) | wc -l` -gt 1; then \
+	    $(INSTALL) -d $(DESTDIR)$(man1dir); \
+	    $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
+	fi
 
 %.cfg: %.cfg.in
 	cp $< $@

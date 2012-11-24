@@ -16,9 +16,13 @@ else
 bin_SCRIPTS = couchdb couch-config
 endif
 
+man1dir = $(mandir)/man1
+
 noinst_SCRIPTS = couchjs_dev couch-config_dev
 
-dist_man1_MANS = couchdb.1
+man_file = couchdb.1
+
+BUILT_SOURCES = $(man_file)
 
 CLEANFILES = $(bin_SCRIPTS) $(dist_man1_MANS) $(noinst_SCRIPTS)
 
@@ -107,12 +111,22 @@ couch-config_dev: couch-config.tpl
 	$@ < $<
 	chmod +x $@
 
-HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
+HELP2MAN_OPTION=
 
 # Depend on source files so distributed man pages are not rebuilt for end user.
 
-couchdb.1: couchdb.tpl.in
+$(man_file): couchdb.tpl.in
 	$(MAKE) -f Makefile couchdb; \
 	$(top_srcdir)/build-aux/missing --run \
-	    help2man $(HELP2MAN_OPTION) \
-	    --name="$(package_name) database server" ./couchdb --output $@
+	    help2man \
+	        --no-info
+	        --help-option="-h"
+	        --version-option="-V"
+	        --name="$(package_name) database server"
+	        ./couchdb --output $@
+
+install-data-local:
+	if test `cat $(man_file) | wc -l` -gt 1; then \
+	    $(INSTALL) -d $(DESTDIR)$(man1dir); \
+	    $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
+	fi
