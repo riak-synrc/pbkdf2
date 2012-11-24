@@ -541,7 +541,7 @@ if test x${HAS_HELP2MAN} = x; then
     if test x${strictness_enabled} = xyes; then
         AC_MSG_ERROR([Could not find the `help2man' executable.])
     else
-        AC_MSG_WARN([You will be unable to regenerate any man pages.])
+        AC_MSG_WARN([You will be unable to regenerate man pages.])
     fi
 fi
 
@@ -587,7 +587,7 @@ if test x${HAS_SPHINX_BUILD} = x; then
     if test x${strictness_enabled} = xyes; then
         AC_MSG_ERROR([Could not find the `sphinx-build' executable.])
     else
-        AC_MSG_WARN([You will be unable to regenerate any documentation.])
+        AC_MSG_WARN([You will be unable to regenerate documentation.])
     fi
 fi
 

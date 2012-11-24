@@ -110,11 +110,10 @@ couch-config_dev: couch-config.tpl
 
 HELP2MAN_OPTION=--no-info --help-option="-h" --version-option="-V"
 
-# Because the scripts are made at build time for the user we need to depend on
-# the original templates so as not to cause the rebuilding of the man pages.
+# Depend on source files so distributed man pages are not rebuilt for end user.
 
 couchdb.1: couchdb.tpl.in
 	$(MAKE) -f Makefile couchdb; \
 	$(top_srcdir)/build-aux/missing --run \
 	    help2man $(HELP2MAN_OPTION) \
-	    --name="Apache CouchDB database server" ./couchdb --output $@
+	    --name="$(package_name) database server" ./couchdb --output $@
