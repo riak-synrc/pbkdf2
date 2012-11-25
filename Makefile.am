@@ -163,6 +163,9 @@ dist-hook:
 	find $(top_builddir) -type f -name "._*" -exec rm -f {} \;
 
 distcheck-hook:
+	$(MAKE) -C bin distcheck-hook
+	$(MAKE) -C src/couchdb/priv distcheck-hook
+	$(MAKE) -C share/doc/build distcheck-hook
 	grep -rL 'http://www.apache.org/licenses/LICENSE-2.0' * \
             | grep --include= -vEf license.skip; \
         test "$$?" -eq 1
