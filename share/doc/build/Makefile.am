@@ -61,9 +61,21 @@ info_file_dist = texinfo/CouchDB.info
 
 info_file_inst = CouchDB
 
+if BUILD_INFO
+info_file_build = $(info_file_dist)
+else
+info_file_build =
+endif
+
 pdf_file_dist = latex/CouchDB.pdf
 
 pdf_file_inst = CouchDB.pdf.gz
+
+if BUILD_PDF
+pdf_file_build = $(pdf_file_dist)
+else
+pdf_file_build =
+endif
 
 html_files = \
     html/_images/futon-createdb.png \
@@ -122,6 +134,12 @@ html_files = \
     html/searchindex.js \
     html/ssl.html
 
+if BUILD_HTML
+html_file_build = $(html_files)
+else
+html_file_build =
+endif
+
 image_files = \
     ../images/epub-icon.png \
     ../images/futon-createdb.png \
@@ -165,14 +183,14 @@ EXTRA_DIST = \
     ../Makefile.am \
     $(image_files) \
     $(src_files) \
-    $(info_file_dist) \
-    $(pdf_file_dist) \
-    $(html_files)
+    $(info_file_build) \
+    $(pdf_file_build) \
+    $(html_files_build)
 
 BUILT_SOURCES = \
-    $(info_file_dist) \
-    $(pdf_file_dist) \
-    $(html_files)
+    $(info_file_build) \
+    $(pdf_file_build) \
+    $(html_files_build)
 
 $(pdf_file_dist): pdf
 
@@ -193,7 +211,7 @@ info.stamp: $(image_files) $(src_files)
 	$(top_srcdir)/build-aux/sphinx-touch $(info_file_dist)
 	@mv -f info.tmp $@
 
-$(pdf_file): pdf.stamp
+$(pdf_file_dist): pdf.stamp
 	@if test -f $@; then :; else \
 	    rm -f pdf.stamp; \
 	    $(MAKE) $(AM_MAKEFLAGS) pdf.stamp; \

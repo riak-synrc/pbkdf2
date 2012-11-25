@@ -23,16 +23,16 @@ noinst_SCRIPTS = couchjs_dev couch-config_dev
 man_file = couchdb.1
 
 if BUILD_MAN
-build_man_file = $(man_file)
+man_file_build = $(man_file)
 else
-build_man_file =
+man_file_build =
 endif
 
-BUILT_SOURCES = $(build_man_file)
+BUILT_SOURCES = $(man_file_build)
 
-EXTRA_DIST = $(build_man_file)
+EXTRA_DIST = $(man_file_build)
 
-CLEANFILES = $(bin_SCRIPTS) $(build_man_file) $(noinst_SCRIPTS)
+CLEANFILES = $(bin_SCRIPTS) $(man_file_build) $(noinst_SCRIPTS)
 
 transform = @program_transform_name@
 couchdb_command_name = `echo couchdb | sed '$(transform)'`

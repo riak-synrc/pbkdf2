@@ -18,12 +18,12 @@ man1dir = $(mandir)/man1
 man_file = couchjs.1
 
 if BUILD_MAN
-build_man_file = $(man_file)
+man_file_build = $(man_file)
 else
-build_man_file =
+man_file_build =
 endif
 
-BUILT_SOURCES = $(build_man_file)
+BUILT_SOURCES = $(man_file_build)
 
 EXTRA_DIST = \
 	spawnkillable/couchspawnkillable.sh \
@@ -32,9 +32,9 @@ EXTRA_DIST = \
 	couch_js/sm170.c \
 	couch_js/sm180.c \
 	couch_js/sm185.c \
-	$(build_man_file)
+	$(man_file_build)
 
-CLEANFILES = $(build_man_file) stat_descriptions.cfg
+CLEANFILES = $(man_file_build) stat_descriptions.cfg
 
 couchprivlib_LTLIBRARIES = couch_icu_driver.la
 if USE_EJSON_COMPARE_NIF
