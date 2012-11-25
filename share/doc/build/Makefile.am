@@ -36,6 +36,8 @@
 
 # @@ distcheck is not actually running `check`
 
+# @@ fail configure if pygments is not found
+
 # @@ should be possible to:
 # @@ run the code checks & docs checks separately
 # @@ distcheck should do A as above
@@ -306,6 +308,6 @@ distcheck-hook:
 	fi
 	for file in $(html_files); do \
 	    if test ! -s $$file; then \
-	        $(top_srcdir)/build-aux/dist-error $$file; \
+	        $(top_srcdir)/build-aux/dist-error $$file || break; \
 	    fi \
 	done
