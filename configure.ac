@@ -591,6 +591,20 @@ if test x${HAS_SPHINX_BUILD} = x; then
     fi
 fi
 
+if test x${HAS_HELP2MAN} = x; then
+    build_man=yes
+fi
+
+if test x${HAS_SPHINX_BUILD} = x; then
+    build_html=yes
+    if test x${HAS_MAKEINFO} = x; then
+        build_info=yes
+    fi    
+    if test x${HAS_PDFLATEX} = x; then
+        build_pdf=yes
+    fi
+fi
+
 if test x${strictness_enabled} = xyes; then
     AX_PYTHON_MODULE([pygments], [fatal])
 else
@@ -604,6 +618,11 @@ AM_CONDITIONAL([INIT], [test x${init_enabled} = xtrue])
 AM_CONDITIONAL([LAUNCHD], [test x${launchd_enabled} = xtrue])
 AM_CONDITIONAL([USE_NATIVE_MOCHIJSON], [test x${native_mochijson_enabled} = xyes])
 AM_CONDITIONAL([USE_CURL], [test x${use_curl} = xyes])
+
+AM_CONDITIONAL([BUILD_MAN], [test x${build_man} = xyes])
+AM_CONDITIONAL([BUILD_INFO], [test x${build_info} = xyes])
+AM_CONDITIONAL([BUILD_PDF], [test x${build_pdf} = xyes])
+AM_CONDITIONAL([BUILD_HTML], [test x${build_html} = xyes])
 
 AM_CONDITIONAL([TESTS], [test x${tests_enabled} = xyes])
 AM_CONDITIONAL([STRICTNESS], [test x${strictness_enabled} = xyes])

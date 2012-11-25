@@ -34,6 +34,13 @@
 
 # @@ sort out sphinx variables in this file
 
+# @@ distcheck is not actually running `check`
+
+# @@ should be possible to:
+# @@ run the code checks & docs checks separately
+# @@ distcheck should do A as above
+# @@ it should be possible for endusers to build couch without docs or checks running
+
 # -----------------------------------------------------------------------------
 
 SPHINXOPTS = \

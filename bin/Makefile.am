@@ -22,11 +22,17 @@ noinst_SCRIPTS = couchjs_dev couch-config_dev
 
 man_file = couchdb.1
 
-BUILT_SOURCES = $(man_file)
+if BUILD_MAN
+build_man_file = $(man_file)
+else
+build_man_file =
+endif
 
-EXTRA_DIST = $(man_file)
+BUILT_SOURCES = $(build_man_file)
 
-CLEANFILES = $(bin_SCRIPTS) $(man_file) $(noinst_SCRIPTS)
+EXTRA_DIST = $(build_man_file)
+
+CLEANFILES = $(bin_SCRIPTS) $(build_man_file) $(noinst_SCRIPTS)
 
 transform = @program_transform_name@
 couchdb_command_name = `echo couchdb | sed '$(transform)'`
@@ -128,9 +134,11 @@ $(man_file): couchdb.tpl.in
 	        ./couchdb --output $@
 
 install-data-local:
-	if test `cat $(man_file) | wc -l` -gt 1; then \
-	    $(INSTALL) -d $(DESTDIR)$(man1dir); \
-	    $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
+	if test -s $(man_file); then \
+	    if test `cat $(man_file) | wc -l` -gt 1; then \
+	        $(INSTALL) -d $(DESTDIR)$(man1dir); \
+	        $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
+	    fi \
 	fi
 
 uninstall-local:

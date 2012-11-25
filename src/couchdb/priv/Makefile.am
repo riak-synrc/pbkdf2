@@ -17,7 +17,13 @@ man1dir = $(mandir)/man1
 
 man_file = couchjs.1
 
-BUILT_SOURCES = $(man_file)
+if BUILD_MAN
+build_man_file = $(man_file)
+else
+build_man_file =
+endif
+
+BUILT_SOURCES = $(build_man_file)
 
 EXTRA_DIST = \
 	spawnkillable/couchspawnkillable.sh \
@@ -26,9 +32,9 @@ EXTRA_DIST = \
 	couch_js/sm170.c \
 	couch_js/sm180.c \
 	couch_js/sm185.c \
-	$(man_file)
+	$(build_man_file)
 
-CLEANFILES = $(man_file) stat_descriptions.cfg
+CLEANFILES = $(build_man_file) stat_descriptions.cfg
 
 couchprivlib_LTLIBRARIES = couch_icu_driver.la
 if USE_EJSON_COMPARE_NIF
@@ -81,9 +87,11 @@ $(man_file): $(COUCHJS_SRCS)
 	        ./couchjs --output $@
 
 install-data-local:
-	if test `cat $(man_file) | wc -l` -gt 1; then \
-	    $(INSTALL) -d $(DESTDIR)$(man1dir); \
-	    $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
+	if test -s $(man_file); then \
+	    if test `cat $(man_file) | wc -l` -gt 1; then \
+	        $(INSTALL) -d $(DESTDIR)$(man1dir); \
+	        $(INSTALL_DATA) $(man_file) $(DESTDIR)$(man1dir)/$(man_file); \
+	    fi \
 	fi
 
 %.cfg: %.cfg.in
