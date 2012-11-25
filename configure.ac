@@ -10,6 +10,8 @@ dnl WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 dnl License for the specific language governing permissions and limitations
 dnl under the License.
 
+dnl @@ ./configure --help output is badly formatted
+
 AC_INIT(
     [LOCAL_PACKAGE_NAME],
     [LOCAL_VERSION],
@@ -591,16 +593,16 @@ if test x${HAS_SPHINX_BUILD} = x; then
     fi
 fi
 
-if test x${HAS_HELP2MAN} = x; then
+if test x${HAS_HELP2MAN} = xyes; then
     build_man=yes
 fi
 
-if test x${HAS_SPHINX_BUILD} = x; then
+if test x${HAS_SPHINX_BUILD} = xyes; then
     build_html=yes
-    if test x${HAS_MAKEINFO} = x; then
+    if test x${HAS_MAKEINFO} = xyes; then
         build_info=yes
     fi    
-    if test x${HAS_PDFLATEX} = x; then
+    if test x${HAS_PDFLATEX} = xyes; then
         build_pdf=yes
     fi
 fi

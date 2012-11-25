@@ -41,6 +41,13 @@
 # @@ distcheck should do A as above
 # @@ it should be possible for endusers to build couch without docs or checks running
 
+# @@ problems with this image:
+# @@ ubuntu/images/ebs/ubuntu-precise-12.04-amd64-server-20121001 (ami-3d4ff254)
+# @@ solved by running some commands on:
+# @@ http://wiki.apache.org/couchdb/Installing_on_Ubuntu
+# @@ but dont know why
+# @@ oh, probably because i didn't install build-essential
+
 # -----------------------------------------------------------------------------
 
 SPHINXOPTS = \
