@@ -17,7 +17,7 @@
 # the environment allows. But these files are required for distribution.
 
 cat << EOF
-ERROR: The following file is missing or incomplete:
+ERROR: This file is missing or incomplete:
 
        $1
 
