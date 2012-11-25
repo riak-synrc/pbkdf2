@@ -146,7 +146,7 @@ uninstall-local:
 
 distcheck-hook:
 	if test ! -s $(man_file); then \
-	    $(top_srcdir)/build-aux/dist-error $(man_file)
+	    $(top_srcdir)/build-aux/dist-error $(man_file); \
 	else \
 	    if test ! `cat $(man_file) | wc -l` -gt 1; then \
 	        $(top_srcdir)/build-aux/dist-error $(man_file); \
