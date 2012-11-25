@@ -24,3 +24,5 @@ ERROR: The following file is missing or incomplete:
        This file is optional at build and install time,
        but is required when preparing a distribution.
 EOF
+
+exit 1
