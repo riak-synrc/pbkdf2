@@ -313,6 +313,6 @@ distcheck-hook:
 	fi
 	for file in $(html_files); do \
 	    if test ! -s $$file; then \
-	        $(top_srcdir)/build-aux/dist-error $$file || break; \
-	    fi \
+	        $(top_srcdir)/build-aux/dist-error $$file; \
+	    fi || break\
 	done
