@@ -40,10 +40,10 @@ You can install the dependencies by running:
     sudo apt-get install autoconf
     sudo apt-get install autoconf-archive
     sudo apt-get install pkg-config
-    
+
 Optional dependencies:
-    
-    sudo apt-get install python-sphinx 
+
+    sudo apt-get install python-sphinx
     sudo apt-get install texlive-latex-base
     sudo apt-get install texlive-latex-recommended
     sudo apt-get install texlive-latex-extra
@@ -60,7 +60,7 @@ You can install the dependencies by running:
 
     brew install libtool
     brew install automake
-    brew install autoconf 
+    brew install autoconf
     brew install autoconf-archive
     brew install pkg-config
     @@ sphinx
