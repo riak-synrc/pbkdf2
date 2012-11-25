@@ -257,8 +257,9 @@ install-data-local:
 	        $(info_file_dist) $(DESTDIR)$(infodir)/$(info_file_inst); \
 	    if test -n "`which install-info`"; then \
 	        install-info \
-	            --info-dir=$(DESTDIR)$(infodir) \
-	            $(DESTDIR)$(infodir)/$(info_file_inst); \
+	            $(DESTDIR)$(infodir)/$(info_file_inst) \
+	            $(DESTDIR)$(infodir)/dir \
+	        || true; \
 	    fi \
 	fi
 	if test -s $(pdf_file_dist); then \
@@ -278,7 +279,11 @@ uninstall-local:
 	rm -f $(DESTDIR)$(infodir)/$(info_file_inst)
 	if test -d $(DESTDIR)$(infodir); then \
 	    if test -n "`which install-info`"; then\
-	        install-info --delete --info-dir=$(DESTDIR)$(infodir) $(info_file_inst) ; \
+	        install-info \
+	            --delete \
+	            $(DESTDIR)$(infodir)/$(info_file_inst) \
+	            $(DESTDIR)$(infodir)/dir \
+	        || true; \
 	    fi \
 	fi
 	rm -f $(DESTDIR)$(localdocdir)/$(pdf_file_inst)
