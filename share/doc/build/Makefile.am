@@ -296,3 +296,16 @@ distclean-local:
 	rm -fr html
 	rm -fr latex
 	rm -fr texinfo
+
+distcheck-hook:
+	if test ! -s $(info_file_dist); then\
+	    $(top_srcdir)/build-aux/dist-error $(info_file_dist)
+	fi
+	if test ! -s $(pdf_file_dist); then\
+	    $(top_srcdir)/build-aux/dist-error $(pdf_file_dist)
+	fi
+	for file in $(html_files); do \
+	    if test ! -s $$file; then \
+	        $(top_srcdir)/build-aux/dist-error $$file; \
+	    fi \
+	done
