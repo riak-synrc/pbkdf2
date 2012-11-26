@@ -311,8 +311,11 @@ distcheck-hook:
 	if test ! -s $(pdf_file_dist); then \
 	    $(top_srcdir)/build-aux/dist-error $(pdf_file_dist); \
 	fi
+	exit_code=0; \
 	for file in $(html_files); do \
 	    if test ! -s $$file; then \
+	        exit_code=1; \
 	        $(top_srcdir)/build-aux/dist-error $$file || break; \
 	    fi \
-	done
+	done; \
+	exit $exit_code;
