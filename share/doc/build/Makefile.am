@@ -318,4 +318,4 @@ distcheck-hook:
 	        $(top_srcdir)/build-aux/dist-error $$file || break; \
 	    fi \
 	done; \
-	exit $exit_code;
+	exit $$exit_code;
