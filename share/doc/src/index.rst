@@ -13,8 +13,8 @@
 Apache CouchDB Documentation
 ============================
 
-`Apache CouchDB™ <http://couchdb.apache.org/>`_ is a database that uses JSON for
-documents, JavaScript for MapReduce queries, and regular HTTP for an API
+`Apache CouchDB™ <http://couchdb.apache.org/>`_ is a database that uses JSON
+for documents, JavaScript for MapReduce queries, and regular HTTP for an API
 
 At the moment, this documentation only covers the basics of CouchDB. In
 subsequent releases we hope to expand the documentation significantly. If you
