@@ -63,7 +63,3 @@ texinfo_documents = [(
        "Databases",
        True
 )]
-
-rst_epilog = """
-.. |tm| unicode:: 0xA9 .. copyright sign
-"""
