@@ -80,7 +80,8 @@ NOTICE.gz: NOTICE
 README.gz: README
 	gzip -9 < $< > $@
 
-.PHONY: THANKS.gz
+# @@ This is a bodge and needs to be fixed. Additionally, attempting to build a
+# @@ distribution from a distribution will fail because there is no Git dir.
 THANKS.gz: $(top_srcdir)/THANKS
 	@sed -e '/^#.*/d' $< > $(top_builddir)/THANKS.tmp
 	@git shortlog -se 6c976bd..HEAD \
