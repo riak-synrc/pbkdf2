@@ -10,16 +10,20 @@
 .. License for the specific language governing permissions and limitations under
 .. the License.
 
-.. CouchDB documentation master file, created by
-   sphinx-quickstart on Tue Jul 31 20:52:16 2012.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Apache CouchDB Documentation
 ============================
 
-Contents:
+`Apache CouchDB™ <http://couchdb.apache.org/>`_ is a database that uses JSON for
+documents, JavaScript for MapReduce queries, and regular HTTP for an API
 
+At the moment, this documentation only covers the basics of CouchDB. In
+subsequent releases we hope to expand the documentation significantly. If you
+would like to help with that, please subscribe to the `developer mailing list
+<http://couchdb.apache.org/#mailing-list>`_ and give a shout.
+
+Contents
+========
+   
 .. toctree::
     :maxdepth: 2
 
@@ -40,10 +44,3 @@ Contents:
     release
     api/reference
     json-structure
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

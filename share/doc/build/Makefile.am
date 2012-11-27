@@ -50,6 +50,8 @@
 # @@ but dont know why
 # @@ oh, probably because i didn't install build-essential
 
+# @@ design CouchDB theme
+
 # -----------------------------------------------------------------------------
 
 SPHINXOPTS = \
@@ -304,6 +306,7 @@ distclean-local:
 	rm -fr latex
 	rm -fr texinfo
 
+# We handle exit code manually. Please fix if there is a better way.
 distcheck-hook:
 	if test ! -s $(info_file_dist); then \
 	    $(top_srcdir)/build-aux/dist-error $(info_file_dist); \

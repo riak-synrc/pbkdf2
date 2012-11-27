@@ -10,8 +10,6 @@
 ## License for the specific language governing permissions and limitations under
 ## the License.
 
-# http://sphinx.pocoo.org/config.html
-
 import sys, os
 
 extensions = ["sphinx.ext.todo"]
@@ -22,75 +20,46 @@ master_doc = "index"
 
 nitpicky = True
 
-# CouchDB ##############################################################
-# These will be over-ridden during make dist but are listed here
-# to ensure that the readthedocs.org build has version numbers present
-# The short X.Y version.
-#version = "@@"
-version = "latest"
-# The full version, including alpha/beta/rc tags.
-# release = None
-#release = "@@"
-release = "latest"
+version = "1.3"
 
-#project = "@@"
-project = u'Apache CouchDB'
+release = "1.3.0"
 
-#copyright = "@@"
-copyright = u'2012, Apache Software Foundation'
+project = u"Apache CouchDB"
+
+copyright = u"2012, The Apache Software Foundation"
 
 highlight_language = "json"
 
 pygments_style = "sphinx"
 
-# @@ design CouchDB theme
-# @@ http://jinja.pocoo.org/docs/ looks nice
-
 html_theme = "default"
 
-# inherit from project title
-#html_short_title = "@@"
+html_logo = "" # @@ waiting on logo
 
-html_logo = ""
-
-html_favicon = ""
-
-html_use_opensearch = ""
-
-html_add_permalinks = True
+html_favicon = "../images/favicon.ico"
 
 text_newlines = "native"
-
-# use this for excluding docs from final build
-# unused_docs = ["src/tmp/*.rst"]
 
 latex_documents = [(
        "index",
        "CouchDB.tex",
-       "",
+       project,
        "",
        "manual",
        True
 )]
 
-# latex_paper_size = 'a4paper'
-
 latex_elements = {
-    'papersize':'a4paper'
-    }
+    "papersize":"a4paper"
+}
 
 texinfo_documents = [(
        "index",
        "CouchDB",
+       project,
        "",
-       "",
-       "dir_entry",
-       "description",
-       "category",
-       "manual",
+       "CouchDB",
+       "The Apache CouchDB database",
+       "Databases",
        True
 )]
-
-rst_epilog = """
-.. |psf| replace:: Apache Software Foundation
-"""
