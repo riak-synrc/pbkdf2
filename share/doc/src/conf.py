@@ -34,7 +34,64 @@ pygments_style = "sphinx"
 
 html_theme = "default"
 
-html_logo = "" # @@ waiting on logo
+html_theme_options = {
+
+	"footerbgcolor": "#465158", #
+	"footertextcolor": "#ffffff",
+	"sidebarbgcolor": "#E8ECEF", #
+	"sidebarbtncolor": "#3c6e83",
+	"sidebartextcolor": "#444444", #
+	"sidebarlinkcolor": "#444444", #
+	"relbarbgcolor": "#465158", #
+	"relbartextcolor": "#ffffff",
+	"relbarlinkcolor": "#ffffff",
+	"bgcolor": "#ffffff",
+	"textcolor": "#000000",
+	"headbgcolor": "inherit", #
+	"headtextcolor": "#111111", #
+	"headlinkcolor": "#111111", #
+	"linkcolor": "#355f7c",
+	"visitedlinkcolor": "#355f7c",
+	"codebgcolor": "#eeffcc",
+	"codetextcolor": "#333333",
+
+}
+
+# 
+# [theme]
+# inherit = basic
+# stylesheet = default.css
+# pygments_style = sphinx
+# 
+# [options]
+# rightsidebar = false
+# stickysidebar = false
+# collapsiblesidebar = false
+# externalrefs = false
+# 
+# footerbgcolor    = #11303d
+# footertextcolor  = #ffffff
+# sidebarbgcolor   = #1c4e63
+# sidebarbtncolor  = #3c6e83
+# sidebartextcolor = #ffffff
+# sidebarlinkcolor = #98dbcc
+# relbarbgcolor    = #133f52
+# relbartextcolor  = #ffffff
+# relbarlinkcolor  = #ffffff
+# bgcolor          = #ffffff
+# textcolor        = #000000
+# headbgcolor      = #f2f2f2
+# headtextcolor    = #20435c
+# headlinkcolor    = #c60f0f
+# linkcolor        = #355f7c
+# visitedlinkcolor = #355f7c
+# codebgcolor      = #eeffcc
+# codetextcolor    = #333333
+# 
+# bodyfont = sans-serif
+# headfont = 'Trebuchet MS', sans-serif
+
+html_logo = "../images/logo.png" # @@ waiting on logo
 
 html_favicon = "../images/favicon.ico"
 

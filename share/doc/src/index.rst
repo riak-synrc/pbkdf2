@@ -13,8 +13,8 @@
 Apache CouchDB Documentation
 ============================
 
-`Apache CouchDB™ <http://couchdb.apache.org/>`_ is a database that uses JSON
-for documents, JavaScript for MapReduce queries, and regular HTTP for an API
+|Apache CouchDB(TM)|_ is a database that uses JSON for documents, JavaScript for
+MapReduce queries, and regular HTTP for an API
 
 At the moment, this documentation only covers the basics of CouchDB. In
 subsequent releases we hope to expand the documentation significantly. If you
@@ -44,3 +44,7 @@ Contents
     release
     api/reference
     json-structure
+
+.. This is how you get a TM sign into a link. Haha. Seriously.
+.. |Apache CouchDB(TM)| unicode:: Apache U+0020 CouchDB U+2122
+.. _Apache CouchDB(TM): http://couchdb.apache.org/
