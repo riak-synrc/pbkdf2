@@ -24,29 +24,29 @@ made, can be obtained from the database's ``_changes`` resource. You can query
 the ``_changes`` resource by issuing a ``GET`` request with the following
 (optional) parameters:
 
-+--------------+--------------------------------+---------------+--------------+
-| Parameter    | Value                          | Default Value |  Notes       |
-+==============+================================+===============+==============+
-| since        | seqnum / now                   | 0             | \(1)         |
-+--------------+--------------------------------+---------------+--------------+
-| limit        | maxsequences                   | none          | \(2)         |
-+--------------+--------------------------------+---------------+--------------+
-| descending   | boolean                        | false         | \(3)         |
-+--------------+--------------------------------+---------------+--------------+
-| feed         | normal / longpoll / continuous | normal        | \(4)         |
-+--------------+--------------------------------+---------------+--------------+
-| heartbeat    | milliseconds                   | 60000         | \(5)         |
-+--------------+--------------------------------+---------------+--------------+
-| timeout      | milliseconds                   | 60000         | \(6)         |
-+--------------+--------------------------------+---------------+--------------+
-| filter       | designdoc/filtername / _view   | none          | \(7)         |
-+--------------+--------------------------------+---------------+--------------+
-| include_docs | boolean                        | false         | \(8)         |
-+--------------+--------------------------------+---------------+--------------+
-| style        | all_docs / main_only           | main_only     | \(9)         |
-+--------------+--------------------------------+---------------+--------------+
-| view         | designdoc/filtername           | none          | \(10)        |
-+--------------+--------------------------------+---------------+--------------+
++--------------+----------------------------------------------+---------------+--------------+
+| Parameter    | Value                                        | Default Value |  Notes       |
++==============+==============================================+===============+==============+
+| since        | seqnum / now                                 | 0             | \(1)         |
++--------------+----------------------------------------------+---------------+--------------+
+| limit        | maxsequences                                 | none          | \(2)         |
++--------------+----------------------------------------------+---------------+--------------+
+| descending   | boolean                                      | false         | \(3)         |
++--------------+----------------------------------------------+---------------+--------------+
+| feed         | normal / longpoll / continuous / eventsource | normal        | \(4)         |
++--------------+----------------------------------------------+---------------+--------------+
+| heartbeat    | milliseconds                                 | 60000         | \(5)         |
++--------------+----------------------------------------------+---------------+--------------+
+| timeout      | milliseconds                                 | 60000         | \(6)         |
++--------------+----------------------------------------------+---------------+--------------+
+| filter       | designdoc/filtername / _view                 | none          | \(7)         |
++--------------+----------------------------------------------+---------------+--------------+
+| include_docs | boolean                                      | false         | \(8)         |
++--------------+----------------------------------------------+---------------+--------------+
+| style        | all_docs / main_only                         | main_only     | \(9)         |
++--------------+----------------------------------------------+---------------+--------------+
+| view         | designdoc/filtername                         | none          | \(10)        |
++--------------+----------------------------------------------+---------------+--------------+
 
 Notes:
 
@@ -98,6 +98,7 @@ Notes:
    for ``filter`` one
 .. versionchanged:: 1.3.0 ``since`` parameter could take `now` value to start
    listen changes since current seq number.
+.. versionchanged:: 1.3.0 ``eventsource`` feed type added.
 
 By default all changes are immediately returned as a JSON object::
 
@@ -180,3 +181,34 @@ Obviously, `... tum tee tum ...` does not appear in the actual response, but
 represents a long pause before the change with seq 6 occurred.  
 
 .. _section in the book: http://books.couchdb.org/relax/reference/change-notifications
+
+Event Source
+============
+
+The `eventsource` feed provides push notifications that can be consumed in
+the form of DOM events in the browser. Refer to theW3C specification for
+`W3 eventsource specification`_ for further details.
+
+.. code-block:: text
+
+    GET /somedatabase/_changes?feed=eventsource HTTP/1.1
+
+.. code-block:: javascript
+
+    // define the event handling function
+    if (window.EventSource) {
+      var source = new EventSource(
+              "/somedatabase/_changes?feed=eventsource");
+      var results = [];
+      var sourceListener = function(e) {
+        var data = JSON.parse(e.data);
+        results.push(data);
+      };
+
+    // start listening for events
+    source.addEventListener('message', sourceListener , false);
+
+    // stop listening for events
+    source.removeEventListener('message', sourceListener , false);
+
+.. _W3 eventsource specification: http://www.w3.org/TR/eventsource/
