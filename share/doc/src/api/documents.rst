@@ -89,7 +89,7 @@ the following request:
        "title" : "Fish Stew"
     }
 
-The return JSON will specify the automatically enerated ID and revision
+The return JSON will specify the automatically generated ID and revision
 information:
 
 .. code-block:: javascript
@@ -134,6 +134,48 @@ ID, and status message:
         
 
 .. _api-batch-writes:
+
+UUID generation algorithms
+--------------------------
+
+CouchDB supports a number of different UUID generation algorithms for use
+in situations where a user-specified UUID does not make sense. These
+can be set simply by `PUT http://couchdb:5984/_config/uuids/algorithm`.
+
+
++---------------+---------------------+----------------------------------+
+| Algorithm     | Description         | Sample UUID                      |
++===============+=====================+==================================+
+| random        | 128 bits of pure    | 43febce5675468a5467fb5467ce9e6c0 |
+|               | random awesomeness  |                                  |
++---------------+---------------------+----------------------------------+
+| sequential    | monotonically       | f755c413badf66b22941313f9f001e28 |
+|               | increasing ids with | f755c413badf66b22941313f9f0024ca |
+|               | random increments   | f755c413badf66b22941313f9f00332c|
++---------------+---------------------+----------------------------------+
+| utc_random    | time since start of | 04cfa405381205204f75100d0241ccc3 |
+|               | epoch, as 14 hex    | 04cfa4059c48e76e7c054bbe033dd8db |
+|               | digits, followed by | 04cfa405fce10b0df4c08f95e667cd2f |
+|               | 18 random digits.   |                                  |
++---------------+---------------------+----------------------------------+
+| utc_id        | time since start of | 04cfa718b00848_i_am_in_yer_couch |
+| & additional  | epoch, as 14 hex    | 04cfa71d377aef_i_am_in_yer_couch |
+| parameter     | digits, followed by | 04cfa71e0deabd_i_am_in_yer_couch |
+|               | utc_id_suffix.      |                                  |
++---------------+---------------------+----------------------------------+
+
+.. Impact of UUID choices::
+   The choice of UUID has a signficant impact on the layout of the B-tree,
+   prior to compaction. For example, a sequential UUID algorithm during
+   uploading thousands of documents, will avoid the need to rewrite many
+   intermediate B-tree nodes. A random UUID algorithm may require rewriting
+   intermediate nodes on a regular basis, with a corresponding decrease of
+   throughput, and significant wasted space due to the append-only B-tree
+   design. It is generally recommended to set your own UUIDs, or use the
+   sequential algorithm unless you have a specific need and take into account
+   the likely need for compaction to re-balance the B-tree and reclaim wasted
+   space.
+
 
 Batch Mode Writes
 -----------------
