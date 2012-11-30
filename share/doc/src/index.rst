@@ -30,6 +30,7 @@ Contents
     intro
     api-basics
     range
+    pretty_urls
     configuring
     ssl
     os-daemons

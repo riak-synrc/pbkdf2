@@ -48,7 +48,7 @@
 # @@ solved by running some commands on:
 # @@ http://wiki.apache.org/couchdb/Installing_on_Ubuntu
 # @@ but dont know why
-# @@ oh, probably because i didn't install build-essential
+# @@ oh, probably because i didn't install buildExamples:-essential
 
 # @@ design CouchDB theme
 
@@ -132,6 +132,7 @@ html_files = \
     html/os-daemons.html \
     html/query-servers.html \
     html/range.html \
+    html/pretty_urls.html \
     html/release.html \
     html/replication.html \
     html/search.html \
@@ -176,6 +177,7 @@ src_files = \
     ../src/query-servers.rst \
     ../src/os-daemons.rst \
     ../src/range.rst \
+    ../src/pretty_urls.rst \
     ../src/release.rst \
     ../src/replication.rst \
     ../src/ssl.rst
