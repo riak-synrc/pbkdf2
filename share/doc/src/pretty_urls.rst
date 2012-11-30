@@ -40,14 +40,14 @@ To add a virtual host, add a CNAME pointer to the DNS for your domain
 name. For development and testing, it is sufficient to add an entry in
 the hosts file, typically `/etc/hosts`` on Unix-like operating systems:
 
-.. code-block:: console
+.. code-block:: bash
 
     # CouchDB vhost definitions, refer to local.ini for further details
     127.0.0.1       sofa.couchdb
 
 Test that this is working:
 
-.. code-block:: console
+.. code-block:: bash
 
     $ ping sofa.couchdb
     PING sofa.couchdb (127.0.0.1) 56(84) bytes of data.
