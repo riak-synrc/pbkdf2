@@ -48,7 +48,7 @@
 # @@ solved by running some commands on:
 # @@ http://wiki.apache.org/couchdb/Installing_on_Ubuntu
 # @@ but dont know why
-# @@ oh, probably because i didn't install buildExamples:-essential
+# @@ oh, probably because i didn't install build-essential
 
 # @@ design CouchDB theme
 
