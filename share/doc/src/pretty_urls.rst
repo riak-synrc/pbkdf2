@@ -70,7 +70,7 @@ With the above setup, a request to ``http://sofa.couchdb:5984/sweet-o``
 will be mapped to
 ``http://127.0.0.1:5984/sofa/_design/sofa/_rewrite/sweet-o``
 
-.. versionchanged:: 0.11.0 added `vhosts` functionality
+.. versionadded:: 0.11.0 added `vhosts` functionality
 
 HTTP Rewrite Handler
 ====================
