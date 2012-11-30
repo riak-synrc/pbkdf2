@@ -93,3 +93,56 @@ Similar to the rewrites section of a ``_design`` document, the
 ``vhosts`` system uses variables in the form of ``:varname`` or wildcards in
 the form of asterisks. The variable results can be output into the
 resulting path as they are in the rewriter.
+
+
+Configuring Server Administrators
+=================================
+
+A default CouchDB install provides admin-level access to all connecting users.
+This configuration is known as ``Admin Party``, and is not recommended for
+in-production usage. You can crash the party simply by creating the first
+admin account. CouchDB server administrators and passwords are not stored
+in the ``_users`` database, but in the ``local.ini`` file, which should be
+appropriately secured and readable only by system administrators.
+
+.. code-block:: ini
+
+    [admins]
+    ;admin = mysecretpassword
+    admin = -hashed-6d3c30241ba0aaa4e16c6ea99224f915687ed8cd,7f4a3e05e0cbc6f48a0035e3508eef90
+    architect = -pbkdf2-43ecbd256a70a3a2f7de40d2374b6c3002918834,921a12f74df0c1052b3e562a23cd227f,10000
+
+Administrators can be added directly to the ``[admins]`` section, and when
+CouchDB is restarted, the passwords will be salted and encrypted. By using
+the HTTP, administrator accounts may be created immediately without needing
+a restart, nor of storing the plaintext password temporarily. The HTTP
+``_config/admins`` endpoint supports querying, deleting or creating new
+administrator accounts:
+
+.. code-block:: bash
+
+    shell> GET /_config/admins HTTP/1.1
+        Accept: application/json
+        Host: localhost:5984
+
+    HTTP/1.1 200 OK
+        Cache-Control: must-revalidate
+        Content-Length: 196
+        Content-Type: application/json
+        Date: Fri, 30 Nov 2012 11:37:18 GMT
+        Server: CouchDB/1.3.0 (Erlang OTP/R15B02)
+
+.. code-block:: json
+
+        {
+            "admin": "-hashed-6d3c30241ba0aaa4e16c6ea99224f915687ed8cd,7f4a3e05e0cbc6f48a0035e3508eef90",
+            "architect": "-pbkdf2-43ecbd256a70a3a2f7de40d2374b6c3002918834,921a12f74df0c1052b3e562a23cd227f,10000"
+        }
+
+Further details are available in ``security_``, including configuring the
+work factor for ``PBKDF2``, and the algorithm itself at
+`PBKDF2 (RFC-2898) <http://tools.ietf.org/html/rfc2898>`_.
+
+.. versionadded::
+    1.3.0 ``PBKDF2`` server-side hashed salted password support added,
+    now as a synchronous call for the ``_config/admins`` API.
