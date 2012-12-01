@@ -311,8 +311,7 @@ For the share/www/script/jquery.js component:
   OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-For the share/www/script/jquery-ui-1.8.11.custom.min.js and
-    share/www/style/jquery-ui-1.8.11.custom.css components:
+For the share/www/script/jquery-ui-* components:
 
   Copyright (c) 2011 Paul Bakaus, http://jqueryui.com/
 
