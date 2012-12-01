@@ -53,13 +53,13 @@ Unfortunately, it seems that installing dependancies on Ubuntu is troublesome.
 Debian-based Systems
 ~~~~~~~~~~~~~~~~~~~~
 
-You can install the build tools by running:
+You can install the dependencies by running:
 
     sudo apt-get install build-essential
-
-You can install the other dependencies by running:
-
-    sudo apt-get install erlang libicu-dev libmozjs-dev libcurl4-openssl-dev
+    sudo apt-get install erlang
+    sudo apt-get install libicu-dev
+    sudo apt-get install libmozjs-dev
+    sudo apt-get install libcurl4-openssl-dev
 
 Be sure to update the version numbers to match your system's available packages.
 
@@ -72,7 +72,10 @@ You can install the build tools by running:
 
 You can install the other dependencies by running:
 
-    brew install erlang icu4c spidermonkey curl
+    brew install erlang
+    brew install icu4c
+    brew install spidermonkey
+    brew install curl
 
 You may want to link ICU so that CouchDB can find the header files automatically:
 
