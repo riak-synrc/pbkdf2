@@ -32,9 +32,9 @@ highlight_language = "json"
 
 pygments_style = "sphinx"
 
-templates_path = ["../templates"]
-
 html_theme = "default"
+
+templates_path = ["../templates"]
 
 html_static_path = ["../static"]
 
@@ -48,7 +48,7 @@ html_sidebars= {
     "**": [
         "localtoc.html",
         "relations.html",
-        "../templates/sidebar.html",
+        "sidebar.html",
     ]
 }
 

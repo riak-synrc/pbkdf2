@@ -50,11 +50,14 @@ html_files = \
     html/_static/doctools.js \
     html/_static/down-pressed.png \
     html/_static/down.png \
+    html/_static/favicon.ico \
     html/_static/file.png \
     html/_static/jquery.js \
+    html/_static/logo.png \
     html/_static/minus.png \
     html/_static/plus.png \
     html/_static/pygments.css \
+    html/_static/rtd.css \
     html/_static/searchtools.js \
     html/_static/sidebar.js \
     html/_static/underscore.js \
@@ -94,18 +97,20 @@ html_files = \
     html/ssl.html
 
 if BUILD_HTML
-html_file_build = $(html_files)
+html_files_build = $(html_files)
 else
-html_file_build =
+html_files_build =
 endif
 
 image_files = \
     ../images/epub-icon.png \
+    ../images/favicon.ico \
     ../images/futon-createdb.png \
     ../images/futon-editdoc.png \
     ../images/futon-editeddoc.png \
     ../images/futon-overview.png \
-    ../images/futon-replform.png
+    ../images/futon-replform.png \
+    ../images/logo.png
 
 src_files = \
     ../src/api/authn.rst \
@@ -120,6 +125,7 @@ src_files = \
     ../src/api-basics.rst \
     ../src/changes.rst \
     ../src/commonjs.rst \
+    ../src/conf.py \
     ../src/config_reference.rst \
     ../src/configuring.rst \
     ../src/ddocs.rst \
@@ -134,13 +140,11 @@ src_files = \
     ../src/pretty_urls.rst \
     ../src/release.rst \
     ../src/replication.rst \
-    ../src/ssl.rst
+    ../src/ssl.rst \
+    ../static/rtd.css \
+    ../templates/sidebar.html
 
 EXTRA_DIST = \
-    ../src/conf.py \
-    ../demo.mk \
-    ../make.bat \
-    ../Makefile.am \
     $(image_files) \
     $(src_files) \
     $(info_file_build) \
@@ -196,6 +200,7 @@ $(html_files): html.stamp
 html.stamp: $(image_files) $(src_files)
 	@rm -f html.tmp
 	@touch html.tmp
+	pwd
 	$(top_srcdir)/build-aux/sphinx-build \
 	    -b html $(SPHINXOPTS) $(builddir)/html
 	$(top_srcdir)/build-aux/sphinx-touch $(html_files)

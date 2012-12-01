@@ -60,6 +60,7 @@
 ^share/doc/Makefile.in
 ^share/doc/build/.*
 ^share/doc/images/.*
+^share/doc/static/rtd.css
 ^share/server/json2.js
 ^share/server/mimeparse.js
 ^share/server/coffee-script.js
