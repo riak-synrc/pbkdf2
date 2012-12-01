@@ -15,25 +15,29 @@ You will need the following installed:
  * GNU Autoconf (>=2.68)  (http://www.gnu.org/software/autoconf/)
  * GNU Autoconf Archive   (http://www.gnu.org/software/autoconf-archive/)
  * pkg-config             (http://www.freedesktop.org/wiki/Software/pkg-config)
+ 
+You may also need:
+
  * Sphinx                 (http://sphinx.pocoo.org/)
  * LaTex                  (http://www.latex-project.org/)
  * GNU Texinfo            (http://www.gnu.org/software/texinfo/)
  * GNU help2man           (http://www.gnu.org/software/help2man/)
 
-# @@ instructions for LaTex
-# @@ http://www.latex-project.org/ftp.html
-# @@ need help to flesh out instructions for Windows
+These optional dependencies are required for building the documentation.
 
-# @@ deps for docs
+You will need these optional dependencies installed if:
 
-The `help2man` tool is optional, but will generate `man` pages for you.
+ * You are preparing a distribution archive
+ 
+However, you do not need them if:
 
-# @@ add more notes like this one
+ * You are building from a distribution archive, or
+ * You don't care about building the documentation
 
 Debian-based (inc. Ubuntu) Systems
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can install the dependencies by running:
+You can install the required dependencies by running:
 
     sudo apt-get install libtool
     sudo apt-get install automake
@@ -43,36 +47,57 @@ You can install the dependencies by running:
 
 Optional dependencies:
 
+    sudo apt-get install help2man
     sudo apt-get install python-sphinx
     sudo apt-get install texlive-latex-base
     sudo apt-get install texlive-latex-recommended
     sudo apt-get install texlive-latex-extra
     sudo apt-get install texlive-fonts-recommended
     sudo apt-get install texinfo
-    sudo apt-get install help2man
 
 Be sure to update the version numbers to match your system's available packages.
 
 Mac OS X
 ~~~~~~~~
 
-You can install the dependencies by running:
+Install Homebrew, if you do not have it already:
+
+    https://github.com/mxcl/homebrew
+
+You can install the required dependencies by running:
 
     brew install libtool
     brew install automake
     brew install autoconf
     brew install autoconf-archive
     brew install pkg-config
-    @@ sphinx
+
+Unless you want to install the optional dependencies, skip to the next section.
+
+Install what else we can with Homebrew:
+
     brew install help2man
 
-# @@ instructions for LaTex
+If you don't already have pip installed, install it:
 
-# @@ check these packages are correct
+    sudo easy_install pip
 
-# @@ check other files don't use MacPorts
+Now, install the required Python packages:
 
-You will need Homebrew installed to use the `brew` command.
+    sudo pip install sphinx
+    sudo pip install docutils
+    sudo pip install pygments
+
+Download MaxTeX from here:
+
+    http://www.tug.org/mactex/
+
+Follow the instructions to get a working LaTeX install on your system.
+
+Windows
+~~~~~~~
+
+@@ This section is a work in progress.
 
 Bootstrapping
 -------------
@@ -88,19 +113,17 @@ Configuring
 
 Configure the source by running:
 
+    ./configure
+
+Note that this will not fail when the optional dependencies are missing.
+
+To ensure the optional dependencies are installed, run:
+
     ./configure --enable-strictness
 
-This will cause `configure' to fail when optional dependancies are missing.
-Certain parts of the build are shipped along with the release, and so the tools
-needed to rebuild them are not required. When you are building from source,
-these tools are required or you will have missing files.
+If you don't care about docs and want to skip the whole thing, run:
 
-You will need these files anyway, because the build will error out.
-
-# @@ if you dont have them it tells you to check the README file, so we need to
-# @@ put a note in there pointing to this file or something
-
-# @@ check `syntax' with Github, etc
+    ./configure --disable-docs
 
 If you're working on the build system itself, you can run:
 
@@ -124,7 +147,7 @@ Please report any problems to the developer's mailing list.
 Releasing
 ---------
 
-The release procedure is documented in the project wiki:
+The release procedure is documented here:
 
     https://wiki.apache.org/couchdb/Release_procedure
 
