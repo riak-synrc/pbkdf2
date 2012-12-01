@@ -200,7 +200,6 @@ $(html_files): html.stamp
 html.stamp: $(image_files) $(src_files)
 	@rm -f html.tmp
 	@touch html.tmp
-	pwd
 	$(top_srcdir)/build-aux/sphinx-build \
 	    -b html $(SPHINXOPTS) $(builddir)/html
 	$(top_srcdir)/build-aux/sphinx-touch $(html_files)
