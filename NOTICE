@@ -56,7 +56,7 @@ This product also includes the following third-party components:
 
  * snappy (http://code.google.com/p/snappy/)
 
-  Copyright 2005 and onwards Google Inc.
+  Copyright 2005, Google Inc.
 
  * snappy-erlang-nif (https://github.com/fdmanana/snappy-erlang-nif)
 
