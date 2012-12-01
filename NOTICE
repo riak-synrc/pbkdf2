@@ -6,10 +6,6 @@ The Apache Software Foundation (http://www.apache.org/).
 
 This product also includes the following third-party components:
 
- * Sphinx (http://sphinx-doc.org/)
- 
-   Copyright 2011, the Sphinx team
-
  * jQuery (http://jquery.com/)
 
    Copyright 2011, John Resig
@@ -66,6 +62,14 @@ This product also includes the following third-party components:
 
   Copyright 2011, Jeremy Ashkenas
 
+ * Sphinx (http://sphinx-doc.org/)
+ 
+   Copyright 2011, the Sphinx team
+
+ * Sizzle (http://sizzlejs.com/)
+ 
+   Copyright 2010, The Dojo Foundation
+ 
  * Underscore.js 1.4.2 (http://underscorejs.org)
 
-  Copyright 2012, Jeremy Ashkenas
+   Copyright 2012, Jeremy Ashkenas
