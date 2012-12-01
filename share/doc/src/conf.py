@@ -38,7 +38,7 @@ html_theme = "default"
 
 html_static_path = ["../static"]
 
-html_style = "style.css"
+html_style = "rtd.css"
 
 html_theme_options = {
     "footerbgcolor": "#465158",
