@@ -53,7 +53,7 @@ html_logo = "../images/logo.png"
 
 html_favicon = "../images/favicon.ico"
 
-templates_path = "../templates"
+templates_path = ["../templates"]
 
 html_sidebars= {
     "**": [
