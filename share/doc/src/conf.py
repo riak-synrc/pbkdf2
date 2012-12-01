@@ -40,21 +40,6 @@ html_static_path = ["../static"]
 
 html_style = "rtd.css"
 
-html_theme_options = {
-    "footerbgcolor": "#465158",
-    "sidebarbgcolor": "#E8ECEF",
-    "sidebartextcolor": "#444444",
-    "sidebarlinkcolor": "#444444",
-    "relbarbgcolor": "#465158",
-    "headbgcolor": "inherit",
-    "headtextcolor": "#111111",
-    "headlinkcolor": "#111111",
-    "linkcolor": "#355f7c", # @@
-    "visitedlinkcolor": "#355f7c", # @@
-    "codebgcolor": "#EEEEEE",
-    "codetextcolor": "#00000",
-}
-
 html_logo = "../images/logo.png"
 
 html_favicon = "../images/favicon.ico"
