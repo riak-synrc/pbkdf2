@@ -41,6 +41,33 @@ html_files = \
     html/_images/futon-editeddoc.png \
     html/_images/futon-overview.png \
     html/_images/futon-replform.png \
+    html/_sources/api/authn.txt \
+    html/_sources/api/configuration.txt \
+    html/_sources/api/database.txt \
+    html/_sources/api/dbmaint.txt \
+    html/_sources/api/design.txt \
+    html/_sources/api/documents.txt \
+    html/_sources/api/local.txt \
+    html/_sources/api/misc.txt \
+    html/_sources/api/reference.txt \
+    html/_sources/api-basics.txt \
+    html/_sources/changes.txt \
+    html/_sources/commonjs.txt \
+    html/_sources/config_reference.txt \
+    html/_sources/configuring.txt \
+    html/_sources/ddocs.txt \
+    html/_sources/errors.txt \
+    html/_sources/http-proxying.txt \
+    html/_sources/index.txt \
+    html/_sources/intro.txt \
+    html/_sources/json-structure.txt \
+    html/_sources/os-daemons.txt \
+    html/_sources/pretty_urls.txt \
+    html/_sources/query-servers.txt \
+    html/_sources/range.txt \
+    html/_sources/release.txt \
+    html/_sources/replication.txt \
+    html/_sources/ssl.txt \
     html/_static/ajax-loader.gif \
     html/_static/basic.css \
     html/_static/comment-bright.png \
@@ -229,10 +256,12 @@ install-data-local:
 	    $(INSTALL_DATA) \
 	        $(pdf_file_dist).gz $(DESTDIR)$(localdocdir)/$(pdf_file_inst); \
 	fi
-	for file in $(html_files); do \
-	    if test -s $$file; then \
-	        $(INSTALL) -d `dirname $(DESTDIR)$(localdocdir)/$$file`; \
-	        $(INSTALL_DATA) $$file $(DESTDIR)$(localdocdir)/$$file; \
+	for dist_file in $(html_files); do \
+	    if test -s $$dist_file; then \
+	        inst_file=`echo $$dist_file | sed s,^html,docs,`; \
+	        $(INSTALL) -d `dirname $(DESTDIR)$(localdatadir)/www/$$inst_file`; \
+	        $(INSTALL_DATA) \
+	            $$dist_file $(DESTDIR)$(localdatadir)/www/$$inst_file; \
 	    fi \
 	done
 
@@ -249,9 +278,10 @@ uninstall-local:
 	    fi \
 	fi
 	rm -f $(DESTDIR)$(localdocdir)/$(pdf_file_inst)
-	for file in $(html_files); do \
-	    if test -s $$file; then \
-	        rm -f $(DESTDIR)$(localdocdir)/$$file; \
+	for dist_file in $(html_files); do \
+	    if test -s $$dist_file; then \
+	        inst_file=`echo $$dist_file | sed s,^html,docs,`; \
+	        rm -f $(DESTDIR)$(localdatadir)/$$inst_file; \
 	    fi \
 	done
 

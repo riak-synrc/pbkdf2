@@ -46,6 +46,7 @@ html_favicon = "../images/favicon.ico"
 
 html_sidebars= {
     "**": [
+        'searchbox.html',
         "localtoc.html",
         "relations.html",
         "sidebar.html",
