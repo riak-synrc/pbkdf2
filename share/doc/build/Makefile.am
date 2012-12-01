@@ -244,7 +244,6 @@ pdf-local:
 html-local:
 	$(MAKE) $(AM_MAKEFLAGS) html.stamp
 
-# @@ check AM_UPDATE_INFO_DIR=no
 install-data-local:
 	if test -s $(info_file_dist); then \
 	    $(INSTALL) -d $(DESTDIR)$(infodir); \
@@ -271,7 +270,6 @@ install-data-local:
 	    fi \
 	done
 
-# @@ check AM_UPDATE_INFO_DIR=no
 uninstall-local:
 	rm -f $(DESTDIR)$(infodir)/$(info_file_inst)
 	if test -d $(DESTDIR)$(infodir); then \
