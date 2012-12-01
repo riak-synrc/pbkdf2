@@ -83,7 +83,8 @@ README.gz: README
 # @@ This is a bodge and needs to be fixed. Additionally, attempting to build a
 # @@ distribution from a distribution will fail because there is no Git dir.
 # @@ This also means that THANKS.gz is not rebuilt properly. For now, until this
-# @@ is fixed, all distributions should be prepared from a pristine source.
+# @@ is fixed, all distributions should be prepared from a pristine source. The
+# @@ proper way to do this is to build this file during the bootstrap.
 THANKS.gz: $(top_srcdir)/THANKS
 	@sed -e '/^#.*/d' $< > $(top_builddir)/THANKS.tmp
 	@git shortlog -se 6c976bd..HEAD \
