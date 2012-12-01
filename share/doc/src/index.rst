@@ -10,14 +10,14 @@
 .. License for the specific language governing permissions and limitations under
 .. the License.
 
-Apache CouchDB Documentation
-============================
+Apache CouchDB
+==============
 
 |Apache CouchDB(TM)|_ is a database that uses JSON for documents, JavaScript for
 MapReduce queries, and regular HTTP for an API
 
-At the moment, this documentation only covers the basics of CouchDB. In
-subsequent releases we hope to expand the documentation significantly. If you
+At the moment, this documentation only covers the basics. In
+subsequent releases we hope to expand the documentation. If you
 would like to help with that, please subscribe to the `developer mailing list
 <http://couchdb.apache.org/#mailing-list>`_ and give a shout.
 

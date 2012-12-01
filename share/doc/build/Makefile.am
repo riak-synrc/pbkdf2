@@ -52,6 +52,8 @@
 
 # @@ design CouchDB theme
 
+# @@ update homepage IRC link to: http://webchat.freenode.net/?channels=couchdb
+
 # -----------------------------------------------------------------------------
 
 SPHINXOPTS = \

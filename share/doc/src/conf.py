@@ -37,27 +37,22 @@ html_theme = "default"
 html_theme_options = {
 
 	"footerbgcolor": "#465158", #
-	"footertextcolor": "#ffffff",
 	"sidebarbgcolor": "#E8ECEF", #
-	"sidebarbtncolor": "#3c6e83",
 	"sidebartextcolor": "#444444", #
 	"sidebarlinkcolor": "#444444", #
 	"relbarbgcolor": "#465158", #
-	"relbartextcolor": "#ffffff",
-	"relbarlinkcolor": "#ffffff",
-	"bgcolor": "#ffffff",
-	"textcolor": "#000000",
 	"headbgcolor": "inherit", #
 	"headtextcolor": "#111111", #
 	"headlinkcolor": "#111111", #
 	"linkcolor": "#355f7c",
 	"visitedlinkcolor": "#355f7c",
-	"codebgcolor": "#eeffcc",
-	"codetextcolor": "#333333",
+	"codebgcolor": "#EEEEEE", #
+	"codetextcolor": "#00000", #
 
 }
 
-# 
+# @@sidebars - content like in django docs
+
 # [theme]
 # inherit = basic
 # stylesheet = default.css
@@ -68,32 +63,25 @@ html_theme_options = {
 # stickysidebar = false
 # collapsiblesidebar = false
 # externalrefs = false
-# 
-# footerbgcolor    = #11303d
-# footertextcolor  = #ffffff
-# sidebarbgcolor   = #1c4e63
-# sidebarbtncolor  = #3c6e83
-# sidebartextcolor = #ffffff
-# sidebarlinkcolor = #98dbcc
-# relbarbgcolor    = #133f52
-# relbartextcolor  = #ffffff
-# relbarlinkcolor  = #ffffff
-# bgcolor          = #ffffff
-# textcolor        = #000000
-# headbgcolor      = #f2f2f2
-# headtextcolor    = #20435c
-# headlinkcolor    = #c60f0f
-# linkcolor        = #355f7c
-# visitedlinkcolor = #355f7c
-# codebgcolor      = #eeffcc
-# codetextcolor    = #333333
-# 
+
+# @ experiment with these
+
 # bodyfont = sans-serif
 # headfont = 'Trebuchet MS', sans-serif
 
 html_logo = "../images/logo.png" # @@ waiting on logo
 
 html_favicon = "../images/favicon.ico"
+
+templates_path = "../templates"
+
+html_sidebars= {
+    "**": [
+        "localtoc.html",
+        "relations.html",
+        "../templates/sidebar.html",
+    ]
+}
 
 text_newlines = "native"
 
