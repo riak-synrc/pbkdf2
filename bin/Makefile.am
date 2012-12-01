@@ -119,8 +119,6 @@ couch-config_dev: couch-config.tpl
 	$@ < $<
 	chmod +x $@
 
-HELP2MAN_OPTION=
-
 # Depend on source files so distributed man pages are not rebuilt for end user.
 
 $(man_file): couchdb.tpl.in
