@@ -32,7 +32,13 @@ highlight_language = "json"
 
 pygments_style = "sphinx"
 
+templates_path = ["../templates"]
+
 html_theme = "default"
+
+html_static_path = ["../static"]
+
+html_style = "style.css"
 
 html_theme_options = {
     "footerbgcolor": "#465158",
@@ -52,8 +58,6 @@ html_theme_options = {
 html_logo = "../images/logo.png"
 
 html_favicon = "../images/favicon.ico"
-
-templates_path = ["../templates"]
 
 html_sidebars= {
     "**": [
