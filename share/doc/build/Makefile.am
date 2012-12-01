@@ -10,58 +10,10 @@
 ## License for the specific language governing permissions and limitations under
 ## the License.
 
-# -----------------------------------------------------------------------------
-
-# @@ TODO LIST BEFORE WE CAN MERGE
-
-# @@ add RM checks to configure.ac
-
-# @@ make PDF building optional and not fail by default
-
-# @@ improve conf.py settings
-
-# @@ replace "test !" in configure.ac with "test -f X; then :; else" for portability
-
-# @@ stamps break parallel builds and "make -n" promise
-
-# @@ check that maintainer-clean works for help2man
-
-# @@ can we remove _static?
-
-# @@ need to explicitly put the license in the readable part of the doc
-
-# @@ fix package name which turns out as "apache-couchdb"
-
-# @@ sort out sphinx variables in this file
-
-# @@ distcheck is not actually running `check`
-
-# @@ fail configure if pygments is not found
-
-# @@ should be possible to:
-# @@ run the code checks & docs checks separately
-# @@ distcheck should do A as above
-# @@ it should be possible for endusers to build couch without docs or checks running
-
-# @@ problems with this image:
-# @@ ubuntu/images/ebs/ubuntu-precise-12.04-amd64-server-20121001 (ami-3d4ff254)
-# @@ solved by running some commands on:
-# @@ http://wiki.apache.org/couchdb/Installing_on_Ubuntu
-# @@ but dont know why
-# @@ oh, probably because i didn't install build-essential
-
-# @@ design CouchDB theme
-
-# @@ update homepage IRC link to: http://webchat.freenode.net/?channels=couchdb
-
-# -----------------------------------------------------------------------------
-
 SPHINXOPTS = \
     -d doctrees \
     -n -c $(srcdir)/../src \
     $(srcdir)/../src
-
-# -----------------------------------------------------------------------------
 
 info_file_dist = texinfo/CouchDB.info
 
