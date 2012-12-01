@@ -18,6 +18,8 @@ Introduction
 If you would like to help document the project, please send a note to the
 `developer mailing list <http://couchdb.apache.org/#mailing-list>`_.
 
+This is a work in progress.
+
 Contents
 ========
    
