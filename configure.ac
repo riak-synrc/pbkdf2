@@ -129,8 +129,8 @@ AS_IF([test x${ERL} = x], [
     AC_MSG_ERROR([Could not find the `erl' executable. Is Erlang installed?])
 ])
 
-AC_ARG_WITH([erlang], [
-    AS_HELP_STRING([--with-erlang=PATH],
+AC_ARG_WITH([erlang], 
+    [AS_HELP_STRING([--with-erlang=PATH],
         [set PATH to the Erlang include directory])
 ], [
     ERLANG_FLAGS="-I$withval"
@@ -167,16 +167,16 @@ PKG_CHECK_MODULES([JS], [mozjs185], [
     ])
 ])
 
-AC_ARG_WITH([js-include], [
-    AS_HELP_STRING([--with-js-include=PATH],
+AC_ARG_WITH([js-include],
+    [AS_HELP_STRING([--with-js-include=PATH],
         [set PATH to the SpiderMonkey include directory])
 ], [
     JS_INCLUDE="$withval"
     JS_CFLAGS="-I$JS_INCLUDE"
 ], [])
 
-AC_ARG_WITH([js-lib], [
-    AS_HELP_STRING([--with-js-lib=PATH],
+AC_ARG_WITH([js-lib],
+    [AS_HELP_STRING([--with-js-lib=PATH],
         [set PATH to the SpiderMonkey library directory])
 ], [
     JS_LIB_DIR=$withval
@@ -185,8 +185,8 @@ AC_ARG_WITH([js-lib], [
 
 use_js_trunk=no
 
-AC_ARG_ENABLE([js-trunk], [
-    AS_HELP_STRING([--enable-js-trunk],
+AC_ARG_ENABLE([js-trunk],
+    [AS_HELP_STRING([--enable-js-trunk],
         [allow use of SpiderMonkey versions newer than js185-1.0.0])
 ], [
     use_js_trunk=$enableval
@@ -315,8 +315,8 @@ if test x${IS_WINDOWS} = xTRUE; then
     fi
     AC_SUBST(JS_LIB_BINARY)
     # On windows we need to know the path to the openssl binaries.
-    AC_ARG_WITH([openssl-bin-dir], [
-        AS_HELP_STRING([--with-openssl-bin-dir=PATH],
+    AC_ARG_WITH([openssl-bin-dir],
+        [AS_HELP_STRING([--with-openssl-bin-dir=PATH],
             [path to the open ssl binaries for distribution on Windows])
     ], [
         openssl_bin_dir=`cygpath -m "$withval"`
@@ -331,8 +331,8 @@ if test x${IS_WINDOWS} = xTRUE; then
     # (in theory we could just install the assembly locally - but
     # there are at least 4 directories with binaries, meaning 4 copies;
     # so using the redist .exe means it ends up installed globally...)
-    AC_ARG_WITH([msvc-redist-dir], [
-        AS_HELP_STRING([--with-msvc-redist-dir=PATH],
+    AC_ARG_WITH([msvc-redist-dir],
+        [AS_HELP_STRING([--with-msvc-redist-dir=PATH],
             [path to the msvc redistributables for the Windows platform])
     ], [
         msvc_redist_dir=`cygpath -m "$withval"`
@@ -352,8 +352,8 @@ AC_SUBST(JS_LIBS)
 LIBS="$OLD_LIBS"
 CPPFLAGS="$OLD_CPPFLAGS"
 
-AC_ARG_WITH([win32-icu-binaries], [
-    AS_HELP_STRING([--with-win32-icu-binaries=PATH],
+AC_ARG_WITH([win32-icu-binaries],
+    [AS_HELP_STRING([--with-win32-icu-binaries=PATH],
         [set PATH to the Win32 native ICU binaries directory])
 ], [
     ICU_CPPFLAGS="-I$withval/include"
@@ -371,8 +371,8 @@ AC_SUBST(ICU_BIN)
 
 use_curl=yes
 
-AC_ARG_WITH([win32-curl], [
-    AS_HELP_STRING([--with-win32-curl=PATH],
+AC_ARG_WITH([win32-curl],
+    [AS_HELP_STRING([--with-win32-curl=PATH],
         [set PATH to the Win32 native curl directory])
 ], [
     # default build on windows is a static lib, and that's what we want too
@@ -469,37 +469,39 @@ CPPFLAGS="$OLD_CPPFLAGS"
 use_init=yes
 use_launchd=yes
 native_mochijson_enabled=no
+tests_enabled=yes
+strictness_enabled=no
 
-AC_ARG_ENABLE([init], [
-    AS_HELP_STRING([--disable-init],
+AC_ARG_ENABLE([init], 
+    [AS_HELP_STRING([--disable-init],
         [don't install init script where applicable])
 ], [
     use_init=$enableval
 ], [])
 
-AC_ARG_ENABLE([launchd], [
-    AS_HELP_STRING([--disable-launchd],
+AC_ARG_ENABLE([launchd], 
+    [AS_HELP_STRING([--disable-launchd],
         [don't install launchd configuration where applicable])
 ], [
     use_launchd=$enableval
 ], [])
 
-AC_ARG_ENABLE([native-mochijson], [
-    AS_HELP_STRING([--enable-native-mochijson],
+AC_ARG_ENABLE([native-mochijson], 
+    [AS_HELP_STRING([--enable-native-mochijson],
         [compile mochijson to native code (EXPERIMENTAL)])
 ], [
     native_mochijson_enabled=$enableval
 ], [])
 
-AC_ARG_ENABLE([tests], [
-    AS_HELP_STRING([--disable-tests],
+AC_ARG_ENABLE([tests], 
+    [AS_HELP_STRING([--disable-tests],
         [skip tests during build])
 ], [
     tests_enabled=$enableval
 ], [])
 
-AC_ARG_ENABLE([strictness], [
-    AS_HELP_STRING([--enable-strictness],
+AC_ARG_ENABLE([strictness],
+    [AS_HELP_STRING([--enable-strictness],
         [exit when optional checks fail])
 ], [
     strictness_enabled=$enableval
