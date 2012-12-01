@@ -470,6 +470,7 @@ use_init=yes
 use_launchd=yes
 native_mochijson_enabled=no
 tests_enabled=yes
+docs_enabled=yes
 strictness_enabled=no
 
 AC_ARG_ENABLE([init], 
@@ -498,6 +499,13 @@ AC_ARG_ENABLE([tests],
         [skip tests during build])
 ], [
     tests_enabled=$enableval
+], [])
+
+AC_ARG_ENABLE([docs], 
+    [AS_HELP_STRING([--disable-docs],
+        [skip docs during build])
+], [
+    docs_enabled=$enableval
 ], [])
 
 AC_ARG_ENABLE([strictness],
@@ -595,17 +603,18 @@ if test x${HAS_SPHINX_BUILD} = x; then
     fi
 fi
 
-if test x${HAS_HELP2MAN} = xyes; then
-    build_man=yes
-fi
-
-if test x${HAS_SPHINX_BUILD} = xyes; then
-    build_html=yes
-    if test x${HAS_MAKEINFO} = xyes; then
-        build_info=yes
-    fi    
-    if test x${HAS_PDFLATEX} = xyes; then
-        build_pdf=yes
+if test x${docs_enabled} = xyes; then
+    if test x${HAS_HELP2MAN} = xyes; then
+        build_man=yes
+    fi
+    if test x${HAS_SPHINX_BUILD} = xyes; then
+        build_html=yes
+        if test x${HAS_MAKEINFO} = xyes; then
+            build_info=yes
+        fi    
+        if test x${HAS_PDFLATEX} = xyes; then
+            build_pdf=yes
+        fi
     fi
 fi
 
