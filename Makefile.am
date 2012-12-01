@@ -80,11 +80,7 @@ NOTICE.gz: NOTICE
 README.gz: README
 	gzip -9 < $< > $@
 
-# @@ This is a bodge and needs to be fixed. Additionally, attempting to build a
-# @@ distribution from a distribution will fail because there is no Git dir.
-# @@ This also means that THANKS.gz is not rebuilt properly. For now, until this
-# @@ is fixed, all distributions should be prepared from a pristine source. The
-# @@ proper way to do this is to build this file during the bootstrap.
+# Huge bodge that will be fixed with COUCHDB-1618
 THANKS.gz: $(top_srcdir)/THANKS
 	@sed -e '/^#.*/d' $< > $(top_builddir)/THANKS.tmp
 	@git shortlog -se 6c976bd..HEAD \
@@ -176,8 +172,6 @@ distcheck-hook:
 
 .PHONY: distsign
 distsign: distcheck check
-	@# @@ unpack archive and run diff -r to double check missing files
-	@# @@ does automake have anything that does this?
 	gpg --armor --detach-sig $(GPG_ARGS) \
 	    < $(top_srcdir)/$(distdir).tar.gz \
 	    > $(top_srcdir)/$(distdir).tar.gz.asc

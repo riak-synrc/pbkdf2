@@ -65,8 +65,6 @@ find_program() {
   exit 1
 }
 
-# @@ add dep on pkg-config and autoconf-archive
-
 LIBTOOLIZE=`find_program glibtoolize libtoolize`
 ACLOCAL=`find_program aclocal-1.11 aclocal-1.10 aclocal-1.9 aclocal`
 AUTOHEADER=`find_program autoheader`

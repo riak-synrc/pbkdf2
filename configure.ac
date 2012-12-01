@@ -10,8 +10,6 @@ dnl WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 dnl License for the specific language governing permissions and limitations
 dnl under the License.
 
-dnl @@ ./configure --help output is badly formatted
-
 AC_INIT(
     [LOCAL_PACKAGE_NAME],
     [LOCAL_VERSION],
