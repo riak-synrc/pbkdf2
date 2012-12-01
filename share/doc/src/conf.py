@@ -38,6 +38,8 @@ templates_path = ["../templates"]
 
 html_static_path = ["../static"]
 
+html_title = "Apache CouchDB " + version + " Manual"
+
 html_style = "rtd.css"
 
 html_logo = "../images/logo.png"
@@ -46,10 +48,11 @@ html_favicon = "../images/favicon.ico"
 
 html_sidebars= {
     "**": [
-        'searchbox.html',
+        "searchbox.html",
         "localtoc.html",
         "relations.html",
-        "sidebar.html",
+        "utilities.html",
+        "help.html",
     ]
 }
 

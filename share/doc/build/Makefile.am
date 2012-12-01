@@ -12,7 +12,8 @@
 
 SPHINXOPTS = \
     -d doctrees \
-    -n -c $(srcdir)/../src \
+    -n -c $(srcdir)/../src \ \
+    -A local=1 \
     $(srcdir)/../src
 
 info_file_dist = texinfo/CouchDB.info
@@ -167,13 +168,18 @@ src_files = \
     ../src/pretty_urls.rst \
     ../src/release.rst \
     ../src/replication.rst \
-    ../src/ssl.rst \
+    ../src/ssl.rst
+
+src_files_html = \
     ../static/rtd.css \
-    ../templates/sidebar.html
+    ../templates/help.html \
+    ../templates/searchbox.html \
+    ../templates/utilities.html
 
 EXTRA_DIST = \
     $(image_files) \
     $(src_files) \
+    $(src_files_html) \
     $(info_file_build) \
     $(pdf_file_build) \
     $(html_files_build)
@@ -224,7 +230,7 @@ $(html_files): html.stamp
 	    $(MAKE) $(AM_MAKEFLAGS) html.stamp; \
 	fi
 
-html.stamp: $(image_files) $(src_files)
+html.stamp: $(image_files) $(src_files) $(src_files_html)
 	@rm -f html.tmp
 	@touch html.tmp
 	$(top_srcdir)/build-aux/sphinx-build \
