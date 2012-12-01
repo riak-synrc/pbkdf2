@@ -35,41 +35,21 @@ pygments_style = "sphinx"
 html_theme = "default"
 
 html_theme_options = {
-
-	"footerbgcolor": "#465158", #
-	"sidebarbgcolor": "#E8ECEF", #
-	"sidebartextcolor": "#444444", #
-	"sidebarlinkcolor": "#444444", #
-	"relbarbgcolor": "#465158", #
-	"headbgcolor": "inherit", #
-	"headtextcolor": "#111111", #
-	"headlinkcolor": "#111111", #
-	"linkcolor": "#355f7c",
-	"visitedlinkcolor": "#355f7c",
-	"codebgcolor": "#EEEEEE", #
-	"codetextcolor": "#00000", #
-
+    "footerbgcolor": "#465158",
+    "sidebarbgcolor": "#E8ECEF",
+    "sidebartextcolor": "#444444",
+    "sidebarlinkcolor": "#444444",
+    "relbarbgcolor": "#465158",
+    "headbgcolor": "inherit",
+    "headtextcolor": "#111111",
+    "headlinkcolor": "#111111",
+    "linkcolor": "#355f7c", # @@
+    "visitedlinkcolor": "#355f7c", # @@
+    "codebgcolor": "#EEEEEE",
+    "codetextcolor": "#00000",
 }
 
-# @@sidebars - content like in django docs
-
-# [theme]
-# inherit = basic
-# stylesheet = default.css
-# pygments_style = sphinx
-# 
-# [options]
-# rightsidebar = false
-# stickysidebar = false
-# collapsiblesidebar = false
-# externalrefs = false
-
-# @ experiment with these
-
-# bodyfont = sans-serif
-# headfont = 'Trebuchet MS', sans-serif
-
-html_logo = "../images/logo.png" # @@ waiting on logo
+html_logo = "../images/logo.png"
 
 html_favicon = "../images/favicon.ico"
 
@@ -86,12 +66,12 @@ html_sidebars= {
 text_newlines = "native"
 
 latex_documents = [(
-       "index",
-       "CouchDB.tex",
-       project,
-       "",
-       "manual",
-       True
+    "index",
+    "CouchDB.tex",
+    project,
+    "",
+    "manual",
+    True
 )]
 
 latex_elements = {
@@ -99,12 +79,12 @@ latex_elements = {
 }
 
 texinfo_documents = [(
-       "index",
-       "CouchDB",
-       project,
-       "",
-       "CouchDB",
-       "The Apache CouchDB database",
-       "Databases",
-       True
+    "index",
+    "CouchDB",
+    project,
+    "",
+    "CouchDB",
+    "The Apache CouchDB database",
+    "Databases",
+    True
 )]
