@@ -26,7 +26,7 @@ else
 info_file_build =
 endif
 
-pdf_file_dist = latex/CouchDB.pdf
+pdf_file_dist = latex/CouchDB.pdf.gz
 
 pdf_file_inst = CouchDB.pdf.gz
 
@@ -220,8 +220,8 @@ pdf.stamp: $(image_files) $(src_files)
 	$(top_srcdir)/build-aux/sphinx-build \
 	    -b latex $(SPHINXOPTS) $(builddir)/latex
 	$(MAKE) -C latex all-pdf
-	$(top_srcdir)/build-aux/sphinx-touch $(pdf_file_dist)
-	gzip -9 < $(pdf_file_dist) > $(pdf_file_dist).gz
+	$(top_srcdir)/build-aux/sphinx-touch latex/CouchDB.pdf
+	gzip -9 < latex/CouchDB.pdf > $(pdf_file_dist)
 	@mv -f pdf.tmp $@
 
 $(html_files): html.stamp
@@ -259,7 +259,7 @@ install-data-local:
 	if test -s $(pdf_file_dist); then \
 	    $(INSTALL) -d $(DESTDIR)$(localdocdir); \
 	    $(INSTALL_DATA) \
-	        $(pdf_file_dist).gz $(DESTDIR)$(localdocdir)/$(pdf_file_inst); \
+	        $(pdf_file_dist) $(DESTDIR)$(localdocdir)/$(pdf_file_inst); \
 	fi
 	for dist_file in $(html_files); do \
 	    if test -s $$dist_file; then \
