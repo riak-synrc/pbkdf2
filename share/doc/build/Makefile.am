@@ -285,7 +285,7 @@ uninstall-local:
 	for dist_file in $(html_files); do \
 	    if test -s $$dist_file; then \
 	        inst_file=`echo $$dist_file | sed s,^html,docs,`; \
-	        rm -f $(DESTDIR)$(localdatadir)/$$inst_file; \
+	        rm -f $(DESTDIR)$(localdatadir)/www/$$inst_file; \
 	    fi \
 	done
 
