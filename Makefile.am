@@ -80,17 +80,8 @@ NOTICE.gz: NOTICE
 README.gz: README
 	gzip -9 < $< > $@
 
-# Huge bodge that will be fixed with COUCHDB-1618
-THANKS.gz: $(top_srcdir)/THANKS
-	sed -e '/^#.*/d' $< > $(top_builddir)/THANKS.tmp
-	-git shortlog -se 6c976bd..HEAD \
-	    | grep -v @apache.org \
-	    | sed -E 's/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /' \
-	    >> $(top_builddir)/THANKS.tmp
-	echo '\nFor a list of authors see the `AUTHORS` file.\n' \
-	    >> $(top_builddir)/THANKS.tmp
-	gzip -9 < $(top_builddir)/THANKS.tmp > $@
-	rm $(top_builddir)/THANKS.tmp
+THANKS.gz: THANKS
+	gzip -9 < $< > $@
 
 check: dev check-js
 if TESTS

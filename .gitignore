@@ -3,7 +3,6 @@
 *.beam
 *.diff
 *.gz
-*.in
 *.la
 *.lo
 *.o
@@ -16,6 +15,7 @@
 .*
 INSTALL
 Makefile
+Makefile.in
 acinclude.m4
 aclocal.m4
 apache-couchdb-*

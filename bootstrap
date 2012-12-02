@@ -34,16 +34,26 @@ get () {
 if test -z "$REVISION"; then
     if test -d .git; then
         REVISION=`git describe --always`-git
-    else
-        # default to svn
-        REVISION=`\`which svn\` info . 2> /dev/null | awk "/Revision:/{print \\$2}"`
     fi
 fi
+
 if test -z "`get LOCAL_VERSION_STAGE`" -o -z "$REVISION"; then
     sed "s/%release%//" < acinclude.m4.in > acinclude.m4
 else
     sed "s/%release%/$REVISION/" < acinclude.m4.in > acinclude.m4
 fi
+
+if test -d .git; then
+    sed -e "/^#.*/d" $< > $(top_builddir)/THANKS
+    git shortlog -se 6c976bd..HEAD \
+        | grep -v @apache.org \
+        | sed -E "s/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /" \
+        >> $(top_builddir)/THANKS
+    echo "\nFor a list of authors see the `AUTHORS` file.\n" \
+        >> $(top_builddir)/THANKS
+fi
+
+# Huge bodge that will be fixed with COUCHDB-1618
 
 find_program() {
   set +e
