@@ -622,6 +622,29 @@ else
     AX_PYTHON_MODULE([pygments])
 fi
 
+AC_MSG_CHECKING(pygments version >= 1.5)
+
+python 2> /dev/null << EOF
+import sys
+import pygments
+
+if float(pygments.__version__) >= 1.5:
+    sys.exit(0)
+else:
+    sys.exit(1)
+EOF
+
+if test $? -eq 0; then
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+    if test x${strictness_enabled} = xyes; then
+        AC_MSG_ERROR([Your copy of pygments is out of date.], 1)
+    else
+        AC_MSG_WARN([Syntax highlighting may not work.])
+    fi
+fi
+
 AC_ARG_VAR([ERL], [path to the `erl' executable])
 AC_ARG_VAR([ERLC], [path to the `erlc' executable])
 
