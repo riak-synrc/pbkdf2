@@ -48,7 +48,7 @@ if test -d .git; then
     git shortlog -se 6c976bd..HEAD \
         | grep -v @apache.org \
         | sed -E "s/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /" >> THANKS
-    echo "\nFor a list of authors see the \`AUTHORS\` file.\n" >> THANKS
+    echo "\nFor a list of authors see the \`AUTHORS\` file." >> THANKS
 fi
 
 find_program() {
