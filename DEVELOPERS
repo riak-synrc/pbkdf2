@@ -97,7 +97,8 @@ Follow the instructions to get a working LaTeX install on your system.
 Windows
 ~~~~~~~
 
-This section is a work in progress.
+    Follow the instructions in INSTALL.Windows and build all components
+    from source, using the same Visual C++ compiler and runtime.
 
 Bootstrapping
 -------------

@@ -58,6 +58,7 @@ General Notes
  * ICU version 4.6 and later will build cleanly using MSBuild.
 
  * Python and Sphinx are only required for building the online documentation.
+   Use cygwin-provided Python and install Sphinx via easy_install or pip.
 
 Setting Up Cygwin
 -----------------
