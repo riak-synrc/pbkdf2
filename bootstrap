@@ -44,16 +44,12 @@ else
 fi
 
 if test -d .git; then
-    sed -e "/^#.*/d" $< > $(top_builddir)/THANKS
+    sed -e "/^#.*/d" THANKS.in > THANKS
     git shortlog -se 6c976bd..HEAD \
         | grep -v @apache.org \
-        | sed -E "s/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /" \
-        >> $(top_builddir)/THANKS
-    echo "\nFor a list of authors see the `AUTHORS` file.\n" \
-        >> $(top_builddir)/THANKS
+        | sed -E "s/^[[:blank:]]{5}[[:digit:]]+[[:blank:]]/ * /" >> THANKS
+    echo "\nFor a list of authors see the \`AUTHORS\` file.\n" >> THANKS
 fi
-
-# Huge bodge that will be fixed with COUCHDB-1618
 
 find_program() {
   set +e
