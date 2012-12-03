@@ -12,7 +12,7 @@
 
 import sys, os
 
-extensions = ["sphinx.ext.todo"]
+extensions = ["sphinx.ext.todo", "sphinx.ext.extlinks"]
 
 source_suffix = ".rst"
 
@@ -81,3 +81,8 @@ texinfo_documents = [(
     "Databases",
     True
 )]
+
+extlinks = {
+    'issue': ('https://issues.apache.org/jira/browse/COUCHDB-%s', 'COUCHDB-'),
+    'commit': ('https://git-wip-us.apache.org/repos/asf?p=couchdb.git;a=commit;h=%s', '#')
+}
