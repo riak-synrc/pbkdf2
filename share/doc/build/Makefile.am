@@ -36,6 +36,8 @@ else
 pdf_file_build =
 endif
 
+# Please keep lists of rst and related generated files sorted
+
 html_files = \
     html/_images/futon-createdb.png \
     html/_images/futon-editdoc.png \
@@ -52,6 +54,7 @@ html_files = \
     html/_sources/api/misc.txt \
     html/_sources/api/reference.txt \
     html/_sources/api-basics.txt \
+    html/_sources/changelog.txt \
     html/_sources/changes.txt \
     html/_sources/commonjs.txt \
     html/_sources/config_reference.txt \
@@ -102,27 +105,28 @@ html_files = \
     html/api/misc.html \
     html/api/reference.html \
     html/api-basics.html \
+    html/changelog.html \
     html/changes.html \
     html/commonjs.html \
     html/config_reference.html \
     html/configuring.html \
     html/ddocs.html \
     html/errors.html \
-    html/genindex.html \
     html/http-proxying.html \
     html/index.html \
     html/intro.html \
     html/json-structure.html \
-    html/objects.inv \
     html/os-daemons.html \
+    html/pretty_urls.html \
     html/query-servers.html \
     html/range.html \
-    html/pretty_urls.html \
     html/release.html \
     html/replication.html \
+    html/ssl.html \
+    html/objects.inv \
+    html/genindex.html \
     html/search.html \
-    html/searchindex.js \
-    html/ssl.html
+    html/searchindex.js
 
 if BUILD_HTML
 html_files_build = $(html_files)
@@ -151,9 +155,9 @@ src_files = \
     ../src/api/misc.rst \
     ../src/api/reference.rst \
     ../src/api-basics.rst \
+    ../src/changelog.rst \
     ../src/changes.rst \
     ../src/commonjs.rst \
-    ../src/conf.py \
     ../src/config_reference.rst \
     ../src/configuring.rst \
     ../src/ddocs.rst \
@@ -162,13 +166,14 @@ src_files = \
     ../src/index.rst \
     ../src/intro.rst \
     ../src/json-structure.rst \
-    ../src/query-servers.rst \
     ../src/os-daemons.rst \
-    ../src/range.rst \
     ../src/pretty_urls.rst \
+    ../src/query-servers.rst \
+    ../src/range.rst \
     ../src/release.rst \
     ../src/replication.rst \
-    ../src/ssl.rst
+    ../src/ssl.rst \
+    ../src/conf.py
 
 src_files_html = \
     ../static/rtd.css \
