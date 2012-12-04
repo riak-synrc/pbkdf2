@@ -32,7 +32,7 @@ server() ->
 main(_) ->
     test_util:init_code_path(),
 
-    etap:plan(16),
+    etap:plan(17),
     case (catch test()) of
         ok ->
             etap:end_tests();
@@ -108,6 +108,7 @@ test() ->
 
     % TBD
     % case-sensitive mismatch of allowed origins should fail
+    test_case_sensitive_mismatch_of_allowed_origins(),
     % auth with * Origin should fail
     % test all cors with vhosts
     % test multiple per-host configuration
@@ -315,6 +316,18 @@ test_preflight_with_scheme2() ->
         etap:is(proplists:get_value("Access-Control-Allow-Origin", RespHeaders),
             "https://example.com:5984",
             "check scheme in origin ok");
+    _ ->
+        etap:is(false, true, "ibrowse failed")
+    end.
+
+test_case_sensitive_mismatch_of_allowed_origins() ->
+    Headers = [{"Origin", "http://EXAMPLE.COM"}],
+    Url = server() ++ "etap-test-db",
+    case ibrowse:send_req(Url, Headers, get, []) of
+    {ok, _, RespHeaders, _Body} ->
+        etap:is(proplists:get_value("Access-Control-Allow-Origin", RespHeaders),
+            undefined,
+            "db access config case mismatch");
     _ ->
         etap:is(false, true, "ibrowse failed")
     end.
