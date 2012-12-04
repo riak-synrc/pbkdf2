@@ -32,7 +32,7 @@ server() ->
 main(_) ->
     test_util:init_code_path(),
 
-    etap:plan(18),
+    etap:plan(25),
     case (catch test()) of
         ok ->
             etap:end_tests();
@@ -102,15 +102,24 @@ test() ->
 
     ok = couch_config:set("cors", "origins", "*", false),
     test_preflight_with_wildcard(),
-    test_auth_with_wildcard(),
+    test_credentials_with_wildcard(),
 
     ok = couch_config:set("cors", "origins", "http://example.com", false),
 
 
     test_case_sensitive_mismatch_of_allowed_origins(),
 
+    % test with vhosts
+    ok = couch_config:set("vhosts", "example.com", "/", false),
+    test_preflight_request(true),
+    test_db_request(true),
+    test_db_preflight_request(true),
+    test_db_origin_request(true),
+    test_db1_origin_request(true),
+    test_preflight_with_port1(true),
+    test_preflight_with_scheme1(true),
+
     % TBD
-    % test all cors with vhosts
     % test multiple per-host configuration
 
 
@@ -133,6 +142,14 @@ test() ->
     timer:sleep(3000),
     couch_server_sup:stop(),
     ok.
+
+test_preflight_request() -> test_preflight_request(false).
+test_db_request() -> test_db_request(false).
+test_db_preflight_request() -> test_db_preflight_request(false).
+test_db_origin_request() -> test_db_origin_request(false).
+test_db1_origin_request() -> test_db1_origin_request(false).
+test_preflight_with_port1() -> test_preflight_with_port1(false).
+test_preflight_with_scheme1() -> test_preflight_with_scheme1(false).
 
 %% Cors is disabled, should not return Access-Control-Allow-Origin
 test_no_headers_server() ->
@@ -164,9 +181,11 @@ test_incorrect_origin_preflight_request() ->
             undefined,
             "invalid origin").
 
-test_preflight_request() ->
+test_preflight_request(VHost) ->
     Headers = [{"Origin", "http://example.com"},
-               {"Access-Control-Request-Method", "GET"}],
+               {"Access-Control-Request-Method", "GET"}]
+               ++ maybe_append_vhost(VHost),
+
     case ibrowse:send_req(server(), Headers, options, []) of
     {ok, _, RespHeaders, _}  ->
         etap:is(proplists:get_value("Access-Control-Allow-Methods", RespHeaders),
@@ -176,8 +195,9 @@ test_preflight_request() ->
         etap:is(false, true, "ibrowse failed")
     end.
 
-test_db_request() ->
-    Headers = [{"Origin", "http://example.com"}],
+test_db_request(VHost) ->
+    Headers = [{"Origin", "http://example.com"}]
+               ++ maybe_append_vhost(VHost),
     Url = server() ++ "etap-test-db",
     case ibrowse:send_req(Url, Headers, get, []) of
     {ok, _, RespHeaders, _Body} ->
@@ -188,10 +208,11 @@ test_db_request() ->
         etap:is(false, true, "ibrowse failed")
     end.
 
-test_db_preflight_request() ->
+test_db_preflight_request(VHost) ->
     Url = server() ++ "etap-test-db",
     Headers = [{"Origin", "http://example.com"},
-               {"Access-Control-Request-Method", "GET"}],
+               {"Access-Control-Request-Method", "GET"}]
+               ++ maybe_append_vhost(VHost),
     case ibrowse:send_req(Url, Headers, options, []) of
     {ok, _, RespHeaders, _} ->
         etap:is(proplists:get_value("Access-Control-Allow-Methods", RespHeaders),
@@ -202,8 +223,9 @@ test_db_preflight_request() ->
     end.
 
 
-test_db_origin_request() ->
-    Headers = [{"Origin", "http://example.com"}],
+test_db_origin_request(VHost) ->
+    Headers = [{"Origin", "http://example.com"}]
+               ++ maybe_append_vhost(VHost),
     Url = server() ++ "etap-test-db",
     case ibrowse:send_req(Url, Headers, get, []) of
     {ok, _, RespHeaders, _Body} ->
@@ -214,8 +236,9 @@ test_db_origin_request() ->
         etap:is(false, true, "ibrowse failed")
     end.
 
-test_db1_origin_request() ->
-    Headers = [{"Origin", "http://example.com"}],
+test_db1_origin_request(VHost) ->
+    Headers = [{"Origin", "http://example.com"}]
+               ++ maybe_append_vhost(VHost),
     Url = server() ++ "etap-test-db1",
     case ibrowse:send_req(Url, Headers, get, [], [{host_header, "example.com"}]) of
     {ok, _, RespHeaders, _Body} ->
@@ -268,23 +291,24 @@ test_preflight_with_wildcard() ->
         etap:is(false, true, "ibrowse failed")
     end.
 
-test_auth_with_wildcard() ->
+test_credentials_with_wildcard() ->
     Headers = [{"Origin", "http://example.com"},
                {"Access-Control-Request-Method", "GET"}],
     case ibrowse:send_req(server(), Headers, get, [], [{basic_auth, {"test", "test"}}]) of
     {ok, _, RespHeaders, _}  ->
         % I would either expect the current origin or a wildcard to be returned
-        etap:is(proplists:get_value("Access-Control-Allow-Origin", RespHeaders),
+        etap:is(proplists:get_value("Access-Control-Allow-Credentials", RespHeaders),
             undefined,
-            "auth with wildcard should fail");
+            "credentials with wildcard should fail");
     _ ->
         etap:is(false, true, "ibrowse failed")
     end.
 
 
-test_preflight_with_port1() ->
+test_preflight_with_port1(VHost) ->
     Headers = [{"Origin", "http://example.com:5984"},
-               {"Access-Control-Request-Method", "GET"}],
+               {"Access-Control-Request-Method", "GET"}]
+               ++ maybe_append_vhost(VHost),
     case ibrowse:send_req(server(), Headers, options, []) of
     {ok, _, RespHeaders, _}  ->
         % I would either expect the current origin or a wildcard to be returned
@@ -308,9 +332,10 @@ test_preflight_with_port2() ->
         etap:is(false, true, "ibrowse failed")
     end.
 
-test_preflight_with_scheme1() ->
+test_preflight_with_scheme1(VHost) ->
     Headers = [{"Origin", "https://example.com:5984"},
-               {"Access-Control-Request-Method", "GET"}],
+               {"Access-Control-Request-Method", "GET"}]
+               ++ maybe_append_vhost(VHost),
     case ibrowse:send_req(server(), Headers, options, []) of
     {ok, _, RespHeaders, _}  ->
         % I would either expect the current origin or a wildcard to be returned
@@ -345,3 +370,8 @@ test_case_sensitive_mismatch_of_allowed_origins() ->
     _ ->
         etap:is(false, true, "ibrowse failed")
     end.
+
+maybe_append_vhost(true) ->
+    [{"Host", "http://example.com"}];
+maybe_append_vhost(Else) ->
+    [].
