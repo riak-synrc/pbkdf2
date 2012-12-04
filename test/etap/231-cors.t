@@ -32,7 +32,7 @@ server() ->
 main(_) ->
     test_util:init_code_path(),
 
-    etap:plan(17),
+    etap:plan(18),
     case (catch test()) of
         ok ->
             etap:end_tests();
@@ -102,14 +102,14 @@ test() ->
 
     ok = couch_config:set("cors", "origins", "*", false),
     test_preflight_with_wildcard(),
+    test_auth_with_wildcard(),
 
     ok = couch_config:set("cors", "origins", "http://example.com", false),
 
 
-    % TBD
-    % case-sensitive mismatch of allowed origins should fail
     test_case_sensitive_mismatch_of_allowed_origins(),
-    % auth with * Origin should fail
+
+    % TBD
     % test all cors with vhosts
     % test multiple per-host configuration
 
@@ -267,6 +267,20 @@ test_preflight_with_wildcard() ->
     _ ->
         etap:is(false, true, "ibrowse failed")
     end.
+
+test_auth_with_wildcard() ->
+    Headers = [{"Origin", "http://example.com"},
+               {"Access-Control-Request-Method", "GET"}],
+    case ibrowse:send_req(server(), Headers, get, [], [{basic_auth, {"test", "test"}}]) of
+    {ok, _, RespHeaders, _}  ->
+        % I would either expect the current origin or a wildcard to be returned
+        etap:is(proplists:get_value("Access-Control-Allow-Origin", RespHeaders),
+            undefined,
+            "auth with wildcard should fail");
+    _ ->
+        etap:is(false, true, "ibrowse failed")
+    end.
+
 
 test_preflight_with_port1() ->
     Headers = [{"Origin", "http://example.com:5984"},
