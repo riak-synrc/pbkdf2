@@ -26,6 +26,52 @@ If you want to remove all generated files, run:
 [rebar]: https://github.com/rebar/rebar/wiki
 
 
+Usage
+-----
+
+```erlang
+OriginalPassword = <<"password">>.
+
+% Settings
+{Salt, Iterations, DerivedLength} = {<<"salt">>, 4096, 20}.
+
+% Hash the original password.
+{ok, Key} = pbkdf2:pbkdf2(OriginalPassword, Salt, Iterations, DerivedLength).
+
+% At this point, Key = <<"4b007901b765489abead49d926f721d065a429c1">>.
+
+% Get the password from the user.
+EnteredPassword = getpass().
+
+% Ensure that the entered password is the same as the original.
+{ok, Key} = pbkdf2:pbkdf2(EnteredPassword, Salt, Iterations, DerivedLength).
+```
+
+If you're curious what `getpass/0` would look like, here's a sample implementation:
+
+```erlang
+% Get the password from the user.
+getpass() ->
+	% Store current options for stdio.
+	InitialIOOpts = io:getopts(),
+	% Disable input character echo.
+	ok = io:setopts([{echo, false}]),
+	% Prompt the user for a password.
+	EnteredPassword = io:get_line("Password: "),
+	% Restore original options for stdio.
+	ok = io:setopts(InitialIOOpts),
+	% Print a newline, since we had local echo disabled above.
+	io:format("\n"),
+	% Remove trailing newline character, if present.
+	case lists:reverse(EnteredPassword) of
+		[$\n | Rest] ->
+			lists:reverse(Rest);
+		_ ->
+			EnteredPassword
+	end.
+```
+
+
 Cryptographic Software Notice
 -----------------------------
 
