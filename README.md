@@ -11,7 +11,19 @@ A [PBKDF2][] implementation for [Erlang][] extracted from [Apache CouchDB][].
 Building
 --------
 
-_TODO: Convert to rebar, then add instructions here._
+`erlang-pbkdf2` uses [rebar][] to manage the build process. To build the project, run:
+
+	./rebar compile
+
+You can then run the `xref` and `eunit` tests:
+
+	./rebar xref eunit
+
+If you want to remove all generated files, run:
+
+	./rebar clean
+
+[rebar]: https://github.com/rebar/rebar/wiki
 
 
 Cryptographic Software Notice
@@ -36,4 +48,4 @@ source code.
 
 The following provides more details on the included cryptographic software:
 
-erlang-pbkdf2 implements the PBKDF2 key derivation function.
+`erlang-pbkdf2` implements the PBKDF2 key derivation function.
