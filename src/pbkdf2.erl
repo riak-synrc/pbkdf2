@@ -40,7 +40,8 @@
 pbkdf2(MacFunc, Password, Salt, Iterations) ->
 	MacFunc1 = resolve_mac_func(MacFunc),
 	DerivedLength = byte_size(MacFunc1(<<"test key">>, <<"test data">>)),
-	pbkdf2(MacFunc1, Password, Salt, Iterations, DerivedLength, 1, []).
+	Bin = pbkdf2(MacFunc1, Password, Salt, Iterations, DerivedLength, 1, []),
+	{ok, Bin}.
 
 %----------------------------------------------------------------------------------------------------------------------
 
@@ -60,11 +61,32 @@ pbkdf2(MacFunc, Password, Salt, Iterations, DerivedLength) ->
 	Bin = pbkdf2(MacFunc1, Password, Salt, Iterations, DerivedLength, 1, []),
 	{ok, Bin}.
 
+%----------------------------------------------------------------------------------------------------------------------
+
+-spec to_hex(Data) -> HexData when
+	Data :: binary() | list(),
+	HexData :: binary() | hex_list().
+
+to_hex(<<>>) ->
+	<<>>;
+
+to_hex(<<Char:8/integer, Rest/binary>>) ->
+	CharHex1 = to_hex_digit(Char div 16),
+	CharHex2 = to_hex_digit(Char rem 16),
+	RestHex = to_hex(Rest),
+	<<CharHex1, CharHex2, RestHex/binary>>;
+
+to_hex([]) ->
+	[];
+
+to_hex([Char | Rest]) ->
+	[to_hex_digit(Char div 16), to_hex_digit(Char rem 16) | to_hex(Rest)].
+
 %======================================================================================================================
 % Internal Functions
 
 -spec pbkdf2(MacFunc, Password, Salt, Iterations, DerivedLength, BlockIndex, Acc) -> Key when
-	MacFunc :: mac_func_info(),
+	MacFunc :: fun((binary(), binary()) -> binary()),
 	Password :: binary(),
 	Salt :: binary(),
 	Iterations :: integer(),
@@ -86,7 +108,7 @@ pbkdf2(MacFunc, Password, Salt, Iterations, DerivedLength, BlockIndex, Acc) ->
 %----------------------------------------------------------------------------------------------------------------------
 
 -spec pbkdf2(MacFunc, Password, Salt, Iterations, BlockIndex, Iteration, Prev, Acc) -> Key when
-	MacFunc :: mac_func_info(),
+	MacFunc :: fun((binary(), binary()) -> binary()),
 	Password :: binary(),
 	Salt :: binary(),
 	Iterations :: integer(),
@@ -163,27 +185,6 @@ compare_secure([X|RestX], [Y|RestY], Result) ->
 
 compare_secure([], [], Result) ->
 	Result == 0.
-
-%----------------------------------------------------------------------------------------------------------------------
-
--spec to_hex(Data) -> HexData when
-	Data :: binary() | list(),
-	HexData :: binary() | hex_list().
-
-to_hex(<<>>) ->
-	<<>>;
-
-to_hex(<<Char:8/integer, Rest/binary>>) ->
-	CharHex1 = to_hex_digit(Char div 16),
-	CharHex2 = to_hex_digit(Char rem 16),
-	RestHex = to_hex(Rest),
-	<<CharHex1, CharHex2, RestHex/binary>>;
-
-to_hex([]) ->
-	[];
-
-to_hex([Char | Rest]) ->
-	[to_hex_digit(Char div 16), to_hex_digit(Char rem 16) | to_hex(Rest)].
 
 %----------------------------------------------------------------------------------------------------------------------
 
