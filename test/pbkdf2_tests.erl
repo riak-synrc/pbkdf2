@@ -15,7 +15,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
--define(TEST_VECTORS, [
+-define(RFC6070_TEST_VECTORS, [
 	{[sha, <<"password">>, <<"salt">>, 1, 20],
 			<<"0c60c80f961f0e71f3a9b524af6012062fe037a6">>},
 	{[sha, <<"password">>, <<"salt">>, 2, 20],
@@ -37,7 +37,7 @@ pbkdf2_hex(Args) ->
 	pbkdf2:to_hex(Key).
 
 
-correctness_test_() ->
+rfc6070_correctness_test_() ->
 	[
 		{timeout, 60,
 			?_assertEqual(
@@ -45,5 +45,54 @@ correctness_test_() ->
 				pbkdf2_hex(Args)
 				)
 			}
-		|| {Args, Expected} <- ?TEST_VECTORS
+		|| {Args, Expected} <- ?RFC6070_TEST_VECTORS
 		].
+
+-define(RFC3962_TEST_VECTORS, [
+		{[sha, <<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1, 16],
+			<<"cdedb5281bb2f801565a1122b2563515">>},
+		{[sha, <<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1, 32],
+			<<"cdedb5281bb2f801565a1122b2563515"
+				"0ad1f7a04bb9f3a333ecc0e2e1f70837">>},
+		{[sha, <<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 2, 16],
+			<<"01dbee7f4a9e243e988b62c73cda935d">>},
+		{[sha, <<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 2, 32],
+			<<"01dbee7f4a9e243e988b62c73cda935d"
+				"a05378b93244ec8f48a99e61ad799d86">>},
+		{[sha, <<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1200, 16],
+			<<"5c08eb61fdf71e4e4ec3cf6ba1f5512b">>},
+		{[sha, <<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1200, 32],
+			<<"5c08eb61fdf71e4e4ec3cf6ba1f5512b"
+				"a7e52ddbc5e5142f708a31e2e62b1e13">>},
+		{[sha, <<"password">>, binary:encode_unsigned(16#1234567878563412), 5, 16],
+			<<"d1daa78615f287e6a1c8b120d7062a49">>},
+		{[sha, <<"password">>, binary:encode_unsigned(16#1234567878563412), 5, 32],
+			<<"d1daa78615f287e6a1c8b120d7062a49"
+				"3f98d203e6be49a6adf4fa574b6e64ee">>},
+		{[sha, <<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+				<<"pass phrase equals block size">>, 1200, 16],
+			<<"139c30c0966bc32ba55fdbf212530ac9">>},
+		{[sha, <<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+				<<"pass phrase equals block size">>, 1200, 32],
+			<<"139c30c0966bc32ba55fdbf212530ac9"
+				"c5ec59f1a452f5cc9ad940fea0598ed1">>},
+		{[sha, <<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+				<<"pass phrase exceeds block size">>, 1200, 16],
+			<<"9ccad6d468770cd51b10e6a68721be61">>},
+		{[sha, <<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+				<<"pass phrase exceeds block size">>, 1200, 32],
+			<<"9ccad6d468770cd51b10e6a68721be61"
+				"1a8b4d282601db3b36be9246915ec82a">>}
+]).
+
+rfc3962_correctness_test_() ->
+	[
+		{timeout, 60,
+			?_assertEqual(
+				Expected,
+				pbkdf2_hex(Args)
+				)
+			}
+		|| {Args, Expected} <- ?RFC3962_TEST_VECTORS
+		].
+
